@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion'
-import { Dog, User, PawPrint } from 'lucide-react'
+import { Dog, User, PawPrint, Image } from 'lucide-react'
 
 function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion }) {
   const isUser = message.role === 'user'
+  const hasImage = message.image?.preview
+  const hadImagePreviously = message.image?.hadImage && !hasImage
 
   // Quick question suggestions for first assistant message
   const quickQuestions = [
@@ -44,7 +46,34 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
               : 'bg-white text-[#3D3D3D] rounded-tl-lg shadow-[0_2px_12px_rgba(61,61,61,0.08)] border border-[#F4A261]/10'
           }`}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          {/* Image if present */}
+          {hasImage && (
+            <div className="mb-2">
+              <div className="relative">
+                <img
+                  src={message.image.preview}
+                  alt="Uploaded"
+                  className="max-w-full max-h-48 rounded-xl object-cover"
+                />
+                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 rounded-lg text-[10px] text-white flex items-center gap-1">
+                  <Image className="w-3 h-3" />
+                  Photo for analysis
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Placeholder for images from previous sessions (data not persisted) */}
+          {hadImagePreviously && (
+            <div className="mb-2">
+              <div className="w-full h-24 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] rounded-xl flex items-center justify-center gap-2 text-[#D4793A]">
+                <Image className="w-5 h-5" />
+                <span className="text-sm">Photo was shared</span>
+              </div>
+            </div>
+          )}
+          {message.content && (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          )}
           <p className={`text-xs mt-2 ${isUser ? 'text-white/60' : 'text-[#9E9E9E]'}`}>
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>

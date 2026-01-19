@@ -119,10 +119,82 @@ function Chat() {
     }
   }
 
-  const handleImageUpload = (file) => {
-    // For now, navigate to photo analysis page
-    // In future, could handle inline photo analysis
-    navigate('/photo')
+  const handleImageUpload = async (imageData, userDescription = '') => {
+    if (!activeSession || !activeDog) return
+
+    setError(null)
+
+    // Add user message with image
+    addMessage(activeSession.id, {
+      role: 'user',
+      content: userDescription || 'Can you analyze this photo?',
+      image: {
+        preview: imageData.preview,
+        base64Data: imageData.base64Data,
+        mimeType: imageData.mimeType,
+      },
+    })
+
+    // Check if API is configured
+    if (!geminiService.isConfigured()) {
+      setIsTyping(true)
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      setIsTyping(false)
+
+      addMessage(activeSession.id, {
+        role: 'assistant',
+        content: `I can see you've shared a photo of ${activeDog.name}! However, the Gemini API isn't configured yet, so I can't analyze it.\n\nTo enable AI photo analysis, add your API key to a .env file:\n\nVITE_GEMINI_API_KEY=your_api_key_here\n\nYou can get a free API key from Google AI Studio.`,
+      })
+      return
+    }
+
+    // Analyze with Gemini
+    setIsTyping(true)
+    try {
+      const prompt = buildPhotoAnalysisPrompt(activeDog, userDescription)
+      const response = await geminiService.analyzePhoto(
+        imageData.base64Data,
+        imageData.mimeType,
+        prompt
+      )
+
+      addMessage(activeSession.id, {
+        role: 'assistant',
+        content: response,
+      })
+    } catch (err) {
+      console.error('Photo analysis error:', err)
+      setError('Failed to analyze photo. Please try again.')
+      addMessage(activeSession.id, {
+        role: 'assistant',
+        content: "I'm sorry, I had trouble analyzing that photo. Please try again, or describe what you're seeing and I'll do my best to help!",
+      })
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
+  // Build prompt for inline photo analysis
+  const buildPhotoAnalysisPrompt = (dog, userDescription) => {
+    return `You are Pawsy, an AI veterinary assistant. You are a multimodal AI that CAN see and analyze images. An image has been provided to you along with this message - please analyze it.
+
+IMPORTANT: You CAN see images. Do NOT say you cannot view, see, or process images. The image is visible to you. Describe what you observe in detail.
+
+Dog Information:
+- Name: ${dog.name}
+- Breed: ${dog.breed}
+- Known allergies: ${dog.allergies?.join(', ') || 'None known'}
+
+${userDescription ? `Owner's concern: "${userDescription}"` : ''}
+
+Instructions:
+1. Describe what you see in the photo clearly and specifically
+2. Note any visible concerns (skin issues, swelling, discharge, unusual coloring, etc.)
+3. Provide practical guidance based on your observations
+4. Recommend veterinary care if anything looks concerning
+5. Be warm and reassuring, but professional - avoid cutesy language like "woof" or excessive exclamation marks
+
+Keep your response conversational but informative (2-3 short paragraphs). Focus on being helpful and specific about what you observe.`
   }
 
   const handleQuickQuestion = (question) => {

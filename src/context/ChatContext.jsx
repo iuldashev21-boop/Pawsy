@@ -77,9 +77,22 @@ export function ChatProvider({ children }) {
     return initialState
   })
 
-  // Persist to localStorage
+  // Persist to localStorage (strip large image data to avoid bloating storage)
   useEffect(() => {
-    localStorage.setItem('pawsy_chat_sessions', JSON.stringify(state.sessions))
+    const sessionsForStorage = state.sessions.map(session => ({
+      ...session,
+      messages: session.messages.map(msg => {
+        if (msg.image) {
+          // Keep flag that image existed, but don't store the data
+          return {
+            ...msg,
+            image: { hadImage: true },
+          }
+        }
+        return msg
+      }),
+    }))
+    localStorage.setItem('pawsy_chat_sessions', JSON.stringify(sessionsForStorage))
   }, [state.sessions])
 
   const createSession = (dogId, dogContext) => {

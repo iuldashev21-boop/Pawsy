@@ -31,11 +31,11 @@ export const geminiService = {
       // Add system prompt as first user message
       chatHistory.push({
         role: 'user',
-        parts: [{ text: `You are Pawsy, a friendly AI vet assistant. Here is the context:\n\n${systemPrompt}\n\nRespond as Pawsy from now on.` }],
+        parts: [{ text: `Here is your context and instructions:\n\n${systemPrompt}\n\nRespond as Pawsy from now on. Remember to be warm but professional - no cutesy language.` }],
       })
       chatHistory.push({
         role: 'model',
-        parts: [{ text: "Got it! I'm Pawsy, ready to help with any questions about your dog's health." }],
+        parts: [{ text: "Understood. I'm ready to help with health questions in a caring, professional manner." }],
       })
 
       // Add conversation history, skipping assistant-only starts
