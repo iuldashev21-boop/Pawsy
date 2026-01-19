@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Mic } from 'lucide-react'
+import { Send, Mic, Camera } from 'lucide-react'
 
-function ChatInput({ onSend, disabled, placeholder = "Ask Pawsy anything..." }) {
+function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything..." }) {
   const [message, setMessage] = useState('')
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   // Auto-resize textarea
   useEffect(() => {
@@ -29,9 +30,22 @@ function ChatInput({ onSend, disabled, placeholder = "Ask Pawsy anything..." }) 
     }
   }
 
+  const handleImageClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file && onImageUpload) {
+      onImageUpload(file)
+    }
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
   return (
     <form onSubmit={handleSubmit} className="relative">
-      <div className="flex items-end gap-2 bg-white rounded-2xl border-2 border-[#E8E8E8] focus-within:border-[#7EC8C8] transition-colors p-2 shadow-sm">
+      <div className="flex items-end gap-2 bg-gradient-to-br from-[#FFF9F5] to-[#FFF5ED] rounded-2xl border-2 border-[#F4A261]/20 focus-within:border-[#F4A261]/40 focus-within:shadow-[0_0_0_3px_rgba(244,162,97,0.1)] transition-all p-2 shadow-sm">
         <textarea
           ref={textareaRef}
           value={message}
@@ -44,6 +58,27 @@ function ChatInput({ onSend, disabled, placeholder = "Ask Pawsy anything..." }) 
         />
 
         <div className="flex items-center gap-1">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {/* Image upload button */}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={handleImageClick}
+            className="p-2 rounded-xl text-[#F4A261] hover:text-[#E8924F] hover:bg-[#F4A261]/10 transition-colors disabled:opacity-50"
+            disabled={disabled}
+            aria-label="Upload photo for analysis"
+          >
+            <Camera className="w-5 h-5" />
+          </motion.button>
+
           {/* Voice input - placeholder for future feature */}
           <motion.button
             type="button"
@@ -62,8 +97,8 @@ function ChatInput({ onSend, disabled, placeholder = "Ask Pawsy anything..." }) 
             disabled={!message.trim() || disabled}
             className={`p-2 rounded-xl transition-all ${
               message.trim() && !disabled
-                ? 'bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white shadow-md'
-                : 'bg-[#E8E8E8] text-[#9E9E9E]'
+                ? 'bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white shadow-md hover:shadow-lg'
+                : 'bg-[#FFE8D6] text-[#D4793A]/40'
             }`}
             aria-label="Send message"
           >

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Plus, History, Dog, Sparkles,
-  AlertCircle, MessageCircle
+  AlertCircle, MessageCircle, PawPrint
 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { useChat } from '../context/ChatContext'
@@ -119,6 +119,16 @@ function Chat() {
     }
   }
 
+  const handleImageUpload = (file) => {
+    // For now, navigate to photo analysis page
+    // In future, could handle inline photo analysis
+    navigate('/photo')
+  }
+
+  const handleQuickQuestion = (question) => {
+    handleSendMessage(question)
+  }
+
   const handleNewChat = () => {
     if (!activeDog) return
     const session = createSession(activeDog.id, {
@@ -137,6 +147,15 @@ function Chat() {
 
   const dogSessions = activeDog ? getSessionsForDog(activeDog.id) : []
 
+  // Check if this is the first assistant message (for showing quick questions)
+  const isFirstMessage = (index) => {
+    if (!activeSession) return false
+    const messages = activeSession.messages
+    // Find the index of first assistant message
+    const firstAssistantIndex = messages.findIndex(m => m.role === 'assistant')
+    return index === firstAssistantIndex && messages.length <= 2
+  }
+
   if (!activeDog) {
     return (
       <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
@@ -149,7 +168,7 @@ function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] flex flex-col overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -163,8 +182,8 @@ function Chat() {
               </motion.button>
             </Link>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center shadow-sm">
+                <PawPrint className="w-4 h-4 text-white" />
               </div>
               <div>
                 <h1
@@ -194,7 +213,7 @@ function Chat() {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleNewChat}
-              className="p-2 rounded-xl bg-[#7EC8C8]/10 text-[#7EC8C8] hover:bg-[#7EC8C8]/20 transition-colors"
+              className="p-2 rounded-xl bg-[#F4A261]/10 text-[#F4A261] hover:bg-[#F4A261]/20 transition-colors"
             >
               <Plus className="w-5 h-5" />
             </motion.button>
@@ -209,7 +228,7 @@ function Chat() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-white border-b border-[#E8E8E8]/50 overflow-hidden"
+            className="bg-white/80 backdrop-blur-sm border-b border-[#E8E8E8]/50 overflow-hidden"
           >
             <div className="max-w-lg mx-auto px-4 py-3">
               <p className="text-xs font-medium text-[#6B6B6B] mb-2">Recent Conversations</p>
@@ -227,12 +246,12 @@ function Chat() {
                       }}
                       className={`w-full text-left p-3 rounded-xl transition-colors ${
                         session.id === activeSession?.id
-                          ? 'bg-[#7EC8C8]/10 border border-[#7EC8C8]/30'
+                          ? 'bg-[#F4A261]/10 border border-[#F4A261]/30'
                           : 'bg-[#FDF8F3] hover:bg-[#F4A261]/5'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-[#7EC8C8]" />
+                        <MessageCircle className="w-4 h-4 text-[#F4A261]" />
                         <span className="text-sm font-medium text-[#3D3D3D] truncate">
                           {session.title}
                         </span>
@@ -252,13 +271,18 @@ function Chat() {
       {/* Messages */}
       <main
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto pb-32"
+        className="flex-1 overflow-y-auto pb-44 overscroll-none"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
-          {/* Dog context banner */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-[#F4A261]/20 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#F4A261]/30 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC]">
+          {/* Compact dog context pill */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center mb-2"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/60 backdrop-blur-sm rounded-full border border-[#F4A261]/15 shadow-sm">
+              <div className="w-5 h-5 rounded-full overflow-hidden border border-[#F4A261]/30 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] flex-shrink-0">
                 {activeDog.photoUrl ? (
                   <img
                     src={activeDog.photoUrl}
@@ -267,27 +291,24 @@ function Chat() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Dog className="w-5 h-5 text-[#F4A261]" />
+                    <Dog className="w-3 h-3 text-[#F4A261]" />
                   </div>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#3D3D3D]">
-                  Chatting about {activeDog.name}
-                </p>
-                <p className="text-xs text-[#6B6B6B] truncate">
-                  {activeDog.breed} {activeDog.weight ? `• ${activeDog.weight} ${activeDog.weightUnit}` : ''}
-                </p>
-              </div>
+              <span className="text-xs font-medium text-[#3D3D3D]">{activeDog.name}</span>
+              <span className="text-xs text-[#9E9E9E]">•</span>
+              <span className="text-xs text-[#6B6B6B]">{activeDog.breed}</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Messages */}
-          {activeSession?.messages.map((message) => (
+          {activeSession?.messages.map((message, index) => (
             <ChatBubble
               key={message.id}
               message={message}
               dogPhoto={null}
+              isFirstAssistantMessage={isFirstMessage(index)}
+              onQuickQuestion={handleQuickQuestion}
             />
           ))}
 
@@ -313,10 +334,11 @@ function Chat() {
       </main>
 
       {/* Input */}
-      <div className="fixed bottom-16 left-0 right-0 bg-gradient-to-t from-[#FDF8F3] via-[#FDF8F3] to-transparent pt-4 pb-4 px-4">
+      <div className="fixed bottom-[88px] left-0 right-0 bg-gradient-to-t from-[#FDF8F3] via-[#FDF8F3]/95 to-transparent pt-6 pb-2 px-4 z-30">
         <div className="max-w-lg mx-auto">
           <ChatInput
             onSend={handleSendMessage}
+            onImageUpload={handleImageUpload}
             disabled={isTyping || loading}
             placeholder={`Ask about ${activeDog.name}...`}
           />

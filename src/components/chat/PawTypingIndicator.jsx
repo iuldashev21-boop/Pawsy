@@ -10,30 +10,35 @@ function PawTypingIndicator() {
       className="flex gap-3"
     >
       {/* Avatar */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center">
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center shadow-sm">
         <motion.div
-          animate={{ rotate: [0, -10, 10, -10, 0] }}
-          transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 0.5 }}
+          animate={{ rotate: [0, -15, 15, -15, 0] }}
+          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 0.3 }}
         >
           <PawPrint className="w-4 h-4 text-white" />
         </motion.div>
       </div>
 
       {/* Bubble with dots */}
-      <div className="bg-white border border-[#E8E8E8] rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          {/* Bouncing dots */}
+      <div className="bg-white rounded-3xl rounded-tl-lg px-5 py-3 shadow-[0_2px_12px_rgba(61,61,61,0.08)] border border-[#F4A261]/10">
+        <div className="flex items-center gap-2">
+          {/* Bouncing paw dots */}
           {[0, 1, 2].map((i) => (
-            <motion.span
+            <motion.div
               key={i}
-              className="w-2 h-2 rounded-full bg-[#7EC8C8]"
-              animate={{ y: [0, -6, 0] }}
+              animate={{
+                y: [0, -8, 0],
+                scale: [1, 1.1, 1]
+              }}
               transition={{
-                duration: 0.5,
+                duration: 0.6,
                 repeat: Infinity,
                 delay: i * 0.15,
+                ease: "easeInOut"
               }}
-            />
+            >
+              <PawPrint className="w-3 h-3 text-[#F4A261]" />
+            </motion.div>
           ))}
         </div>
       </div>
