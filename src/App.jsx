@@ -9,6 +9,7 @@ import AddDogProfile from './pages/AddDogProfile'
 import Dashboard from './pages/Dashboard'
 import Chat from './pages/Chat'
 import PhotoAnalysis from './pages/PhotoAnalysis'
+import Settings from './pages/Settings'
 
 function App() {
   return (
@@ -24,8 +25,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/photo" element={<PhotoAnalysis />} />
-              {/* Placeholder route - to be implemented */}
-              <Route path="/settings" element={<div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center text-2xl text-[#3D3D3D]">Settings - Coming Soon</div>} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </BrowserRouter>
         </ChatProvider>
