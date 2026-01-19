@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import { Dog, MessageCircle, Camera, Heart, Shield, Sparkles, ChevronRight } from 'lucide-react'
 
 const fadeInUp = {
@@ -43,16 +44,31 @@ function Landing() {
             </span>
           </motion.div>
 
-          <motion.button
+          <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2.5 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-shadow"
+            className="flex items-center gap-3"
           >
-            Get Started
-          </motion.button>
+            <Link to="/login">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-5 py-2.5 text-[#3D3D3D] font-medium hover:text-[#F4A261] transition-colors"
+              >
+                Sign In
+              </motion.button>
+            </Link>
+            <Link to="/signup">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-5 py-2.5 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              >
+                Get Started
+              </motion.button>
+            </Link>
+          </motion.div>
         </div>
       </header>
 
@@ -102,14 +118,16 @@ function Landing() {
                 transition={{ duration: 0.6 }}
                 className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
               >
-                <motion.button
-                  whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(244, 162, 97, 0.3)' }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-8 py-4 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-lg text-lg flex items-center justify-center gap-2"
-                >
-                  Start Free
-                  <ChevronRight className="w-5 h-5" />
-                </motion.button>
+                <Link to="/signup">
+                  <motion.button
+                    whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(244, 162, 97, 0.3)' }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-8 py-4 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-lg text-lg flex items-center justify-center gap-2"
+                  >
+                    Start Free
+                    <ChevronRight className="w-5 h-5" />
+                  </motion.button>
+                </Link>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -318,13 +336,15 @@ function Landing() {
               Join thousands of pet parents who sleep better knowing Pawsy has their back.
             </p>
 
-            <motion.button
-              whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}
-              whileTap={{ scale: 0.98 }}
-              className="px-10 py-4 bg-white text-[#E8924F] font-bold rounded-xl shadow-lg text-lg"
-            >
-              Get Started — It's Free
-            </motion.button>
+            <Link to="/signup">
+              <motion.button
+                whileHover={{ scale: 1.02, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}
+                whileTap={{ scale: 0.98 }}
+                className="px-10 py-4 bg-white text-[#E8924F] font-bold rounded-xl shadow-lg text-lg"
+              >
+                Get Started — It's Free
+              </motion.button>
+            </Link>
           </div>
         </motion.div>
       </section>
