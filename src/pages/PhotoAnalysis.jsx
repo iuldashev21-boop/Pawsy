@@ -166,7 +166,8 @@ Guidelines:
             <Link to="/dashboard">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
+                aria-label="Back to dashboard"
+                className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261]"
               >
                 <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
               </motion.button>

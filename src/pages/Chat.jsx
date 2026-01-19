@@ -248,7 +248,8 @@ Keep your response conversational but informative (2-3 short paragraphs). Focus 
             <Link to="/dashboard">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
+                aria-label="Back to dashboard"
+                className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261]"
               >
                 <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
               </motion.button>
@@ -274,7 +275,9 @@ Keep your response conversational but informative (2-3 short paragraphs). Focus 
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-xl transition-colors ${
+              aria-label="Chat history"
+              aria-expanded={showHistory}
+              className={`p-2 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] ${
                 showHistory ? 'bg-[#7EC8C8]/20 text-[#7EC8C8]' : 'hover:bg-[#E8E8E8]/50 text-[#6B6B6B]'
               }`}
             >
@@ -285,7 +288,8 @@ Keep your response conversational but informative (2-3 short paragraphs). Focus 
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleNewChat}
-              className="p-2 rounded-xl bg-[#F4A261]/10 text-[#F4A261] hover:bg-[#F4A261]/20 transition-colors"
+              aria-label="Start new chat"
+              className="p-2 rounded-xl bg-[#F4A261]/10 text-[#F4A261] hover:bg-[#F4A261]/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261]"
             >
               <Plus className="w-5 h-5" />
             </motion.button>

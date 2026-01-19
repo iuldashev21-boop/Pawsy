@@ -14,7 +14,11 @@
       "Bash(git push:*)",
       "Bash(git remote:*)",
       "Bash(npm run dev:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(wc:*)",
+      "Bash(npm ls:*)",
+      "Bash(curl:*)",
+      "Bash(pgrep:*)"
     ]
   }
 }

@@ -203,7 +203,7 @@ function Dashboard() {
           variants={staggerItem}
           className="bg-white rounded-2xl p-8 shadow-md border border-[#81C784]/10 mb-6"
         >
-          <HealthOrb status="good" dogName={activeDog.name} />
+          <HealthOrb status="unknown" dogName={activeDog.name} />
         </motion.div>
 
         {/* Quick Actions */}

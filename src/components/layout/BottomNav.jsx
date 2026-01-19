@@ -18,7 +18,8 @@ function BottomNav() {
             <NavLink
               key={path}
               to={path}
-              className="relative flex flex-col items-center py-2 px-4 min-w-[64px]"
+              aria-label={label}
+              className="relative flex flex-col items-center py-2 px-4 min-w-[64px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2 rounded-xl"
             >
               {({ isActive }) => (
                 <>

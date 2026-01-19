@@ -75,7 +75,8 @@ function Settings() {
           <Link to="/dashboard">
             <motion.button
               whileTap={{ scale: 0.95 }}
-              className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
+              aria-label="Back to dashboard"
+              className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261]"
             >
               <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
             </motion.button>
@@ -179,7 +180,7 @@ function Settings() {
 
             {dogs.length === 0 && (
               <div className="p-8 text-center">
-                <Dog className="w-12 h-12 text-[#E8E8E8] mx-auto mb-3" />
+                <Dog className="w-12 h-12 text-[#9E9E9E] mx-auto mb-3" />
                 <p className="text-[#9E9E9E]">No dogs added yet</p>
                 <Link
                   to="/add-dog"
