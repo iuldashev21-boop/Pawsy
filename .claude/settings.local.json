@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(yes:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "WebSearch",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
