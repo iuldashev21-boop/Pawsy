@@ -23,7 +23,7 @@ export const geminiService = {
     }
 
     try {
-      const model = ai.getGenerativeModel({ model: 'gemini-pro' })
+      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
       // Build chat history - must start with 'user' role
       const chatHistory = []
@@ -39,7 +39,6 @@ export const geminiService = {
       })
 
       // Add conversation history, skipping assistant-only starts
-      // Filter to only include user messages and their responses
       const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
 
       // Skip the welcome message (first assistant message if no user message before it)
@@ -76,7 +75,7 @@ export const geminiService = {
     }
 
     try {
-      const model = ai.getGenerativeModel({ model: 'gemini-pro-vision' })
+      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
       const result = await model.generateContent([
         prompt,
