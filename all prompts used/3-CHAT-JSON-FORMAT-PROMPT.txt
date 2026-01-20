@@ -1,0 +1,54 @@
+================================================================================
+CHAT JSON FORMAT PROMPT (Primary Model)
+================================================================================
+File: src/services/api/gemini.js
+Location: Inside geminiService.chat() method, line ~692
+Purpose: Appended to every user message to request structured JSON response
+Used by: Primary chat model (gemini-2.0-flash)
+================================================================================
+
+IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). Use this exact format:
+{
+  "response": "your conversational response here",
+  "follow_up_questions": [],
+  "quick_replies": [],
+  "concerns_detected": false,
+  "suggested_action": "continue_chat",
+  "urgency_level": "low",
+  "symptoms_mentioned": [],
+  "possible_conditions": [],
+  "recommended_actions": [],
+  "home_care_tips": [],
+  "should_see_vet": false,
+  "emergency_steps": []
+}
+
+Field guidelines:
+- response: Your helpful, conversational message. When you have follow-up questions, include them at the END of your message as a numbered list like this:
+  "...your response text...
+
+  1) First question here?
+  2) Second question here?
+  3) Third question here?"
+
+  This makes it clear and easy to read. Do NOT put questions scattered throughout the message - group them at the end.
+- follow_up_questions: Same questions as numbered in your response (for internal tracking)
+- quick_replies: 3-5 SHORT clickable response options the user can tap to answer quickly. These should be:
+  * Direct answers to your follow_up_questions (e.g., "Yes, constantly", "No", "Sometimes")
+  * Helpful responses to narrow down the issue (e.g., "It appeared suddenly", "Getting worse")
+  * Common next questions (e.g., "What should I do?", "Is it serious?")
+  * Uncertainty options (e.g., "I'm not sure", "Let me check")
+  * Keep each reply SHORT (2-5 words max)
+- concerns_detected: true if user mentions ANY health symptom or concern
+- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
+- urgency_level: "low" | "moderate" | "urgent" | "emergency" (based on symptom severity)
+- symptoms_mentioned: List symptoms the user described (e.g., ["vomiting", "lethargy"])
+- possible_conditions: If concerns detected, list 2-4 possible causes
+- recommended_actions: 2-4 actionable steps the owner should take
+- home_care_tips: 1-3 home care suggestions (if appropriate)
+- should_see_vet: true if professional vet visit is recommended
+- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps
+
+IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate the structured fields (symptoms_mentioned, possible_conditions, recommended_actions). Keep "response" conversational but put the detailed breakdown in the structured fields.
+
+IMPORTANT: ALWAYS include quick_replies with 3-5 short, tappable responses that help the user answer your questions or continue the conversation.

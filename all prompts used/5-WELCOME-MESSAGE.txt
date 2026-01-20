@@ -1,0 +1,19 @@
+================================================================================
+WELCOME MESSAGE
+================================================================================
+File: src/pages/Chat.jsx
+Function: getWelcomeMessage(dogName)
+Purpose: Initial greeting shown when user starts a new chat session
+Used by: Chat.jsx when creating new sessions or starting fresh conversations
+================================================================================
+
+Hi! I'm Pawsy, your AI vet assistant. I'm here to help with any questions about ${dogName}'s health and wellbeing.
+
+I can help you understand symptoms, provide general care advice, and let you know when it's time to see a vet. You can also share photos if you'd like me to take a look at something.
+
+What can I help you with today?
+
+================================================================================
+NOTE: This is a static message, not sent to AI. It's displayed directly in the
+chat UI as the first assistant message in a new conversation.
+================================================================================

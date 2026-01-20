@@ -39,11 +39,39 @@ function getGenAI() {
 // Structured Output Schemas
 // ============================================================================
 
-// Schema definitions for documentation and future structured output support
-// eslint-disable-next-line no-unused-vars
-const _photoAnalysisSchema = {
+// Structured Output Schemas - Used with native JSON mode for reliable parsing
+const photoAnalysisSchema = {
   type: "object",
   properties: {
+    is_dog: {
+      type: "boolean",
+      description: "Whether the image contains a dog"
+    },
+    detected_subject: {
+      type: "string",
+      description: "What is detected in the image if not a dog"
+    },
+    detected_breed: {
+      type: "string",
+      description: "Visually identified breed from the image"
+    },
+    breed_matches_profile: {
+      type: "boolean",
+      description: "Whether detected breed matches the profile"
+    },
+    image_quality: {
+      type: "string",
+      enum: ["good", "acceptable", "poor"],
+      description: "Quality assessment of the uploaded image"
+    },
+    image_quality_note: {
+      type: "string",
+      description: "Explanation if image quality is not good"
+    },
+    body_area: {
+      type: "string",
+      description: "Body area being analyzed"
+    },
     urgency_level: {
       type: "string",
       enum: ["emergency", "urgent", "moderate", "low"],
@@ -88,33 +116,66 @@ const _photoAnalysisSchema = {
       description: "Brief 1-2 sentence summary of the assessment"
     }
   },
-  required: ["urgency_level", "confidence", "possible_conditions", "recommended_actions", "should_see_vet", "summary"]
+  required: ["is_dog", "urgency_level", "confidence", "possible_conditions", "recommended_actions", "should_see_vet", "summary"]
 }
 
-// eslint-disable-next-line no-unused-vars
-const _chatResponseSchema = {
+const chatResponseSchema = {
   type: "object",
   properties: {
-    message: {
+    response: {
       type: "string",
-      description: "The conversational response to the user"
+      description: "The conversational response to the user. Put follow-up questions at the end as a numbered list (1, 2, 3)."
     },
     follow_up_questions: {
       type: "array",
       items: { type: "string" },
-      description: "Helpful follow-up questions to ask the owner (max 3)"
+      description: "Same questions as in response, for tracking (max 3)"
     },
     concerns_detected: {
       type: "boolean",
-      description: "Whether any health concerns were mentioned"
+      description: "True if user mentions any health symptom or concern"
     },
     suggested_action: {
       type: "string",
       enum: ["continue_chat", "upload_photo", "see_vet", "emergency"],
-      description: "Recommended next step"
+      description: "Recommended next step based on severity"
+    },
+    urgency_level: {
+      type: "string",
+      enum: ["low", "moderate", "urgent", "emergency"],
+      description: "Severity level based on symptoms described"
+    },
+    symptoms_mentioned: {
+      type: "array",
+      items: { type: "string" },
+      description: "List of symptoms the user described"
+    },
+    possible_conditions: {
+      type: "array",
+      items: { type: "string" },
+      description: "2-4 possible causes if concerns detected"
+    },
+    recommended_actions: {
+      type: "array",
+      items: { type: "string" },
+      description: "2-4 actionable steps the owner should take"
+    },
+    home_care_tips: {
+      type: "array",
+      items: { type: "string" },
+      description: "1-3 home care suggestions if appropriate"
+    },
+    should_see_vet: {
+      type: "boolean",
+      description: "Whether professional vet visit is recommended"
+    },
+    emergency_steps: {
+      type: "array",
+      items: { type: "string" },
+      description: "For emergencies only: 2-4 immediate first-aid steps"
     }
   },
-  required: ["message"]
+  required: ["response", "concerns_detected", "suggested_action", "urgency_level", "should_see_vet"]
 }
 
 // ============================================================================
@@ -279,29 +340,18 @@ NEVER give a vague response like "contact your vet" without ALSO providing actio
 </dangerous_situation_protocol>
 
 <dog_profile>
-IMPORTANT: This is the dog you are helping with. USE this information - do NOT ask the owner for details you already have.
+CRITICAL: Use this data in ALL responses - do NOT ask for information you already have!
 
-Name: ${dog.name || 'Unknown'}
-Breed: ${dog.breed || 'Unknown'}
+Name: ${dog.name || 'Unknown'} (use naturally in responses)
+Breed: ${dog.breed || 'Unknown'} (factor in breed-specific health risks)
 Age: ${age}
-Weight: ${dog.weight ? `${dog.weight} ${dog.weightUnit || 'lbs'}` : 'Not provided'}
-Known allergies: ${dog.allergies?.length > 0 ? dog.allergies.join(', ') : 'None reported'}
+Weight: ${dog.weight ? `${dog.weight} ${dog.weightUnit || 'lbs'}` : 'Not provided'} (use for toxicity/dosage calculations)
+Allergies: ${dog.allergies?.length > 0 ? dog.allergies.join(', ') : 'None reported'}
+
+ONLY ask about: symptoms, timeline, what was eaten/amount, behavior changes - NOT profile data.
+
+For toxicity questions: "Based on ${dog.name}'s weight of ${dog.weight || '[weight]'} ${dog.weightUnit || 'lbs'}, eating [amount] of [substance] is [risk level]..."
 </dog_profile>
-
-<profile_usage_instructions>
-CRITICAL: You MUST use the dog profile data in your responses:
-- You ALREADY KNOW the dog's name is "${dog.name}" - use it naturally in responses
-- You ALREADY KNOW the dog's weight is ${dog.weight ? `${dog.weight} ${dog.weightUnit || 'lbs'}` : 'unknown'} - use this for ANY dosage/toxicity calculations
-- You ALREADY KNOW the breed is "${dog.breed}" - factor in breed-specific health risks
-- You ALREADY KNOW about allergies: ${dog.allergies?.length > 0 ? dog.allergies.join(', ') : 'none reported'}
-
-DO NOT ask for: name, breed, weight, age, or known allergies - you have this information!
-ONLY ask follow-up questions for NEW information: symptoms, timeline, what specifically was eaten/amount, behavior changes, etc.
-
-For toxicity questions (chocolate, grapes, medications, etc.):
-- Immediately reference the dog's weight in your calculation
-- Example: "Based on ${dog.name}'s weight of ${dog.weight || '[weight]'} ${dog.weightUnit || 'lbs'}, eating [amount] of [substance] is [risk level] because..."
-</profile_usage_instructions>
 
 <context_awareness>
 IMPORTANT: The user may ask about dogs OTHER than their profile dog.
@@ -326,82 +376,49 @@ If the user CORRECTS you about a breed or detail:
 </context_awareness>
 ${photoContextSection}
 <at_home_diagnostic_tests>
-When gathering information about a dog's health, suggest SIMPLE AT-HOME TESTS the owner can perform to help assess the situation. These tests help you get better information and make the owner feel like they're actively helping.
+ONLY suggest tests when user is UNCERTAIN ("I don't know", "not sure", "can't tell"). Do NOT use tests in initial questions.
 
-SIMPLE TESTS TO SUGGEST (choose 1-3 relevant ones based on symptoms):
+Quick tests to suggest (choose 1-2 relevant to symptoms):
+- APPETITE: Offer treat without giving it - eager, turns away, or ignores?
+- ENERGY: Call name from another room - comes running, slowly, or not at all?
+- HYDRATION: Pinch neck skin - should snap back within 2 seconds
+- GUMS: Press until white, should turn pink in 2 seconds. Color should be pink (pale/blue/red = concerning)
+- PAIN: Run hands over body - flinch or react to specific areas?
+- BELLY: Gently feel - soft or hard/tense? Any reaction to pressure?
+- BREATHING: Count breaths for 30 sec × 2 (normal: 15-30/min at rest)
 
-APPETITE & ENERGY:
-- "Try offering ${dog.name}'s favorite treat (just show it, don't give it yet) - does ${dog.name} show interest?"
-- "Try to engage ${dog.name} in a favorite activity or show a toy - is ${dog.name} interested or ignoring it?"
-- "Call ${dog.name}'s name from another room - does ${dog.name} respond and come to you?"
-
-HYDRATION CHECK:
-- "Gently pinch the skin on the back of ${dog.name}'s neck and release - it should snap back within 2 seconds. Does it stay 'tented' or return slowly?"
-- "Check ${dog.name}'s gums - are they moist and pink, or dry and tacky?"
-
-GUM & CIRCULATION CHECK:
-- "Press ${dog.name}'s gum with your finger until it turns white, then release - it should turn pink again within 2 seconds (capillary refill test)"
-- "What color are ${dog.name}'s gums? (Should be pink - pale/white/blue/bright red are concerning)"
-
-TEMPERATURE & COMFORT:
-- "Feel ${dog.name}'s ears and paws - are they unusually hot or cold compared to normal?"
-- "Is ${dog.name}'s nose wet or dry? Any discharge?"
-
-PAIN & SENSITIVITY:
-- "Gently run your hands over ${dog.name}'s body - does ${dog.name} flinch, whimper, or react when you touch a specific area?"
-- "Watch ${dog.name} walk across the room - any limping, stiffness, or unusual gait?"
-
-BELLY CHECK:
-- "Gently feel ${dog.name}'s belly - is it soft and relaxed, or hard and tense? Does ${dog.name} react to gentle pressure?"
-
-BREATHING:
-- "Count ${dog.name}'s breaths for 30 seconds and multiply by 2 (normal is 15-30 breaths per minute at rest)"
-- "Is ${dog.name}'s breathing quiet and easy, or noisy/labored?"
-
-EYES & ALERTNESS:
-- "Look at ${dog.name}'s eyes - are they clear and bright, or dull/glassy? Any discharge?"
-- "Is ${dog.name} alert and aware of surroundings, or seeming 'out of it'?"
-
-HOW TO SUGGEST TESTS:
-1. Pick 2-3 tests RELEVANT to the symptoms described
-2. Explain them simply with clear instructions
-3. Tell the owner what each result might indicate
-4. Make it feel helpful, not overwhelming
-
-WHEN USER SAYS "I DON'T KNOW" OR IS UNCERTAIN:
-If the user responds with uncertain answers like:
-- "I don't know", "not sure", "can't tell", "maybe", "I think so", "hard to say"
-
-DO NOT just ask again. Instead, GUIDE THEM with a simple test to find out:
-
-Example conversation:
-- You ask: "Is ${dog.name} showing interest in food?"
-- User says: "I'm not sure" or "I don't know"
-- You respond: "No problem, let's check! Try this: grab ${dog.name}'s favorite treat or some food and hold it near (but don't give it yet). Watch ${dog.name}'s reaction:
-  • If ${dog.name} sniffs eagerly, wags tail, or tries to take it → appetite is good
-  • If ${dog.name} sniffs then turns away → reduced appetite
-  • If ${dog.name} completely ignores it → no appetite (more concerning)
-  Let me know what happens!"
-
-Another example:
-- You ask: "Is ${dog.name} acting lethargic?"
-- User says: "I can't really tell"
-- You respond: "Let's do a quick energy check! Try one of these:
-  • Call ${dog.name}'s name excitedly from another room - does ${dog.name} come running, walk slowly, or not come at all?
-  • Grab ${dog.name}'s favorite toy and offer to play - is ${dog.name} interested or ignoring it?
-  This will help us understand ${dog.name}'s energy level."
-
-ALWAYS turn uncertainty into an actionable test the owner can do right now.
+When user says "I'm not sure": Turn uncertainty into a simple test with clear outcomes.
+Example: "Let's check! Grab ${dog.name}'s favorite treat and hold it near. If ${dog.name} sniffs eagerly → appetite good. Turns away → reduced. Ignores completely → concerning."
 </at_home_diagnostic_tests>
 
 <output_format>
-Respond conversationally but be thorough. Always provide your response in the structured JSON format.
+Respond conversationally and CONCISELY. Keep initial responses SHORT - don't overwhelm the user.
 - Set concerns_detected to true if the user mentions any health symptoms or worries
 - Suggest follow_up_questions (max 3) ONLY for information NOT in the dog profile
-- When asking follow-up questions, also suggest 1-2 simple at-home tests the owner can do
+- Keep questions SIMPLE and direct. Do NOT add at-home tests with initial questions
+- ONLY suggest at-home tests when the user says "I don't know", "not sure", "can't tell", etc.
 - Set suggested_action appropriately based on severity
 - For emergencies, include emergency_steps array with first-aid actions
-</output_format>`
+</output_format>
+
+<example_response>
+User: "Max has been scratching his ears a lot"
+
+Good response format:
+"I noticed Max has been scratching his ears - that's definitely worth looking into! Ear issues are common in Golden Retrievers due to their floppy ears that can trap moisture.
+
+This could be anything from allergies to an ear infection. A few questions to help me understand better:
+
+1) Do you notice any smell or discharge from his ears?
+2) Is he shaking his head frequently?
+3) How long has this been going on?"
+
+Note how this:
+- Uses Max's name naturally (from profile)
+- References breed-specific info (Golden Retrievers)
+- Asks simple, direct questions
+- Puts numbered questions at the end
+</example_response>`
 }
 
 function buildPhotoAnalysisSystemPrompt(dog, bodyArea, ownerDescription) {
@@ -499,6 +516,15 @@ Body area reported: ${bodyArea || 'Not specified'}
 Owner's description: "${ownerDescription || 'No description provided'}"
 </context>
 
+<example_assessment>
+For a photo showing a red, irritated patch on a dog's belly:
+
+summary: "I can see a red, slightly raised area on Buddy's belly that appears inflamed. This could be a hot spot, allergic reaction, or insect bite."
+urgency_level: "moderate"
+possible_conditions: ["Hot spot (acute moist dermatitis)", "Contact dermatitis", "Insect bite reaction"]
+recommended_actions: ["Keep the area clean and dry", "Prevent Buddy from licking it (consider e-collar)", "Monitor for spreading or worsening"]
+</example_assessment>
+
 Analyze the image and provide a structured assessment. Use the dog's profile data above in your response.`
 }
 
@@ -569,17 +595,17 @@ function parseGeminiChatResponse(text) {
   // Remove markdown code block wrapper if present
   let cleaned = text.trim()
 
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.slice(7)
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.slice(3)
-  }
-
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.slice(0, -3)
-  }
-
+  // Handle various markdown code fence formats
+  cleaned = cleaned.replace(/^```json\s*/i, '')
+  cleaned = cleaned.replace(/^```\s*/i, '')
+  cleaned = cleaned.replace(/\s*```$/i, '')
   cleaned = cleaned.trim()
+
+  // Try to extract JSON if it's embedded in other text
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    cleaned = jsonMatch[0]
+  }
 
   try {
     const parsed = JSON.parse(cleaned)
@@ -587,6 +613,7 @@ function parseGeminiChatResponse(text) {
       success: true,
       message: parsed.response || parsed.message || cleaned,
       follow_up_questions: parsed.follow_up_questions || [],
+      quick_replies: parsed.quick_replies || [],
       concerns_detected: parsed.concerns_detected ?? false,
       suggested_action: parsed.suggested_action || 'continue_chat',
       // New structured health fields
@@ -604,6 +631,7 @@ function parseGeminiChatResponse(text) {
       success: false,
       message: text,
       follow_up_questions: [],
+      quick_replies: [],
       concerns_detected: false,
       suggested_action: 'continue_chat',
       urgency_level: 'low',
@@ -656,9 +684,14 @@ export const geminiService = {
     try {
       const systemPrompt = buildChatSystemPrompt(dog, photoContext)
 
+      // Use native JSON mode with schema for reliable structured output
       const model = ai.getGenerativeModel({
         model: PRIMARY_MODEL,
-        generationConfig,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: chatResponseSchema,
+        },
         systemInstruction: systemPrompt,
       })
 
@@ -682,40 +715,7 @@ export const geminiService = {
 
       const chat = model.startChat({ history: chatHistory })
 
-      // Request structured output
-      const promptWithFormat = `${userMessage}
-
-IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). Use this exact format:
-{
-  "response": "your conversational response here",
-  "follow_up_questions": [],
-  "concerns_detected": false,
-  "suggested_action": "continue_chat",
-  "urgency_level": "low",
-  "symptoms_mentioned": [],
-  "possible_conditions": [],
-  "recommended_actions": [],
-  "home_care_tips": [],
-  "should_see_vet": false,
-  "emergency_steps": []
-}
-
-Field guidelines:
-- response: Your helpful, conversational message
-- follow_up_questions: 1-3 relevant follow-up questions (optional)
-- concerns_detected: true if user mentions ANY health symptom or concern
-- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
-- urgency_level: "low" | "moderate" | "urgent" | "emergency" (based on symptom severity)
-- symptoms_mentioned: List symptoms the user described (e.g., ["vomiting", "lethargy"])
-- possible_conditions: If concerns detected, list 2-4 possible causes
-- recommended_actions: 2-4 actionable steps the owner should take
-- home_care_tips: 1-3 home care suggestions (if appropriate)
-- should_see_vet: true if professional vet visit is recommended
-- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps
-
-IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate the structured fields (symptoms_mentioned, possible_conditions, recommended_actions). Keep "response" conversational but put the detailed breakdown in the structured fields.`
-
-      const result = await chat.sendMessage(promptWithFormat)
+      const result = await chat.sendMessage(userMessage)
       const response = result.response
       const text = response.text()
 
@@ -730,6 +730,7 @@ IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate 
         error: false,
         message: parsed.message,
         follow_up_questions: parsed.follow_up_questions,
+        quick_replies: parsed.quick_replies,
         concerns_detected: parsed.concerns_detected,
         suggested_action: parsed.suggested_action,
         // Structured health data
@@ -747,7 +748,6 @@ IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate 
 
       // Try fallback model
       if (error.message?.includes('not found') || error.message?.includes('404')) {
-        console.log('Primary model failed, trying fallback...')
         return this.chatWithFallback(dog, userMessage, history, photoContext)
       }
 
@@ -763,9 +763,14 @@ IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate 
     const systemPrompt = buildChatSystemPrompt(dog, photoContext)
 
     try {
+      // Use native JSON mode with schema for reliable structured output
       const model = ai.getGenerativeModel({
         model: FALLBACK_MODEL,
-        generationConfig,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: chatResponseSchema,
+        },
         systemInstruction: systemPrompt,
       })
 
@@ -783,37 +788,7 @@ IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate 
 
       const chat = model.startChat({ history: chatHistory })
 
-      // Request structured output (same as primary)
-      const promptWithFormat = `${userMessage}
-
-IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). Use this exact format:
-{
-  "response": "your conversational response here",
-  "follow_up_questions": [],
-  "concerns_detected": false,
-  "suggested_action": "continue_chat",
-  "urgency_level": "low",
-  "symptoms_mentioned": [],
-  "possible_conditions": [],
-  "recommended_actions": [],
-  "home_care_tips": [],
-  "should_see_vet": false,
-  "emergency_steps": []
-}
-
-Field guidelines:
-- response: Your helpful, conversational message
-- concerns_detected: true if user mentions ANY health symptom or concern
-- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
-- urgency_level: "low" | "moderate" | "urgent" | "emergency"
-- symptoms_mentioned: List symptoms the user described
-- possible_conditions: If concerns detected, list 2-4 possible causes
-- recommended_actions: 2-4 actionable steps
-- home_care_tips: 1-3 home care suggestions
-- should_see_vet: true if vet visit is recommended
-- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps`
-
-      const result = await chat.sendMessage(promptWithFormat)
+      const result = await chat.sendMessage(userMessage)
       const text = result.response.text()
 
       // Parse the response using helper
@@ -822,6 +797,7 @@ Field guidelines:
         error: false,
         message: parsed.message,
         follow_up_questions: parsed.follow_up_questions,
+        quick_replies: parsed.quick_replies,
         concerns_detected: parsed.concerns_detected,
         suggested_action: parsed.suggested_action,
         urgency_level: parsed.urgency_level,
@@ -869,38 +845,19 @@ Field guidelines:
     try {
       const systemPrompt = buildPhotoAnalysisSystemPrompt(dog, bodyArea, description)
 
+      // Use native JSON mode with schema for reliable structured output
       const model = ai.getGenerativeModel({
         model: PRIMARY_MODEL,
-        generationConfig,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: photoAnalysisSchema,
+        },
         systemInstruction: systemPrompt,
       })
 
-      // IMPORTANT: Image FIRST, then text prompt
-      const prompt = `Analyze this image and provide a structured health assessment in JSON format:
-{
-  "is_dog": true/false,
-  "detected_subject": "dog" | "cat" | "bird" | "human" | "object" | etc.,
-  "detected_breed": "The breed you visually identify in the photo",
-  "breed_matches_profile": true/false,
-  "image_quality": "good" | "acceptable" | "poor",
-  "image_quality_note": "Only if quality is acceptable/poor - explain issues and how to take a better photo",
-  "urgency_level": "emergency" | "urgent" | "moderate" | "low",
-  "confidence": "high" | "medium" | "low",
-  "possible_conditions": ["condition 1", "condition 2"],
-  "visible_symptoms": ["symptom 1", "symptom 2"],
-  "recommended_actions": ["action 1", "action 2"],
-  "should_see_vet": true/false,
-  "vet_urgency": "immediately" | "within_24_hours" | "within_week" | "routine_checkup" | "not_required",
-  "home_care_tips": ["tip 1", "tip 2"],
-  "summary": "Brief 1-2 sentence summary"
-}
-
-IMPORTANT:
-1. FIRST check if the image contains a dog. Set is_dog to false if it's a cat, bird, human, object, or anything else.
-2. If is_dog is false, set summary to explain that you can only analyze dog photos.
-3. If is_dog is true, VISUALLY identify the breed from the photo (detected_breed). Compare to profile breed and set breed_matches_profile.
-4. If breed doesn't match profile, mention this in summary and use the DETECTED breed for health advice.
-5. Assess image_quality. If blurry/dark, set to "acceptable" or "poor" with tips.`
+      // IMPORTANT: Image FIRST, then text prompt (per Google's best practices)
+      const prompt = `Analyze this image for health concerns. Follow the instructions in the system prompt.`
 
       const result = await model.generateContent([
         { inlineData: { mimeType, data: imageBase64 } },  // IMAGE FIRST
@@ -978,7 +935,6 @@ IMPORTANT:
 
       // Try fallback model
       if (error.message?.includes('not found') || error.message?.includes('404')) {
-        console.log('Primary model failed for photo, trying fallback...')
         return this.analyzePhotoWithFallback(imageBase64, mimeType, dog, bodyArea, description)
       }
 
@@ -994,36 +950,65 @@ IMPORTANT:
     const systemPrompt = buildPhotoAnalysisSystemPrompt(dog, bodyArea, description)
 
     try {
+      // Use native JSON mode with schema for reliable structured output
       const model = ai.getGenerativeModel({
         model: FALLBACK_MODEL,
-        generationConfig,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: photoAnalysisSchema,
+        },
         systemInstruction: systemPrompt,
       })
 
       const result = await model.generateContent([
         { inlineData: { mimeType, data: imageBase64 } },
-        { text: 'Analyze this image for health concerns and provide your assessment.' }
+        { text: 'Analyze this image for health concerns. Follow the instructions in the system prompt.' }
       ])
 
       const text = result.response.text()
 
-      return {
-        error: false,
-        is_dog: true,
-        detected_subject: 'dog',
-        detected_breed: null,
-        breed_matches_profile: true,
-        image_quality: 'good',
-        image_quality_note: null,
-        urgency_level: 'moderate',
-        confidence: 'medium',
-        possible_conditions: [],
-        visible_symptoms: [],
-        recommended_actions: ['Consult with a veterinarian for proper diagnosis'],
-        should_see_vet: true,
-        vet_urgency: 'within_week',
-        home_care_tips: [],
-        summary: text.slice(0, 300) + (text.length > 300 ? '...' : '')
+      // With native JSON mode, response should be valid JSON
+      try {
+        const parsed = JSON.parse(text)
+        return {
+          error: false,
+          is_dog: parsed.is_dog ?? true,
+          detected_subject: parsed.detected_subject || 'dog',
+          detected_breed: parsed.detected_breed || null,
+          breed_matches_profile: parsed.breed_matches_profile ?? true,
+          image_quality: parsed.image_quality || 'good',
+          image_quality_note: parsed.image_quality_note || null,
+          urgency_level: parsed.urgency_level || 'moderate',
+          confidence: parsed.confidence || 'medium',
+          possible_conditions: parsed.possible_conditions || [],
+          visible_symptoms: parsed.visible_symptoms || [],
+          recommended_actions: parsed.recommended_actions || ['Consult with a veterinarian'],
+          should_see_vet: parsed.should_see_vet ?? true,
+          vet_urgency: parsed.vet_urgency || 'within_week',
+          home_care_tips: parsed.home_care_tips || [],
+          summary: parsed.summary || 'Assessment complete.'
+        }
+      } catch {
+        // Fallback if JSON parsing fails
+        return {
+          error: false,
+          is_dog: true,
+          detected_subject: 'dog',
+          detected_breed: null,
+          breed_matches_profile: true,
+          image_quality: 'good',
+          image_quality_note: null,
+          urgency_level: 'moderate',
+          confidence: 'medium',
+          possible_conditions: [],
+          visible_symptoms: [],
+          recommended_actions: ['Consult with a veterinarian for proper diagnosis'],
+          should_see_vet: true,
+          vet_urgency: 'within_week',
+          home_care_tips: [],
+          summary: text.slice(0, 300) + (text.length > 300 ? '...' : '')
+        }
       }
     } catch (error) {
       console.error('Fallback photo analysis also failed:', error)

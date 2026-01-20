@@ -210,6 +210,10 @@ function Chat() {
     try {
       const history = activeSession.messages.slice(-10) // Last 10 messages for context
 
+      // Debug: Log photo context
+      console.log('Chat - photoContext:', photoContext)
+      console.log('Chat - history length:', history.length)
+
       // Pass dog object and photo context (if any) to help Pawsy understand
       // when the user is asking about a different dog than their profile
       const response = await geminiService.chat(activeDog, content, history, photoContext)
@@ -231,6 +235,7 @@ function Chat() {
         // Store metadata for rich card UI rendering
         metadata: {
           follow_up_questions: response.follow_up_questions || [],
+          quick_replies: response.quick_replies || [],
           concerns_detected: response.concerns_detected || false,
           suggested_action: response.suggested_action || 'continue_chat',
           // Structured health data for rich cards

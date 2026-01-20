@@ -94,9 +94,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
     "Won't eat today",
   ]
 
-  // Get follow-up questions from AI response metadata
-  const followUpQuestions = message.metadata?.follow_up_questions || []
-  const hasFollowUpQuestions = !isUser && followUpQuestions.length > 0
 
   // Check if this message has rich health data to display
   // Only show rich cards for SUBSTANTIVE health assessments, not every message
@@ -116,7 +113,7 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
   // 2. It's urgent/emergency, OR
   // 3. AI has provided comprehensive info (3+ sections with data) AND is not just asking questions
   const substantialSections = [hasSymptoms, hasConditions, hasRecommendations, hasHomeCare].filter(Boolean).length
-  const isAskingQuestions = followUpQuestions.length >= 2 // AI is primarily gathering info
+  const isAskingQuestions = (metadata.follow_up_questions?.length || 0) >= 2 // AI is primarily gathering info
 
   const hasRichHealthData = !isUser && (
     isPhotoAnalysis ||
@@ -189,22 +186,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
             </div>
           )}
 
-          {/* Follow-up questions displayed as numbered list inside message */}
-          {hasFollowUpQuestions && (
-            <div className="mt-4 pt-3 border-t border-[#E8E8E8]/60">
-              <p className="text-xs font-semibold text-[#7EC8C8] mb-2">To help me better, please tell me:</p>
-              <ol className="space-y-2">
-                {followUpQuestions.slice(0, 3).map((question, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#7EC8C8]/15 text-[#5FB3B3] text-xs font-semibold flex items-center justify-center">
-                      {idx + 1}
-                    </span>
-                    <span className="text-[#4A4A4A]">{question}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
 
           {/* Rich health response cards for structured data */}
           {hasRichHealthData && (
@@ -243,6 +224,7 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
             ))}
           </motion.div>
         )}
+
 
       </div>
     </motion.div>

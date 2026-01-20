@@ -1,0 +1,44 @@
+================================================================================
+FALLBACK CHAT JSON FORMAT PROMPT
+================================================================================
+File: src/services/api/gemini.js
+Location: Inside geminiService.chatWithFallback() method, line ~810
+Purpose: Shorter version of JSON format prompt for fallback model
+Used by: Fallback chat model (gemini-1.5-flash) when primary model fails
+================================================================================
+
+IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). Use this exact format:
+{
+  "response": "your conversational response here",
+  "follow_up_questions": [],
+  "quick_replies": [],
+  "concerns_detected": false,
+  "suggested_action": "continue_chat",
+  "urgency_level": "low",
+  "symptoms_mentioned": [],
+  "possible_conditions": [],
+  "recommended_actions": [],
+  "home_care_tips": [],
+  "should_see_vet": false,
+  "emergency_steps": []
+}
+
+Field guidelines:
+- response: Your helpful, conversational message. Put follow-up questions at the END as a numbered list:
+  "...your response...
+
+  1) First question?
+  2) Second question?"
+- follow_up_questions: Same questions (for tracking)
+- quick_replies: 3-5 SHORT tappable responses (2-5 words each)
+- concerns_detected: true if user mentions ANY health symptom or concern
+- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
+- urgency_level: "low" | "moderate" | "urgent" | "emergency"
+- symptoms_mentioned: List symptoms the user described
+- possible_conditions: If concerns detected, list 2-4 possible causes
+- recommended_actions: 2-4 actionable steps
+- home_care_tips: 1-3 home care suggestions
+- should_see_vet: true if vet visit is recommended
+- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps
+
+ALWAYS include quick_replies with short, tappable responses.
