@@ -35,6 +35,7 @@ function Chat() {
   const [error, setError] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [suggestedAction, setSuggestedAction] = useState(null) // Track AI-suggested next action
+  const [emergencySteps, setEmergencySteps] = useState([]) // First-aid steps for emergencies
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
 
@@ -80,6 +81,7 @@ function Chat() {
 
     setError(null)
     setSuggestedAction(null)
+    setEmergencySteps([])
 
     // Add user message
     addMessage(activeSession.id, {
@@ -128,12 +130,20 @@ function Chat() {
           follow_up_questions: response.follow_up_questions || [],
           concerns_detected: response.concerns_detected || false,
           suggested_action: response.suggested_action || 'continue_chat',
+          emergency_steps: response.emergency_steps || [],
         },
       })
 
       // Track suggested action for UI hints
       if (response.suggested_action && response.suggested_action !== 'continue_chat') {
         setSuggestedAction(response.suggested_action)
+      }
+
+      // Store emergency steps if present
+      if (response.emergency_steps?.length > 0) {
+        setEmergencySteps(response.emergency_steps)
+      } else {
+        setEmergencySteps([])
       }
 
     } catch (err) {
@@ -492,11 +502,24 @@ function Chat() {
                       <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                         <AlertCircle className="w-5 h-5 text-red-600" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-red-800">Emergency Care Needed</p>
                         <p className="text-sm text-red-700 mt-1">
                           Based on what you've described, please seek emergency veterinary care immediately.
                         </p>
+                        {emergencySteps.length > 0 && (
+                          <div className="mt-3 p-3 bg-red-100/50 rounded-lg">
+                            <p className="text-xs font-semibold text-red-800 mb-2">While getting to the vet:</p>
+                            <ul className="space-y-1">
+                              {emergencySteps.map((step, idx) => (
+                                <li key={idx} className="text-sm text-red-700 flex items-start gap-2">
+                                  <span className="font-bold text-red-800">{idx + 1}.</span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}

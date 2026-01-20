@@ -129,11 +129,33 @@ function buildChatSystemPrompt(dog) {
 <constraints>
 - NEVER provide definitive diagnoses - always suggest possibilities
 - ALWAYS recommend professional vet consultation for concerning symptoms
-- If symptoms suggest EMERGENCY (difficulty breathing, severe bleeding, collapse, seizures, inability to stand, extreme lethargy, bloated abdomen, ingested toxins), immediately advise emergency vet care and set suggested_action to "emergency"
+- If symptoms suggest EMERGENCY, follow the emergency_response_protocol below
 - Consider the specific dog's profile (breed, age, weight, allergies) when giving advice
 - Be honest about limitations - you cannot physically examine the pet
 - If you need visual information to help, suggest uploading a photo (set suggested_action to "upload_photo")
 </constraints>
+
+<emergency_response_protocol>
+When you detect EMERGENCY symptoms (difficulty breathing, blue/pale gums, collapse, seizures, severe bleeding, bloated/distended abdomen, suspected poisoning, inability to stand, unresponsiveness, severe trauma), your response MUST:
+
+1. SET suggested_action to "emergency"
+2. STATE CLEARLY this is an emergency requiring immediate veterinary care
+3. PROVIDE emergency_steps array with 2-4 actionable first-aid steps for while getting to the vet:
+   - Keep the dog calm and as still as possible
+   - Keep airways clear (extend neck gently, remove any obstruction if visible)
+   - Apply firm pressure to any bleeding wounds with clean cloth
+   - For suspected poisoning: do NOT induce vomiting unless specifically instructed by poison control
+   - Keep dog warm with blanket if in shock (pale gums, rapid breathing)
+   - Have someone call ahead to the emergency vet
+   - Note the time symptoms started and any substances ingested
+4. INCLUDE "what NOT to do" warnings in your response:
+   - Don't give food or water if there's a choking risk or before surgery
+   - Don't restrain a seizing dog's mouth or put fingers near it
+   - Don't apply tourniquets for bleeding
+   - Don't give human medications (ibuprofen, acetaminophen are toxic to dogs)
+   - Don't wait to "see if it gets better" with these symptoms
+5. BRIEFLY mention what the vet will likely do (helps reduce owner panic)
+</emergency_response_protocol>
 
 <dog_profile>
 Name: ${dog.name || 'Unknown'}
@@ -148,6 +170,7 @@ Respond conversationally but be thorough. Always provide your response in the st
 - Set concerns_detected to true if the user mentions any health symptoms or worries
 - Suggest follow_up_questions (max 3) when you need more information to help
 - Set suggested_action appropriately based on severity
+- For emergencies, include emergency_steps array with first-aid actions
 </output_format>`
 }
 
@@ -272,7 +295,8 @@ function parseGeminiChatResponse(text) {
       message: parsed.response || parsed.message || cleaned,
       follow_up_questions: parsed.follow_up_questions || [],
       concerns_detected: parsed.concerns_detected ?? false,
-      suggested_action: parsed.suggested_action || 'continue_chat'
+      suggested_action: parsed.suggested_action || 'continue_chat',
+      emergency_steps: parsed.emergency_steps || []
     }
   } catch {
     // If parsing fails, return as plain message
@@ -281,7 +305,8 @@ function parseGeminiChatResponse(text) {
       message: text,
       follow_up_questions: [],
       concerns_detected: false,
-      suggested_action: 'continue_chat'
+      suggested_action: 'continue_chat',
+      emergency_steps: []
     }
   }
 }
@@ -345,10 +370,13 @@ IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). 
   "response": "your conversational response here",
   "follow_up_questions": [],
   "concerns_detected": false,
-  "suggested_action": "continue_chat"
+  "suggested_action": "continue_chat",
+  "emergency_steps": []
 }
 
-Where suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"`
+Where:
+- suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"
+- emergency_steps: For EMERGENCIES ONLY, include 2-4 actionable first-aid steps to take while getting to the vet`
 
       const result = await chat.sendMessage(promptWithFormat)
       const response = result.response
@@ -366,7 +394,8 @@ Where suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "e
         message: parsed.message,
         follow_up_questions: parsed.follow_up_questions,
         concerns_detected: parsed.concerns_detected,
-        suggested_action: parsed.suggested_action
+        suggested_action: parsed.suggested_action,
+        emergency_steps: parsed.emergency_steps
       }
 
     } catch (error) {
@@ -418,10 +447,13 @@ IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). 
   "response": "your conversational response here",
   "follow_up_questions": [],
   "concerns_detected": false,
-  "suggested_action": "continue_chat"
+  "suggested_action": "continue_chat",
+  "emergency_steps": []
 }
 
-Where suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"`
+Where:
+- suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"
+- emergency_steps: For EMERGENCIES ONLY, include 2-4 actionable first-aid steps to take while getting to the vet`
 
       const result = await chat.sendMessage(promptWithFormat)
       const text = result.response.text()
@@ -433,7 +465,8 @@ Where suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "e
         message: parsed.message,
         follow_up_questions: parsed.follow_up_questions,
         concerns_detected: parsed.concerns_detected,
-        suggested_action: parsed.suggested_action
+        suggested_action: parsed.suggested_action,
+        emergency_steps: parsed.emergency_steps
       }
     } catch (error) {
       console.error('Fallback chat also failed:', error)
