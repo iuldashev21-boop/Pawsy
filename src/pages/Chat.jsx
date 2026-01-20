@@ -3,16 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Plus, History, Dog, Sparkles,
-  AlertCircle, MessageCircle, PawPrint
+  AlertCircle, MessageCircle, PawPrint, Camera, Stethoscope
 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { useChat } from '../context/ChatContext'
 import { geminiService } from '../services/api/gemini'
-import { buildSystemPrompt, getWelcomeMessage } from '../services/prompts/chatPrompts'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatInput from '../components/chat/ChatInput'
 import PawTypingIndicator from '../components/chat/PawTypingIndicator'
 import BottomNav from '../components/layout/BottomNav'
+
+// Welcome message for new conversations
+function getWelcomeMessage(dogName) {
+  return `Hi! I'm Pawsy, your AI vet assistant. I'm here to help with any questions about ${dogName}'s health and wellbeing.\n\nI can help you understand symptoms, provide general care advice, and let you know when it's time to see a vet. You can also share photos if you'd like me to take a look at something.\n\nWhat can I help you with today?`
+}
 
 function Chat() {
   const { activeDog, dogs } = useDog()
@@ -30,6 +34,7 @@ function Chat() {
   const [isTyping, setIsTyping] = useState(false)
   const [error, setError] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [suggestedAction, setSuggestedAction] = useState(null) // Track AI-suggested next action
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
 
@@ -74,6 +79,7 @@ function Chat() {
     if (!activeSession || !activeDog) return
 
     setError(null)
+    setSuggestedAction(null)
 
     // Add user message
     addMessage(activeSession.id, {
@@ -95,18 +101,41 @@ function Chat() {
       return
     }
 
-    // Get AI response
+    // Get AI response using new structured API
     setIsTyping(true)
     try {
-      const systemPrompt = buildSystemPrompt(activeDog, [])
       const history = activeSession.messages.slice(-10) // Last 10 messages for context
 
-      const response = await geminiService.chat(systemPrompt, content, history)
+      // New API: pass dog object directly, service builds the prompt
+      const response = await geminiService.chat(activeDog, content, history)
 
+      // Handle error responses
+      if (response.error) {
+        setError(response.message || 'Something went wrong. Please try again.')
+        addMessage(activeSession.id, {
+          role: 'assistant',
+          content: response.message || "I'm sorry, I encountered an error processing your message. Please try again.",
+        })
+        return
+      }
+
+      // Add the AI response message
       addMessage(activeSession.id, {
         role: 'assistant',
-        content: response,
+        content: response.message,
+        // Store metadata for potential UI enhancements
+        metadata: {
+          follow_up_questions: response.follow_up_questions || [],
+          concerns_detected: response.concerns_detected || false,
+          suggested_action: response.suggested_action || 'continue_chat',
+        },
       })
+
+      // Track suggested action for UI hints
+      if (response.suggested_action && response.suggested_action !== 'continue_chat') {
+        setSuggestedAction(response.suggested_action)
+      }
+
     } catch (err) {
       console.error('Chat error:', err)
       setError('Something went wrong. Please try again.')
@@ -123,6 +152,7 @@ function Chat() {
     if (!activeSession || !activeDog) return
 
     setError(null)
+    setSuggestedAction(null)
 
     // Add user message with image
     addMessage(activeSession.id, {
@@ -148,20 +178,46 @@ function Chat() {
       return
     }
 
-    // Analyze with Gemini
+    // Analyze with Gemini using new structured API
     setIsTyping(true)
     try {
-      const prompt = buildPhotoAnalysisPrompt(activeDog, userDescription)
+      // New API: pass dog object, body area (empty for chat inline), and description
       const response = await geminiService.analyzePhoto(
         imageData.base64Data,
         imageData.mimeType,
-        prompt
+        activeDog,
+        '', // No specific body area for inline chat photos
+        userDescription
       )
+
+      // Handle error responses
+      if (response.error) {
+        setError(response.message || 'Failed to analyze photo.')
+        addMessage(activeSession.id, {
+          role: 'assistant',
+          content: response.message || "I'm sorry, I had trouble analyzing that photo. Please try again.",
+        })
+        return
+      }
+
+      // Format the structured response into a readable message
+      const formattedResponse = formatPhotoAnalysisForChat(response)
 
       addMessage(activeSession.id, {
         role: 'assistant',
-        content: response,
+        content: formattedResponse,
+        metadata: {
+          photo_analysis: response,
+          urgency_level: response.urgency_level,
+          should_see_vet: response.should_see_vet,
+        },
       })
+
+      // Set suggested action based on urgency
+      if (response.urgency_level === 'emergency' || response.urgency_level === 'urgent') {
+        setSuggestedAction('see_vet')
+      }
+
     } catch (err) {
       console.error('Photo analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
@@ -174,27 +230,37 @@ function Chat() {
     }
   }
 
-  // Build prompt for inline photo analysis
-  const buildPhotoAnalysisPrompt = (dog, userDescription) => {
-    return `You are Pawsy, an AI veterinary assistant. You are a multimodal AI that CAN see and analyze images. An image has been provided to you along with this message - please analyze it.
+  // Format structured photo analysis into readable chat message
+  const formatPhotoAnalysisForChat = (analysis) => {
+    let message = analysis.summary || "Here's what I can see in the photo."
 
-IMPORTANT: You CAN see images. Do NOT say you cannot view, see, or process images. The image is visible to you. Describe what you observe in detail.
+    if (analysis.visible_symptoms?.length > 0) {
+      message += `\n\n**What I observe:** ${analysis.visible_symptoms.join(', ')}.`
+    }
 
-Dog Information:
-- Name: ${dog.name}
-- Breed: ${dog.breed}
-- Known allergies: ${dog.allergies?.join(', ') || 'None known'}
+    if (analysis.possible_conditions?.length > 0) {
+      message += `\n\n**Possible causes:** This could be ${analysis.possible_conditions.slice(0, 3).join(', ')}.`
+    }
 
-${userDescription ? `Owner's concern: "${userDescription}"` : ''}
+    if (analysis.recommended_actions?.length > 0) {
+      message += `\n\n**Recommendations:**\n${analysis.recommended_actions.map(a => `• ${a}`).join('\n')}`
+    }
 
-Instructions:
-1. Describe what you see in the photo clearly and specifically
-2. Note any visible concerns (skin issues, swelling, discharge, unusual coloring, etc.)
-3. Provide practical guidance based on your observations
-4. Recommend veterinary care if anything looks concerning
-5. Be warm and reassuring, but professional - avoid cutesy language like "woof" or excessive exclamation marks
+    if (analysis.should_see_vet) {
+      const urgencyText = {
+        immediately: "I'd recommend seeing a vet **as soon as possible**.",
+        within_24_hours: "I'd recommend scheduling a vet visit **within the next 24 hours**.",
+        within_week: "I'd recommend scheduling a vet visit **within the next few days**.",
+        routine_checkup: "You might want to mention this at your next routine checkup.",
+      }
+      message += `\n\n${urgencyText[analysis.vet_urgency] || "I'd recommend consulting with your vet about this."}`
+    }
 
-Keep your response conversational but informative (2-3 short paragraphs). Focus on being helpful and specific about what you observe.`
+    if (analysis.home_care_tips?.length > 0) {
+      message += `\n\n**In the meantime:**\n${analysis.home_care_tips.map(t => `• ${t}`).join('\n')}`
+    }
+
+    return message
   }
 
   const handleQuickQuestion = (question) => {
@@ -404,6 +470,72 @@ Keep your response conversational but informative (2-3 short paragraphs). Focus 
               {error}
             </motion.div>
           )}
+
+          {/* Suggested Action Banner */}
+          <AnimatePresence>
+            {suggestedAction && suggestedAction !== 'continue_chat' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className={`rounded-xl p-4 ${
+                  suggestedAction === 'emergency'
+                    ? 'bg-red-50 border border-red-200'
+                    : suggestedAction === 'see_vet'
+                    ? 'bg-amber-50 border border-amber-200'
+                    : 'bg-[#7EC8C8]/10 border border-[#7EC8C8]/30'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {suggestedAction === 'emergency' && (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-red-800">Emergency Care Needed</p>
+                        <p className="text-sm text-red-700 mt-1">
+                          Based on what you've described, please seek emergency veterinary care immediately.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  {suggestedAction === 'see_vet' && (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <Stethoscope className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-amber-800">Vet Visit Recommended</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          I'd recommend having a veterinarian examine {activeDog.name} for this concern.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  {suggestedAction === 'upload_photo' && (
+                    <>
+                      <div className="w-10 h-10 rounded-full bg-[#7EC8C8]/20 flex items-center justify-center flex-shrink-0">
+                        <Camera className="w-5 h-5 text-[#5FB3B3]" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-[#3D3D3D]">Photo Would Help</p>
+                        <p className="text-sm text-[#6B6B6B] mt-1">
+                          Sharing a photo would help me give you better advice about this.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSuggestedAction(null)}
+                  className="mt-3 text-xs text-[#9E9E9E] hover:text-[#6B6B6B]"
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div ref={messagesEndRef} />
         </div>

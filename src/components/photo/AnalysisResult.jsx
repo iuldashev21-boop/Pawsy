@@ -1,11 +1,35 @@
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle, CheckCircle, AlertCircle, Clock,
-  Stethoscope, MessageCircle, ChevronRight
+  Stethoscope, MessageCircle, ChevronDown, ChevronUp,
+  Eye, Home, Shield
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-const severityConfig = {
+// Map urgency_level to visual config (new schema)
+const urgencyLevelConfig = {
+  emergency: {
+    color: 'text-[#EF5350]',
+    bg: 'bg-[#EF5350]/10',
+    border: 'border-[#EF5350]/30',
+    icon: AlertTriangle,
+    label: 'Emergency',
+  },
+  urgent: {
+    color: 'text-[#FF9800]',
+    bg: 'bg-[#FF9800]/10',
+    border: 'border-[#FF9800]/30',
+    icon: AlertTriangle,
+    label: 'Urgent',
+  },
+  moderate: {
+    color: 'text-[#FFD54F]',
+    bg: 'bg-[#FFD54F]/10',
+    border: 'border-[#FFD54F]/30',
+    icon: AlertCircle,
+    label: 'Moderate Concern',
+  },
   low: {
     color: 'text-[#81C784]',
     bg: 'bg-[#81C784]/10',
@@ -13,41 +37,63 @@ const severityConfig = {
     icon: CheckCircle,
     label: 'Low Concern',
   },
-  medium: {
-    color: 'text-[#FFD54F]',
-    bg: 'bg-[#FFD54F]/10',
-    border: 'border-[#FFD54F]/30',
-    icon: AlertCircle,
-    label: 'Moderate Concern',
-  },
-  high: {
-    color: 'text-[#F4A261]',
-    bg: 'bg-[#F4A261]/10',
-    border: 'border-[#F4A261]/30',
+}
+
+// Map vet_urgency to display labels (new schema)
+const vetUrgencyConfig = {
+  immediately: {
+    label: 'Seek emergency veterinary care immediately',
     icon: AlertTriangle,
-    label: 'High Concern',
+    priority: 'high'
   },
-  urgent: {
-    color: 'text-[#EF5350]',
-    bg: 'bg-[#EF5350]/10',
-    border: 'border-[#EF5350]/30',
-    icon: AlertTriangle,
-    label: 'Urgent - See Vet',
+  within_24_hours: {
+    label: 'See a veterinarian within 24 hours',
+    icon: Stethoscope,
+    priority: 'high'
+  },
+  within_week: {
+    label: 'Schedule a vet visit this week',
+    icon: Clock,
+    priority: 'medium'
+  },
+  routine_checkup: {
+    label: 'Mention at next routine checkup',
+    icon: Clock,
+    priority: 'low'
+  },
+  not_required: {
+    label: 'No vet visit needed at this time',
+    icon: CheckCircle,
+    priority: 'none'
   },
 }
 
-const urgencyConfig = {
-  routine: { label: 'Routine checkup recommended', icon: Clock },
-  soon: { label: 'Schedule vet visit soon', icon: Clock },
-  urgent: { label: 'See vet within 24-48 hours', icon: Stethoscope },
-  emergency: { label: 'Seek emergency care immediately', icon: AlertTriangle },
+// Map confidence to display
+const confidenceConfig = {
+  high: { label: 'High confidence', color: 'text-[#81C784]', bg: 'bg-[#81C784]/10' },
+  medium: { label: 'Medium confidence', color: 'text-[#FFD54F]', bg: 'bg-[#FFD54F]/10' },
+  low: { label: 'Low confidence', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
 }
 
 function AnalysisResult({ analysis, imageUrl }) {
-  const severity = severityConfig[analysis.severity] || severityConfig.medium
-  const urgency = urgencyConfig[analysis.urgency] || urgencyConfig.routine
-  const SeverityIcon = severity.icon
-  const UrgencyIcon = urgency.icon
+  const [showHomeCare, setShowHomeCare] = useState(false)
+
+  // Handle new schema with snake_case keys
+  const urgencyLevel = analysis.urgency_level || 'moderate'
+  const confidence = analysis.confidence || 'medium'
+  const possibleConditions = analysis.possible_conditions || []
+  const visibleSymptoms = analysis.visible_symptoms || []
+  const recommendedActions = analysis.recommended_actions || []
+  const shouldSeeVet = analysis.should_see_vet ?? true
+  const vetUrgency = analysis.vet_urgency || 'routine_checkup'
+  const homeCareTips = analysis.home_care_tips || []
+  const summary = analysis.summary || ''
+
+  const urgencyConfig = urgencyLevelConfig[urgencyLevel] || urgencyLevelConfig.moderate
+  const vetConfig = vetUrgencyConfig[vetUrgency] || vetUrgencyConfig.routine_checkup
+  const confConfig = confidenceConfig[confidence] || confidenceConfig.medium
+  const UrgencyIcon = urgencyConfig.icon
+  const VetIcon = vetConfig.icon
 
   return (
     <motion.div
@@ -55,16 +101,20 @@ function AnalysisResult({ analysis, imageUrl }) {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
-      {/* Image preview */}
+      {/* Image preview with urgency badge */}
       <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md">
         <img
           src={imageUrl}
           alt="Analyzed photo"
           className="w-full h-48 object-cover"
         />
-        <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full ${severity.bg} ${severity.border} border flex items-center gap-1.5`}>
-          <SeverityIcon className={`w-4 h-4 ${severity.color}`} />
-          <span className={`text-xs font-semibold ${severity.color}`}>{severity.label}</span>
+        <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full ${urgencyConfig.bg} ${urgencyConfig.border} border flex items-center gap-1.5`}>
+          <UrgencyIcon className={`w-4 h-4 ${urgencyConfig.color}`} />
+          <span className={`text-xs font-semibold ${urgencyConfig.color}`}>{urgencyConfig.label}</span>
+        </div>
+        {/* Confidence badge */}
+        <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-full ${confConfig.bg} border border-white/20`}>
+          <span className={`text-xs font-medium ${confConfig.color}`}>{confConfig.label}</span>
         </div>
       </div>
 
@@ -77,21 +127,49 @@ function AnalysisResult({ analysis, imageUrl }) {
           Analysis Summary
         </h3>
         <p className="text-sm text-[#6B6B6B] leading-relaxed">
-          {analysis.summary}
+          {summary}
         </p>
       </div>
 
-      {/* Possible conditions */}
-      {analysis.possibleConditions && analysis.possibleConditions.length > 0 && (
+      {/* Visible Symptoms */}
+      {visibleSymptoms.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-md border border-[#F4A261]/10">
-          <h3
-            className="text-sm font-bold text-[#3D3D3D] mb-3"
-            style={{ fontFamily: 'Nunito, sans-serif' }}
-          >
-            Possible Conditions
-          </h3>
+          <div className="flex items-center gap-2 mb-3">
+            <Eye className="w-4 h-4 text-[#7EC8C8]" />
+            <h3
+              className="text-sm font-bold text-[#3D3D3D]"
+              style={{ fontFamily: 'Nunito, sans-serif' }}
+            >
+              Visible Symptoms
+            </h3>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {analysis.possibleConditions.map((condition, idx) => (
+            {visibleSymptoms.map((symptom, idx) => (
+              <span
+                key={idx}
+                className="px-3 py-1.5 bg-[#7EC8C8]/10 text-[#5FB3B3] text-sm rounded-full border border-[#7EC8C8]/20"
+              >
+                {symptom}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Possible conditions */}
+      {possibleConditions.length > 0 && (
+        <div className="bg-white rounded-2xl p-5 shadow-md border border-[#F4A261]/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-4 h-4 text-[#F4A261]" />
+            <h3
+              className="text-sm font-bold text-[#3D3D3D]"
+              style={{ fontFamily: 'Nunito, sans-serif' }}
+            >
+              Possible Conditions
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {possibleConditions.map((condition, idx) => (
               <span
                 key={idx}
                 className="px-3 py-1.5 bg-[#FDF8F3] text-[#6B6B6B] text-sm rounded-full border border-[#E8E8E8]"
@@ -104,35 +182,83 @@ function AnalysisResult({ analysis, imageUrl }) {
       )}
 
       {/* Recommendations */}
-      {analysis.recommendations && analysis.recommendations.length > 0 && (
+      {recommendedActions.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-md border border-[#F4A261]/10">
           <h3
             className="text-sm font-bold text-[#3D3D3D] mb-3"
             style={{ fontFamily: 'Nunito, sans-serif' }}
           >
-            Recommendations
+            Recommended Actions
           </h3>
-          <ul className="space-y-2">
-            {analysis.recommendations.map((rec, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-sm text-[#6B6B6B]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#7EC8C8] mt-2 flex-shrink-0" />
+          <ol className="space-y-2">
+            {recommendedActions.map((rec, idx) => (
+              <li key={idx} className="flex items-start gap-3 text-sm text-[#6B6B6B]">
+                <span className="w-5 h-5 rounded-full bg-[#7EC8C8]/20 text-[#5FB3B3] flex items-center justify-center flex-shrink-0 text-xs font-semibold">
+                  {idx + 1}
+                </span>
                 {rec}
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
 
-      {/* Urgency banner */}
-      <div className={`rounded-2xl p-4 ${severity.bg} ${severity.border} border flex items-center gap-3`}>
-        <div className={`w-10 h-10 rounded-full ${severity.bg} flex items-center justify-center`}>
-          <UrgencyIcon className={`w-5 h-5 ${severity.color}`} />
+      {/* Home Care Tips - Expandable */}
+      {homeCareTips.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-md border border-[#F4A261]/10 overflow-hidden">
+          <button
+            onClick={() => setShowHomeCare(!showHomeCare)}
+            className="w-full p-5 flex items-center justify-between hover:bg-[#FDF8F3]/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Home className="w-4 h-4 text-[#F4A261]" />
+              <h3
+                className="text-sm font-bold text-[#3D3D3D]"
+                style={{ fontFamily: 'Nunito, sans-serif' }}
+              >
+                Home Care Tips
+              </h3>
+              <span className="text-xs text-[#9E9E9E]">({homeCareTips.length})</span>
+            </div>
+            {showHomeCare ? (
+              <ChevronUp className="w-4 h-4 text-[#9E9E9E]" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-[#9E9E9E]" />
+            )}
+          </button>
+          <AnimatePresence>
+            {showHomeCare && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <ul className="px-5 pb-5 space-y-2">
+                  {homeCareTips.map((tip, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-[#6B6B6B]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#F4A261] mt-2 flex-shrink-0" />
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Vet Urgency banner */}
+      <div className={`rounded-2xl p-4 ${urgencyConfig.bg} ${urgencyConfig.border} border flex items-center gap-3`}>
+        <div className={`w-10 h-10 rounded-full ${urgencyConfig.bg} flex items-center justify-center`}>
+          <VetIcon className={`w-5 h-5 ${urgencyConfig.color}`} />
         </div>
         <div className="flex-1">
-          <p className={`text-sm font-semibold ${severity.color}`}>
-            {urgency.label}
+          <p className={`text-sm font-semibold ${urgencyConfig.color}`}>
+            {vetConfig.label}
           </p>
-          {analysis.shouldSeeVet && (
+          {shouldSeeVet && vetUrgency !== 'not_required' && (
             <p className="text-xs text-[#6B6B6B] mt-0.5">
               Professional evaluation recommended
             </p>

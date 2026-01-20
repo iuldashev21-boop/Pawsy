@@ -43,99 +43,58 @@ function PhotoAnalysis() {
     setError(null)
 
     try {
-      const prompt = buildAnalysisPrompt()
+      // Get the body area label for the prompt
+      const bodyAreaLabel = BODY_AREAS.find(a => a.id === selectedArea)?.label || selectedArea
 
       if (!geminiService.isConfigured()) {
-        // Demo mode
+        // Demo mode - return structured response matching new schema
         await new Promise(resolve => setTimeout(resolve, 3000))
         setAnalysis({
-          summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${selectedArea}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, here are some observations.`,
-          possibleConditions: ['Minor irritation', 'Allergic reaction', 'Dry skin'],
-          severity: 'low',
-          recommendations: [
+          urgency_level: 'low',
+          confidence: 'medium',
+          possible_conditions: ['Minor irritation', 'Allergic reaction', 'Dry skin'],
+          visible_symptoms: ['Slight redness', 'Minor swelling'],
+          recommended_actions: [
             'Keep the area clean and dry',
             'Monitor for any changes over the next 24-48 hours',
             'Avoid letting your dog scratch or lick the area',
             'Consider a vet visit if symptoms persist or worsen',
           ],
-          shouldSeeVet: false,
-          urgency: 'routine',
+          should_see_vet: false,
+          vet_urgency: 'not_required',
+          home_care_tips: [
+            'Apply a cold compress if there is swelling',
+            'Use an e-collar if your dog keeps licking the area',
+          ],
+          summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${bodyAreaLabel.toLowerCase()}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, this appears to be a minor issue that can likely be monitored at home.`,
         })
         setIsAnalyzing(false)
         return
       }
 
+      // Use the new structured API - service handles prompt building
       const response = await geminiService.analyzePhoto(
         photo.base64Data,
         photo.mimeType,
-        prompt
+        activeDog,
+        bodyAreaLabel,
+        description
       )
 
-      // Try to parse JSON response
-      try {
-        // Extract JSON from response (might be wrapped in markdown)
-        const jsonMatch = response.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0])
-          setAnalysis(parsed)
-        } else {
-          // Fallback: create analysis from text response
-          setAnalysis({
-            summary: response,
-            possibleConditions: [],
-            severity: 'medium',
-            recommendations: ['Consult with a veterinarian for proper diagnosis'],
-            shouldSeeVet: true,
-            urgency: 'soon',
-          })
-        }
-      } catch {
-        // If JSON parsing fails, use text response
-        setAnalysis({
-          summary: response,
-          possibleConditions: [],
-          severity: 'medium',
-          recommendations: ['Consult with a veterinarian for proper diagnosis'],
-          shouldSeeVet: true,
-          urgency: 'soon',
-        })
+      // Check for error response
+      if (response.error) {
+        setError(response.message || 'Failed to analyze photo. Please try again.')
+        return
       }
+
+      // Response is already structured - use directly
+      setAnalysis(response)
     } catch (err) {
       console.error('Analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
-  }
-
-  const buildAnalysisPrompt = () => {
-    return `You are Pawsy, an AI veterinary assistant analyzing a photo for health concerns.
-
-Dog Information:
-- Name: ${activeDog?.name || 'Unknown'}
-- Breed: ${activeDog?.breed || 'Unknown'}
-- Known allergies: ${activeDog?.allergies?.join(', ') || 'None known'}
-
-Photo Details:
-- Affected area: ${selectedArea}
-- Owner's description: "${description || 'No description provided'}"
-
-Analyze this image and provide a JSON response with this exact structure:
-{
-  "summary": "Brief overview of what you observe (2-3 sentences)",
-  "possibleConditions": ["condition1", "condition2", "condition3"],
-  "severity": "low|medium|high|urgent",
-  "recommendations": ["action1", "action2", "action3"],
-  "shouldSeeVet": true or false,
-  "urgency": "routine|soon|urgent|emergency"
-}
-
-Guidelines:
-- Be thorough but err on the side of caution
-- Consider the dog's known allergies
-- If anything looks concerning, recommend veterinary attention
-- Keep explanations simple and reassuring
-- Never make definitive diagnoses, only suggest possibilities`
   }
 
   const handleReset = () => {

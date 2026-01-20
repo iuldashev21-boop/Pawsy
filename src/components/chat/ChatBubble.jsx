@@ -14,6 +14,10 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
     "Won't eat today",
   ]
 
+  // Get follow-up questions from AI response metadata
+  const followUpQuestions = message.metadata?.follow_up_questions || []
+  const hasFollowUpQuestions = !isUser && followUpQuestions.length > 0
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -94,6 +98,28 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onQuickQuestion(question)}
                 className="px-3 py-1.5 text-xs font-medium bg-gradient-to-br from-[#FFF5ED] to-[#FFE8D6] text-[#D4793A] rounded-full border border-[#F4A261]/20 hover:border-[#F4A261]/40 hover:shadow-sm transition-all"
+              >
+                {question}
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+
+        {/* AI-suggested follow-up questions */}
+        {hasFollowUpQuestions && onQuickQuestion && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-wrap gap-2 mt-1"
+          >
+            {followUpQuestions.slice(0, 3).map((question, idx) => (
+              <motion.button
+                key={idx}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onQuickQuestion(question)}
+                className="px-3 py-1.5 text-xs font-medium bg-[#7EC8C8]/10 text-[#5FB3B3] rounded-full border border-[#7EC8C8]/20 hover:border-[#7EC8C8]/40 hover:bg-[#7EC8C8]/15 hover:shadow-sm transition-all"
               >
                 {question}
               </motion.button>
