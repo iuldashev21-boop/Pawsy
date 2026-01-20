@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
-  ChevronLeft, Plus, History, Dog, Sparkles,
+  ChevronLeft, ChevronDown, Plus, History, Dog, Sparkles,
   AlertCircle, MessageCircle, PawPrint, Camera, Stethoscope
 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
@@ -30,14 +30,30 @@ function Chat() {
     setLoading,
   } = useChat()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [isTyping, setIsTyping] = useState(false)
   const [error, setError] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [suggestedAction, setSuggestedAction] = useState(null) // Track AI-suggested next action
   const [emergencySteps, setEmergencySteps] = useState([]) // First-aid steps for emergencies
+  const [photoAnalysisHandled, setPhotoAnalysisHandled] = useState(false) // Track if we've handled photo context
+  const [photoContext, setPhotoContext] = useState(null) // Store photo analysis context for chat
+  const [showScrollButton, setShowScrollButton] = useState(false) // Show scroll-to-bottom FAB
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
+
+  // Scroll to bottom helper
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Handle scroll to show/hide scroll-to-bottom button
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target
+    // Show button if scrolled up more than 200px from bottom
+    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
+  }
 
   // Redirect if no dogs
   useEffect(() => {
@@ -76,6 +92,93 @@ function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [activeSession?.messages, isTyping])
 
+  // Handle photo analysis context passed from PhotoAnalysis page
+  useEffect(() => {
+    const state = location.state
+    if (state?.fromPhotoAnalysis && !photoAnalysisHandled && activeSession && activeDog) {
+      setPhotoAnalysisHandled(true)
+
+      // Clear the location state to prevent re-triggering
+      window.history.replaceState({}, document.title)
+
+      // Store photo context for use in chat - this helps Pawsy understand
+      // when the user is asking about the dog in the photo vs their profile dog
+      const { analysis, photo } = state
+      const detectedBreed = analysis.detected_breed || null
+      const breedMatchesProfile = analysis.breed_matches_profile ?? true
+
+      setPhotoContext({
+        detected_breed: detectedBreed,
+        breed_matches_profile: breedMatchesProfile,
+        body_area: analysis.body_area,
+        urgency_level: analysis.urgency_level,
+        possible_conditions: analysis.possible_conditions,
+        visible_symptoms: analysis.visible_symptoms,
+        summary: analysis.summary,
+        hasPhoto: !!photo,
+      })
+
+      // Create a new chat session for this discussion
+      const session = createSession(activeDog.id, {
+        name: activeDog.name,
+        breed: activeDog.breed,
+        age: activeDog.dateOfBirth,
+        weight: activeDog.weight,
+        allergies: activeDog.allergies || [],
+      })
+
+      // Build context message from photo analysis
+      // If breed doesn't match, acknowledge the photo shows a different dog
+      let contextMessage = ''
+
+      if (!breedMatchesProfile && detectedBreed) {
+        contextMessage = `I just analyzed a photo showing a **${detectedBreed}**. `
+        contextMessage += `(I noticed this is different from ${activeDog.name}'s profile breed of ${activeDog.breed} - are you asking about a different dog?)\n\n`
+      } else {
+        contextMessage = `I just analyzed a photo of ${activeDog.name}'s ${analysis.body_area || 'health concern'}. `
+      }
+
+      contextMessage += `Here's what I found:\n\n`
+      contextMessage += `**Summary:** ${analysis.summary}\n\n`
+
+      if (analysis.possible_conditions?.length > 0) {
+        contextMessage += `**Possible conditions:** ${analysis.possible_conditions.join(', ')}\n\n`
+      }
+
+      if (analysis.visible_symptoms?.length > 0) {
+        contextMessage += `**Visible symptoms:** ${analysis.visible_symptoms.join(', ')}\n\n`
+      }
+
+      contextMessage += `I'm here to answer any questions you have about this or provide more detailed guidance. What would you like to know?`
+
+      // Add the context message as assistant
+      addMessage(session.id, {
+        role: 'assistant',
+        content: contextMessage,
+        // Attach the photo for reference
+        image: photo ? {
+          preview: photo.preview,
+          hadImage: true, // Mark that this had an image (for history display)
+        } : null,
+        metadata: {
+          fromPhotoAnalysis: true,
+          analysis: analysis,
+          photoContext: {
+            detected_breed: detectedBreed,
+            breed_matches_profile: breedMatchesProfile,
+          },
+        },
+      })
+
+      // Set urgency banner if needed
+      if (analysis.urgency_level === 'emergency') {
+        setSuggestedAction('emergency')
+      } else if (analysis.urgency_level === 'urgent') {
+        setSuggestedAction('see_vet')
+      }
+    }
+  }, [location.state, photoAnalysisHandled, activeSession, activeDog])
+
   const handleSendMessage = async (content) => {
     if (!activeSession || !activeDog) return
 
@@ -108,8 +211,9 @@ function Chat() {
     try {
       const history = activeSession.messages.slice(-10) // Last 10 messages for context
 
-      // New API: pass dog object directly, service builds the prompt
-      const response = await geminiService.chat(activeDog, content, history)
+      // Pass dog object and photo context (if any) to help Pawsy understand
+      // when the user is asking about a different dog than their profile
+      const response = await geminiService.chat(activeDog, content, history, photoContext)
 
       // Handle error responses
       if (response.error) {
@@ -290,6 +394,11 @@ function Chat() {
       role: 'assistant',
       content: getWelcomeMessage(activeDog.name),
     })
+    // Clear any photo context from previous conversations
+    setPhotoContext(null)
+    setPhotoAnalysisHandled(false)
+    setSuggestedAction(null)
+    setEmergencySteps([])
     setShowHistory(false)
   }
 
@@ -302,6 +411,21 @@ function Chat() {
     // Find the index of first assistant message
     const firstAssistantIndex = messages.findIndex(m => m.role === 'assistant')
     return index === firstAssistantIndex && messages.length <= 2
+  }
+
+  // Determine if timestamp should be shown (only show if 5+ minutes gap from previous message)
+  const shouldShowTimestamp = (index) => {
+    if (!activeSession) return true
+    const messages = activeSession.messages
+    if (index === 0) return true // Always show first message timestamp
+
+    const currentMsg = messages[index]
+    const prevMsg = messages[index - 1]
+
+    if (!prevMsg?.timestamp || !currentMsg?.timestamp) return true
+
+    const timeDiff = new Date(currentMsg.timestamp) - new Date(prevMsg.timestamp)
+    return timeDiff > 5 * 60 * 1000 // 5 minutes in milliseconds
   }
 
   if (!activeDog) {
@@ -423,6 +547,7 @@ function Chat() {
       {/* Messages */}
       <main
         ref={chatContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto pb-44 overscroll-none"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
@@ -461,6 +586,7 @@ function Chat() {
               dogPhoto={null}
               isFirstAssistantMessage={isFirstMessage(index)}
               onQuickQuestion={handleQuickQuestion}
+              showTimestamp={shouldShowTimestamp(index)}
             />
           ))}
 
@@ -563,6 +689,23 @@ function Chat() {
           <div ref={messagesEndRef} />
         </div>
       </main>
+
+      {/* Scroll to bottom FAB */}
+      <AnimatePresence>
+        {showScrollButton && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={scrollToBottom}
+            className="fixed bottom-40 right-4 w-10 h-10 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-full shadow-lg z-40 flex items-center justify-center hover:shadow-xl transition-shadow"
+            aria-label="Scroll to latest messages"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Input */}
       <div className="fixed bottom-[88px] left-0 right-0 bg-gradient-to-t from-[#FDF8F3] via-[#FDF8F3]/95 to-transparent pt-6 pb-2 px-4 z-30">

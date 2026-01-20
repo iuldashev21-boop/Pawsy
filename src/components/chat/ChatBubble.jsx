@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Dog, User, PawPrint, Image } from 'lucide-react'
 
-function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion }) {
+function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion, showTimestamp = true }) {
   const isUser = message.role === 'user'
   const hasImage = message.image?.preview
   const hadImagePreviously = message.image?.hadImage && !hasImage
@@ -78,9 +78,11 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
           {message.content && (
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
           )}
-          <p className={`text-xs mt-2 ${isUser ? 'text-white/60' : 'text-[#9E9E9E]'}`}>
-            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
+          {showTimestamp && (
+            <p className={`text-xs mt-2 ${isUser ? 'text-white/60' : 'text-[#9E9E9E]'}`}>
+              {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
         </div>
 
         {/* Quick question chips - only show after first assistant message */}

@@ -50,6 +50,12 @@ function PhotoAnalysis() {
         // Demo mode - return structured response matching new schema
         await new Promise(resolve => setTimeout(resolve, 3000))
         setAnalysis({
+          is_dog: true,
+          detected_subject: 'dog',
+          detected_breed: activeDog?.breed || 'Mixed breed',
+          breed_matches_profile: true,
+          image_quality: 'good',
+          image_quality_note: null,
           urgency_level: 'low',
           confidence: 'medium',
           possible_conditions: ['Minor irritation', 'Allergic reaction', 'Dry skin'],
@@ -179,7 +185,14 @@ function PhotoAnalysis() {
         {/* Show analysis result if complete */}
         {analysis ? (
           <div className="space-y-4">
-            <AnalysisResult analysis={analysis} imageUrl={photo?.preview} />
+            <AnalysisResult
+              analysis={analysis}
+              imageUrl={photo?.preview}
+              photo={photo}
+              bodyArea={BODY_AREAS.find(a => a.id === selectedArea)?.label || selectedArea}
+              onReset={handleReset}
+              profileBreed={activeDog?.breed}
+            />
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

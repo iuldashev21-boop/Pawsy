@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle, CheckCircle, AlertCircle, Clock,
   Stethoscope, MessageCircle, ChevronDown, ChevronUp,
-  Eye, Home, Shield
+  Eye, Home, Shield, Camera, Dog
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 // Map urgency_level to visual config (new schema)
 const urgencyLevelConfig = {
@@ -75,10 +75,21 @@ const confidenceConfig = {
   low: { label: 'Low confidence', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
 }
 
-function AnalysisResult({ analysis, imageUrl }) {
+function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileBreed }) {
   const [showHomeCare, setShowHomeCare] = useState(false)
+  const navigate = useNavigate()
+
+  // Dog validation fields
+  const isDog = analysis.is_dog ?? true
+  const detectedSubject = analysis.detected_subject || 'unknown'
+
+  // Breed verification fields
+  const detectedBreed = analysis.detected_breed || null
+  const breedMatchesProfile = analysis.breed_matches_profile ?? true
 
   // Handle new schema with snake_case keys
+  const imageQuality = analysis.image_quality || 'good'
+  const imageQualityNote = analysis.image_quality_note || null
   const urgencyLevel = analysis.urgency_level || 'moderate'
   const confidence = analysis.confidence || 'medium'
   const possibleConditions = analysis.possible_conditions || []
@@ -89,11 +100,70 @@ function AnalysisResult({ analysis, imageUrl }) {
   const homeCareTips = analysis.home_care_tips || []
   const summary = analysis.summary || ''
 
+  const hasImageQualityIssue = imageQuality !== 'good' && imageQualityNote
+
   const urgencyConfig = urgencyLevelConfig[urgencyLevel] || urgencyLevelConfig.moderate
   const vetConfig = vetUrgencyConfig[vetUrgency] || vetUrgencyConfig.routine_checkup
   const confConfig = confidenceConfig[confidence] || confidenceConfig.medium
   const UrgencyIcon = urgencyConfig.icon
   const VetIcon = vetConfig.icon
+
+  // If not a dog, show a friendly message instead of health analysis
+  if (!isDog) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        {/* Image preview */}
+        <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md bg-[#F5F5F5]">
+          <img
+            src={imageUrl}
+            alt="Uploaded photo"
+            className="w-full h-48 object-contain"
+          />
+        </div>
+
+        {/* Not a dog message */}
+        <div className="bg-gradient-to-br from-[#FFF8E1] to-[#FFECB3] rounded-2xl p-6 shadow-md border border-[#FFD54F]/30 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/80 flex items-center justify-center shadow-sm">
+            <Dog className="w-8 h-8 text-[#F4A261]" />
+          </div>
+          <h3
+            className="text-lg font-bold text-[#3D3D3D] mb-2"
+            style={{ fontFamily: 'Nunito, sans-serif' }}
+          >
+            Oops! This doesn't look like a dog
+          </h3>
+          <p className="text-sm text-[#6B6B6B] mb-4">
+            {detectedSubject !== 'unknown' && detectedSubject !== 'dog' ? (
+              <>This appears to be a <span className="font-semibold text-[#F4A261]">{detectedSubject}</span>. </>
+            ) : null}
+            Pawsy is designed specifically for dog health analysis. Please upload a photo of your pup!
+          </p>
+
+          {/* Upload button */}
+          {onReset && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onReset}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md"
+            >
+              <Camera className="w-5 h-5" />
+              Upload Dog Photo
+            </motion.button>
+          )}
+        </div>
+
+        {/* Disclaimer */}
+        <p className="text-xs text-[#9E9E9E] text-center px-4">
+          Pawsy can only analyze photos of dogs.
+        </p>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div
@@ -102,11 +172,11 @@ function AnalysisResult({ analysis, imageUrl }) {
       className="space-y-4"
     >
       {/* Image preview with urgency badge */}
-      <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md">
+      <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md bg-[#F5F5F5]">
         <img
           src={imageUrl}
           alt="Analyzed photo"
-          className="w-full h-48 object-cover"
+          className="w-full h-48 object-contain"
         />
         <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full ${urgencyConfig.bg} ${urgencyConfig.border} border flex items-center gap-1.5`}>
           <UrgencyIcon className={`w-4 h-4 ${urgencyConfig.color}`} />
@@ -117,6 +187,44 @@ function AnalysisResult({ analysis, imageUrl }) {
           <span className={`text-xs font-medium ${confConfig.color}`}>{confConfig.label}</span>
         </div>
       </div>
+
+      {/* Image quality warning */}
+      {hasImageQualityIssue && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#FFF8E1] rounded-2xl p-4 border border-[#FFD54F]/30 flex items-start gap-3"
+        >
+          <div className="w-8 h-8 rounded-full bg-[#FFD54F]/20 flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-4 h-4 text-[#FF9800]" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[#E65100] mb-1">
+              {imageQuality === 'poor' ? 'Image Quality Issue' : 'Image Could Be Clearer'}
+            </p>
+            <p className="text-sm text-[#6B6B6B] leading-relaxed">
+              {imageQualityNote}
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Breed mismatch note */}
+      {!breedMatchesProfile && detectedBreed && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#E3F2FD] rounded-xl px-4 py-3 border border-[#90CAF9]/30 flex items-center gap-2"
+        >
+          <Dog className="w-4 h-4 text-[#1976D2] flex-shrink-0" />
+          <p className="text-sm text-[#1565C0]">
+            <span className="font-medium">Detected breed:</span> {detectedBreed}
+            {profileBreed && (
+              <span className="text-[#64B5F6]"> (profile says {profileBreed})</span>
+            )}
+          </p>
+        </motion.div>
+      )}
 
       {/* Summary */}
       <div className="bg-white rounded-2xl p-5 shadow-md border border-[#F4A261]/10">
@@ -268,16 +376,34 @@ function AnalysisResult({ analysis, imageUrl }) {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Link to="/chat" className="flex-1">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white font-semibold rounded-xl shadow-md"
-          >
-            <MessageCircle className="w-5 h-5" />
-            Discuss with Pawsy
-          </motion.button>
-        </Link>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            // Navigate to chat with photo analysis context
+            navigate('/chat', {
+              state: {
+                fromPhotoAnalysis: true,
+                photo: photo ? {
+                  preview: photo.preview,
+                  base64Data: photo.base64Data,
+                  mimeType: photo.mimeType
+                } : null,
+                analysis: {
+                  summary,
+                  urgency_level: urgencyLevel,
+                  possible_conditions: possibleConditions,
+                  visible_symptoms: visibleSymptoms,
+                  body_area: bodyArea
+                }
+              }
+            })
+          }}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white font-semibold rounded-xl shadow-md"
+        >
+          <MessageCircle className="w-5 h-5" />
+          Discuss with Pawsy
+        </motion.button>
       </div>
 
       {/* Disclaimer */}
