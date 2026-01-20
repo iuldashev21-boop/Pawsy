@@ -2,40 +2,75 @@ import { createContext, useContext, useState, useCallback } from 'react'
 
 const AuthContext = createContext(null)
 
+// Helper to get all registered users
+const getStoredUsers = () => {
+  const stored = localStorage.getItem('pawsy_users')
+  return stored ? JSON.parse(stored) : {}
+}
+
+// Helper to save users registry
+const saveUsersRegistry = (users) => {
+  localStorage.setItem('pawsy_users', JSON.stringify(users))
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('pawsy_user')
+    const stored = localStorage.getItem('pawsy_current_user')
     return stored ? JSON.parse(stored) : null
   })
 
   const signup = useCallback((email, name) => {
+    const users = getStoredUsers()
+
+    // Check if email already exists
+    if (users[email]) {
+      throw new Error('Email already registered')
+    }
+
     const newUser = {
       id: crypto.randomUUID(),
       email,
       name,
       createdAt: new Date().toISOString(),
     }
-    localStorage.setItem('pawsy_user', JSON.stringify(newUser))
+
+    // Add to users registry (keyed by email for easy lookup)
+    users[email] = newUser
+    saveUsersRegistry(users)
+
+    // Set as current user
+    localStorage.setItem('pawsy_current_user', JSON.stringify(newUser))
     setUser(newUser)
+
     return newUser
   }, [])
 
   const login = useCallback((email) => {
-    const stored = localStorage.getItem('pawsy_user')
-    if (stored) {
-      const user = JSON.parse(stored)
-      if (user.email === email) {
-        setUser(user)
-        return user
-      }
+    const users = getStoredUsers()
+    const foundUser = users[email]
+
+    if (!foundUser) {
+      throw new Error('User not found')
     }
-    throw new Error('User not found')
+
+    // Set as current user
+    localStorage.setItem('pawsy_current_user', JSON.stringify(foundUser))
+    setUser(foundUser)
+
+    return foundUser
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('pawsy_user')
+    // Only clear the current session, NOT the user's data
+    localStorage.removeItem('pawsy_current_user')
     setUser(null)
   }, [])
+
+  // Helper to get storage key with user prefix
+  const getUserStorageKey = useCallback((key) => {
+    if (!user) return null
+    return `pawsy_${user.id}_${key}`
+  }, [user])
 
   const value = {
     user,
@@ -43,6 +78,7 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    getUserStorageKey,
   }
 
   return (

@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { Dog, Mail, User, Lock, ArrowRight, Heart } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useDog } from '../context/DogContext'
+import { useChat } from '../context/ChatContext'
 
 // Brand icons as SVG components
 const GoogleIcon = () => (
@@ -51,6 +53,8 @@ function SignUp() {
   const [error, setError] = useState('')
 
   const { signup } = useAuth()
+  const { reloadForCurrentUser: reloadDogs } = useDog()
+  const { reloadForCurrentUser: reloadChats } = useChat()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -68,9 +72,16 @@ function SignUp() {
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
       signup(email.trim(), name.trim())
+      // Reload contexts for the new user (will be empty for new accounts)
+      reloadDogs()
+      reloadChats()
       navigate('/add-dog')
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      if (err.message === 'Email already registered') {
+        setError('This email is already registered. Please sign in instead.')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -82,7 +93,14 @@ function SignUp() {
       await new Promise(resolve => setTimeout(resolve, 800))
       // Demo: create a mock user for social login
       signup(`demo@${provider}.com`, `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`)
+      // Reload contexts for the new user
+      reloadDogs()
+      reloadChats()
       navigate('/add-dog')
+    } catch (err) {
+      if (err.message === 'Email already registered') {
+        setError('This email is already registered. Please sign in instead.')
+      }
     } finally {
       setIsLoading(false)
     }

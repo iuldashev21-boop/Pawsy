@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
 
 const ChatContext = createContext(null)
 
@@ -11,7 +11,7 @@ const initialState = {
 function chatReducer(state, action) {
   switch (action.type) {
     case 'SET_SESSIONS':
-      return { ...state, sessions: action.payload }
+      return { ...state, sessions: action.payload, activeSessionId: null }
 
     case 'CREATE_SESSION':
       return {
@@ -60,25 +60,87 @@ function chatReducer(state, action) {
         activeSessionId: null,
       }
 
+    case 'CLEAR_ALL_SESSIONS':
+      return {
+        ...state,
+        sessions: [],
+        activeSessionId: null,
+      }
+
+    case 'RESET':
+      return initialState
+
     default:
       return state
   }
 }
 
+// Helper to get current user ID from localStorage
+const getCurrentUserId = () => {
+  const stored = localStorage.getItem('pawsy_current_user')
+  if (stored) {
+    try {
+      return JSON.parse(stored).id
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+// Get user-prefixed storage key
+const getStorageKey = (userId, key) => {
+  if (!userId) return null
+  return `pawsy_${userId}_${key}`
+}
+
 export function ChatProvider({ children }) {
-  const [state, dispatch] = useReducer(chatReducer, initialState, () => {
-    const stored = localStorage.getItem('pawsy_chat_sessions')
-    if (stored) {
-      return {
-        ...initialState,
-        sessions: JSON.parse(stored),
+  const [state, dispatch] = useReducer(chatReducer, initialState)
+
+  // Load sessions for current user
+  const loadSessionsForUser = useCallback(() => {
+    const userId = getCurrentUserId()
+    if (!userId) {
+      dispatch({ type: 'RESET' })
+      return
+    }
+
+    const sessionsKey = getStorageKey(userId, 'chat_sessions')
+    const stored = localStorage.getItem(sessionsKey)
+
+    dispatch({
+      type: 'SET_SESSIONS',
+      payload: stored ? JSON.parse(stored) : [],
+    })
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    loadSessionsForUser()
+  }, [loadSessionsForUser])
+
+  // Listen for storage events (for cross-tab sync and user changes)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'pawsy_current_user') {
+        loadSessionsForUser()
       }
     }
-    return initialState
-  })
+
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [loadSessionsForUser])
 
   // Persist to localStorage (strip large image data to avoid bloating storage)
   useEffect(() => {
+    const userId = getCurrentUserId()
+    if (!userId) return
+
+    const sessionsKey = getStorageKey(userId, 'chat_sessions')
+
     const sessionsForStorage = state.sessions.map(session => ({
       ...session,
       messages: session.messages.map(msg => {
@@ -92,7 +154,7 @@ export function ChatProvider({ children }) {
         return msg
       }),
     }))
-    localStorage.setItem('pawsy_chat_sessions', JSON.stringify(sessionsForStorage))
+    localStorage.setItem(sessionsKey, JSON.stringify(sessionsForStorage))
   }, [state.sessions])
 
   const createSession = (dogId, dogContext) => {
@@ -131,6 +193,10 @@ export function ChatProvider({ children }) {
     dispatch({ type: 'DELETE_SESSION', payload: sessionId })
   }
 
+  const clearAllSessions = () => {
+    dispatch({ type: 'CLEAR_ALL_SESSIONS' })
+  }
+
   const getSessionsForDog = (dogId) => {
     return state.sessions.filter(s => s.dogId === dogId)
   }
@@ -138,6 +204,11 @@ export function ChatProvider({ children }) {
   const getActiveSession = () => {
     return state.sessions.find(s => s.id === state.activeSessionId) || null
   }
+
+  // Expose reload for after login/signup
+  const reloadForCurrentUser = useCallback(() => {
+    loadSessionsForUser()
+  }, [loadSessionsForUser])
 
   const value = {
     sessions: state.sessions,
@@ -149,7 +220,9 @@ export function ChatProvider({ children }) {
     setActiveSession,
     setLoading,
     deleteSession,
+    clearAllSessions,
     getSessionsForDog,
+    reloadForCurrentUser,
   }
 
   return (

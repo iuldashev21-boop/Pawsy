@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import { Dog, Mail, Lock, ArrowRight, Heart } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useDog } from '../context/DogContext'
+import { useChat } from '../context/ChatContext'
 
 // Brand icons as SVG components
 const GoogleIcon = () => (
@@ -49,7 +51,9 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const { signup } = useAuth()
+  const { login } = useAuth()
+  const { reloadForCurrentUser: reloadDogs } = useDog()
+  const { reloadForCurrentUser: reloadChats } = useChat()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -65,11 +69,17 @@ function Login() {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
-      // Demo: just create/login the user
-      signup(email.trim(), email.split('@')[0])
+      login(email.trim())
+      // Reload contexts for this user's data
+      reloadDogs()
+      reloadChats()
       navigate('/dashboard')
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      if (err.message === 'User not found') {
+        setError('No account found with this email. Please sign up first.')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -79,8 +89,15 @@ function Login() {
     setIsLoading(true)
     try {
       await new Promise(resolve => setTimeout(resolve, 800))
-      signup(`demo@${provider}.com`, `${provider.charAt(0).toUpperCase() + provider.slice(1)} User`)
+      login(`demo@${provider}.com`)
+      // Reload contexts for this user's data
+      reloadDogs()
+      reloadChats()
       navigate('/dashboard')
+    } catch (err) {
+      if (err.message === 'User not found') {
+        setError(`No account found for ${provider}. Please sign up first.`)
+      }
     } finally {
       setIsLoading(false)
     }

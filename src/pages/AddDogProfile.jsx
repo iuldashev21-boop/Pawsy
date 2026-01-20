@@ -871,44 +871,61 @@ function AddDogProfile() {
                   >
                     Any allergies?
                   </h1>
-                  <p className="text-[#6B6B6B]">Select all that apply, or skip if none</p>
+                  <p className="text-[#6B6B6B]">Tap to select, tap again to deselect</p>
                 </motion.div>
 
-                {/* Selected allergies */}
-                {dogData.allergies.length > 0 && (
-                  <motion.div variants={staggerItem} className="flex flex-wrap gap-2">
-                    {dogData.allergies.map((allergy) => (
-                      <motion.span
-                        key={allergy}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#F4A261]/10 text-[#F4A261] rounded-full text-sm font-medium"
-                      >
-                        {allergy}
-                        <button
-                          onClick={() => removeAllergy(allergy)}
-                          className="hover:bg-[#F4A261]/20 rounded-full p-0.5"
+                {/* Common allergies - all visible with toggle */}
+                <motion.div variants={staggerItem}>
+                  <label className="block text-sm font-medium text-[#3D3D3D] mb-3">Common Food Allergies</label>
+                  <div className="flex flex-wrap gap-2">
+                    {COMMON_ALLERGIES.map((allergy) => {
+                      const isSelected = dogData.allergies.includes(allergy)
+                      return (
+                        <motion.button
+                          key={allergy}
+                          type="button"
+                          onClick={() => isSelected ? removeAllergy(allergy) : addAllergy(allergy)}
+                          whileTap={{ scale: 0.95 }}
+                          className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-1 flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#F4A261] text-white border-2 border-[#F4A261] shadow-md'
+                              : 'bg-white border-2 border-[#E8E8E8] text-[#6B6B6B] hover:border-[#F4A261] hover:text-[#F4A261]'
+                          }`}
                         >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </motion.span>
-                    ))}
+                          {isSelected && <Check className="w-3.5 h-3.5" />}
+                          {allergy}
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+
+                {/* Custom allergies display */}
+                {dogData.allergies.filter(a => !COMMON_ALLERGIES.includes(a)).length > 0 && (
+                  <motion.div variants={staggerItem}>
+                    <label className="block text-sm font-medium text-[#3D3D3D] mb-3">Custom Allergies</label>
+                    <div className="flex flex-wrap gap-2">
+                      {dogData.allergies.filter(a => !COMMON_ALLERGIES.includes(a)).map((allergy) => (
+                        <motion.span
+                          key={allergy}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#F4A261] text-white rounded-full text-sm font-medium shadow-md"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {allergy}
+                          <button
+                            onClick={() => removeAllergy(allergy)}
+                            className="hover:bg-white/20 rounded-full p-0.5 ml-1"
+                            aria-label={`Remove ${allergy}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </motion.span>
+                      ))}
+                    </div>
                   </motion.div>
                 )}
-
-                {/* Common allergies */}
-                <motion.div variants={staggerItem} className="flex flex-wrap gap-2">
-                  {COMMON_ALLERGIES.filter(a => !dogData.allergies.includes(a)).map((allergy) => (
-                    <button
-                      key={allergy}
-                      type="button"
-                      onClick={() => addAllergy(allergy)}
-                      className="px-4 py-2.5 bg-white border-2 border-[#E8E8E8] rounded-full text-[#6B6B6B] text-sm font-medium hover:border-[#F4A261] hover:text-[#F4A261] transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-1"
-                    >
-                      {allergy}
-                    </button>
-                  ))}
-                </motion.div>
 
                 {/* Custom allergy input */}
                 <motion.div variants={staggerItem} className="flex gap-2">
@@ -918,7 +935,7 @@ function AddDogProfile() {
                     onChange={(e) => setCustomAllergy(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addCustomAllergy()}
                     className="flex-1 px-4 py-3 bg-white border-2 border-[#E8E8E8] rounded-xl text-[#3D3D3D] placeholder:text-[#9E9E9E] focus:border-[#F4A261] focus:ring-2 focus:ring-[#F4A261]/20 transition-all duration-200 outline-none"
-                    placeholder="Add custom allergy..."
+                    placeholder="Add other allergy..."
                   />
                   <button
                     type="button"
@@ -930,11 +947,20 @@ function AddDogProfile() {
                   </button>
                 </motion.div>
 
-                {/* No allergies note */}
-                <p className="text-center text-sm text-[#9E9E9E]">
-                  <AlertCircle className="w-4 h-4 inline mr-1" />
-                  You can always update this later
-                </p>
+                {/* Selection summary */}
+                <motion.div variants={staggerItem} className="text-center">
+                  {dogData.allergies.length > 0 ? (
+                    <p className="text-sm text-[#F4A261] font-medium">
+                      <Check className="w-4 h-4 inline mr-1" />
+                      {dogData.allergies.length} allerg{dogData.allergies.length === 1 ? 'y' : 'ies'} selected
+                    </p>
+                  ) : (
+                    <p className="text-sm text-[#9E9E9E]">
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
+                      No allergies selected - you can always update this later
+                    </p>
+                  )}
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>

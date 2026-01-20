@@ -32,8 +32,8 @@ const staggerItem = {
 
 function Settings() {
   const { user, logout } = useAuth()
-  const { dogs, activeDog, setActiveDog, deleteDog } = useDog()
-  const { sessions } = useChat()
+  const { dogs, activeDog, setActiveDog, deleteDog, reloadForCurrentUser: reloadDogs } = useDog()
+  const { sessions, clearAllSessions, reloadForCurrentUser: reloadChats } = useChat()
   const navigate = useNavigate()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
@@ -51,16 +51,33 @@ function Settings() {
 
   const handleLogout = () => {
     logout()
+    // Reload contexts to clear current user's data from memory
+    reloadDogs()
+    reloadChats()
     navigate('/')
   }
 
   const handleClearChatHistory = () => {
-    localStorage.removeItem('pawsy_chat_sessions')
-    window.location.reload()
+    // Use the context function which handles user-prefixed storage
+    clearAllSessions()
+    setShowClearDataConfirm(false)
   }
 
   const handleClearAllData = () => {
-    localStorage.clear()
+    // Only clear current user's data, not all users
+    if (user?.id) {
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(`pawsy_${user.id}_`)) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+    }
+    logout()
+    reloadDogs()
+    reloadChats()
     navigate('/')
   }
 

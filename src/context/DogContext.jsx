@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
 
 const DogContext = createContext(null)
 
@@ -11,7 +11,7 @@ const initialState = {
 function dogReducer(state, action) {
   switch (action.type) {
     case 'SET_DOGS':
-      return { ...state, dogs: action.payload }
+      return { ...state, dogs: action.payload.dogs, activeDogId: action.payload.activeDogId }
     case 'ADD_DOG':
       return {
         ...state,
@@ -35,38 +35,120 @@ function dogReducer(state, action) {
       return { ...state, activeDogId: action.payload }
     case 'SET_LOADING':
       return { ...state, loading: action.payload }
+    case 'RESET':
+      return initialState
     default:
       return state
   }
 }
 
+// Helper to get current user ID from localStorage
+const getCurrentUserId = () => {
+  const stored = localStorage.getItem('pawsy_current_user')
+  if (stored) {
+    try {
+      return JSON.parse(stored).id
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+// Get user-prefixed storage key
+const getStorageKey = (userId, key) => {
+  if (!userId) return null
+  return `pawsy_${userId}_${key}`
+}
+
 export function DogProvider({ children }) {
-  const [state, dispatch] = useReducer(dogReducer, initialState, () => {
-    // Initialize from localStorage
-    const stored = localStorage.getItem('pawsy_dogs')
-    const activeDogId = localStorage.getItem('pawsy_active_dog')
-    if (stored) {
-      return {
-        ...initialState,
-        dogs: JSON.parse(stored),
-        activeDogId: activeDogId || null,
+  const [state, dispatch] = useReducer(dogReducer, initialState)
+
+  // Load dogs for current user when component mounts or user changes
+  const loadDogsForUser = useCallback(() => {
+    const userId = getCurrentUserId()
+    if (!userId) {
+      dispatch({ type: 'RESET' })
+      return
+    }
+
+    const dogsKey = getStorageKey(userId, 'dogs')
+    const activeDogKey = getStorageKey(userId, 'active_dog')
+
+    const storedDogs = localStorage.getItem(dogsKey)
+    const storedActiveDog = localStorage.getItem(activeDogKey)
+
+    dispatch({
+      type: 'SET_DOGS',
+      payload: {
+        dogs: storedDogs ? JSON.parse(storedDogs) : [],
+        activeDogId: storedActiveDog || null,
+      }
+    })
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    loadDogsForUser()
+  }, [loadDogsForUser])
+
+  // Listen for storage events (for cross-tab sync and user changes)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'pawsy_current_user') {
+        loadDogsForUser()
       }
     }
-    return initialState
-  })
 
-  // Persist to localStorage on changes
+    // Also check for user changes on window focus (same tab logout/login)
+    const handleFocus = () => {
+      const currentUserId = getCurrentUserId()
+      const currentDogsKey = currentUserId ? getStorageKey(currentUserId, 'dogs') : null
+      const storedDogs = currentDogsKey ? localStorage.getItem(currentDogsKey) : null
+      const currentDogs = storedDogs ? JSON.parse(storedDogs) : []
+
+      // If user changed or dogs don't match, reload
+      if (currentDogs.length !== state.dogs.length) {
+        loadDogsForUser()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadDogsForUser, state.dogs.length])
+
+  // Persist to localStorage on changes (only if we have a user)
   useEffect(() => {
-    localStorage.setItem('pawsy_dogs', JSON.stringify(state.dogs))
+    const userId = getCurrentUserId()
+    if (!userId) return
+
+    const dogsKey = getStorageKey(userId, 'dogs')
+    const activeDogKey = getStorageKey(userId, 'active_dog')
+
+    localStorage.setItem(dogsKey, JSON.stringify(state.dogs))
     if (state.activeDogId) {
-      localStorage.setItem('pawsy_active_dog', state.activeDogId)
+      localStorage.setItem(activeDogKey, state.activeDogId)
+    } else {
+      localStorage.removeItem(activeDogKey)
     }
   }, [state.dogs, state.activeDogId])
 
   const addDog = (dogData) => {
+    const userId = getCurrentUserId()
+    if (!userId) {
+      console.error('Cannot add dog: no user logged in')
+      return null
+    }
+
     const newDog = {
       ...dogData,
       id: crypto.randomUUID(),
+      userId: userId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -93,6 +175,11 @@ export function DogProvider({ children }) {
     return state.dogs.find(dog => dog.id === state.activeDogId) || state.dogs[0] || null
   }
 
+  // Expose loadDogsForUser so it can be called after login/signup
+  const reloadForCurrentUser = useCallback(() => {
+    loadDogsForUser()
+  }, [loadDogsForUser])
+
   const value = {
     dogs: state.dogs,
     activeDogId: state.activeDogId,
@@ -102,6 +189,7 @@ export function DogProvider({ children }) {
     updateDog,
     deleteDog,
     setActiveDog,
+    reloadForCurrentUser,
   }
 
   return (
