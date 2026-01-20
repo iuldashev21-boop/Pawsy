@@ -5,7 +5,7 @@ const DogContext = createContext(null)
 const initialState = {
   dogs: [],
   activeDogId: null,
-  loading: false,
+  loading: true, // Start as loading until we've checked localStorage
 }
 
 function dogReducer(state, action) {
@@ -36,7 +36,7 @@ function dogReducer(state, action) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload }
     case 'RESET':
-      return initialState
+      return { ...initialState, loading: false }
     default:
       return state
   }
@@ -67,8 +67,9 @@ export function DogProvider({ children }) {
   // Load dogs for current user when component mounts or user changes
   const loadDogsForUser = useCallback(() => {
     const userId = getCurrentUserId()
+
     if (!userId) {
-      dispatch({ type: 'RESET' })
+      dispatch({ type: 'RESET' }) // RESET now sets loading: false
       return
     }
 
@@ -85,6 +86,7 @@ export function DogProvider({ children }) {
         activeDogId: storedActiveDog || null,
       }
     })
+    dispatch({ type: 'SET_LOADING', payload: false })
   }, [])
 
   // Initial load

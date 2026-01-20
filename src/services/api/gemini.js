@@ -1,4 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import {
+  isMockModeEnabled,
+  getMockScenario,
+  getMockDelay,
+  getMockChatResponse,
+  getMockPhotoResponse,
+  getMockErrorResponse
+} from '../dev/mockResponses'
 
 // ============================================================================
 // Configuration
@@ -317,10 +325,80 @@ If the user CORRECTS you about a breed or detail:
 - Do NOT keep referring back to the wrong breed
 </context_awareness>
 ${photoContextSection}
+<at_home_diagnostic_tests>
+When gathering information about a dog's health, suggest SIMPLE AT-HOME TESTS the owner can perform to help assess the situation. These tests help you get better information and make the owner feel like they're actively helping.
+
+SIMPLE TESTS TO SUGGEST (choose 1-3 relevant ones based on symptoms):
+
+APPETITE & ENERGY:
+- "Try offering ${dog.name}'s favorite treat (just show it, don't give it yet) - does ${dog.name} show interest?"
+- "Try to engage ${dog.name} in a favorite activity or show a toy - is ${dog.name} interested or ignoring it?"
+- "Call ${dog.name}'s name from another room - does ${dog.name} respond and come to you?"
+
+HYDRATION CHECK:
+- "Gently pinch the skin on the back of ${dog.name}'s neck and release - it should snap back within 2 seconds. Does it stay 'tented' or return slowly?"
+- "Check ${dog.name}'s gums - are they moist and pink, or dry and tacky?"
+
+GUM & CIRCULATION CHECK:
+- "Press ${dog.name}'s gum with your finger until it turns white, then release - it should turn pink again within 2 seconds (capillary refill test)"
+- "What color are ${dog.name}'s gums? (Should be pink - pale/white/blue/bright red are concerning)"
+
+TEMPERATURE & COMFORT:
+- "Feel ${dog.name}'s ears and paws - are they unusually hot or cold compared to normal?"
+- "Is ${dog.name}'s nose wet or dry? Any discharge?"
+
+PAIN & SENSITIVITY:
+- "Gently run your hands over ${dog.name}'s body - does ${dog.name} flinch, whimper, or react when you touch a specific area?"
+- "Watch ${dog.name} walk across the room - any limping, stiffness, or unusual gait?"
+
+BELLY CHECK:
+- "Gently feel ${dog.name}'s belly - is it soft and relaxed, or hard and tense? Does ${dog.name} react to gentle pressure?"
+
+BREATHING:
+- "Count ${dog.name}'s breaths for 30 seconds and multiply by 2 (normal is 15-30 breaths per minute at rest)"
+- "Is ${dog.name}'s breathing quiet and easy, or noisy/labored?"
+
+EYES & ALERTNESS:
+- "Look at ${dog.name}'s eyes - are they clear and bright, or dull/glassy? Any discharge?"
+- "Is ${dog.name} alert and aware of surroundings, or seeming 'out of it'?"
+
+HOW TO SUGGEST TESTS:
+1. Pick 2-3 tests RELEVANT to the symptoms described
+2. Explain them simply with clear instructions
+3. Tell the owner what each result might indicate
+4. Make it feel helpful, not overwhelming
+
+WHEN USER SAYS "I DON'T KNOW" OR IS UNCERTAIN:
+If the user responds with uncertain answers like:
+- "I don't know", "not sure", "can't tell", "maybe", "I think so", "hard to say"
+
+DO NOT just ask again. Instead, GUIDE THEM with a simple test to find out:
+
+Example conversation:
+- You ask: "Is ${dog.name} showing interest in food?"
+- User says: "I'm not sure" or "I don't know"
+- You respond: "No problem, let's check! Try this: grab ${dog.name}'s favorite treat or some food and hold it near (but don't give it yet). Watch ${dog.name}'s reaction:
+  • If ${dog.name} sniffs eagerly, wags tail, or tries to take it → appetite is good
+  • If ${dog.name} sniffs then turns away → reduced appetite
+  • If ${dog.name} completely ignores it → no appetite (more concerning)
+  Let me know what happens!"
+
+Another example:
+- You ask: "Is ${dog.name} acting lethargic?"
+- User says: "I can't really tell"
+- You respond: "Let's do a quick energy check! Try one of these:
+  • Call ${dog.name}'s name excitedly from another room - does ${dog.name} come running, walk slowly, or not come at all?
+  • Grab ${dog.name}'s favorite toy and offer to play - is ${dog.name} interested or ignoring it?
+  This will help us understand ${dog.name}'s energy level."
+
+ALWAYS turn uncertainty into an actionable test the owner can do right now.
+</at_home_diagnostic_tests>
+
 <output_format>
 Respond conversationally but be thorough. Always provide your response in the structured JSON format.
 - Set concerns_detected to true if the user mentions any health symptoms or worries
 - Suggest follow_up_questions (max 3) ONLY for information NOT in the dog profile
+- When asking follow-up questions, also suggest 1-2 simple at-home tests the owner can do
 - Set suggested_action appropriately based on severity
 - For emergencies, include emergency_steps array with first-aid actions
 </output_format>`
@@ -511,6 +589,13 @@ function parseGeminiChatResponse(text) {
       follow_up_questions: parsed.follow_up_questions || [],
       concerns_detected: parsed.concerns_detected ?? false,
       suggested_action: parsed.suggested_action || 'continue_chat',
+      // New structured health fields
+      urgency_level: parsed.urgency_level || 'low',
+      symptoms_mentioned: parsed.symptoms_mentioned || [],
+      possible_conditions: parsed.possible_conditions || [],
+      recommended_actions: parsed.recommended_actions || [],
+      home_care_tips: parsed.home_care_tips || [],
+      should_see_vet: parsed.should_see_vet ?? false,
       emergency_steps: parsed.emergency_steps || []
     }
   } catch {
@@ -521,6 +606,12 @@ function parseGeminiChatResponse(text) {
       follow_up_questions: [],
       concerns_detected: false,
       suggested_action: 'continue_chat',
+      urgency_level: 'low',
+      symptoms_mentioned: [],
+      possible_conditions: [],
+      recommended_actions: [],
+      home_care_tips: [],
+      should_see_vet: false,
       emergency_steps: []
     }
   }
@@ -544,6 +635,19 @@ export const geminiService = {
    * @returns {Object} Structured chat response
    */
   async chat(dog, userMessage, history = [], photoContext = null) {
+    // Check for mock mode (dev only)
+    if (isMockModeEnabled()) {
+      const scenario = getMockScenario()
+      const delay = getMockDelay()
+      await new Promise(resolve => setTimeout(resolve, delay))
+
+      // Check if it's an error scenario
+      if (scenario.startsWith('api_') || scenario.startsWith('safety_') || scenario.startsWith('auth_') || scenario.startsWith('network_')) {
+        return getMockErrorResponse(scenario)
+      }
+      return getMockChatResponse(scenario)
+    }
+
     const ai = getGenAI()
     if (!ai) {
       throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
@@ -587,12 +691,29 @@ IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). 
   "follow_up_questions": [],
   "concerns_detected": false,
   "suggested_action": "continue_chat",
+  "urgency_level": "low",
+  "symptoms_mentioned": [],
+  "possible_conditions": [],
+  "recommended_actions": [],
+  "home_care_tips": [],
+  "should_see_vet": false,
   "emergency_steps": []
 }
 
-Where:
-- suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"
-- emergency_steps: For EMERGENCIES ONLY, include 2-4 actionable first-aid steps to take while getting to the vet`
+Field guidelines:
+- response: Your helpful, conversational message
+- follow_up_questions: 1-3 relevant follow-up questions (optional)
+- concerns_detected: true if user mentions ANY health symptom or concern
+- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
+- urgency_level: "low" | "moderate" | "urgent" | "emergency" (based on symptom severity)
+- symptoms_mentioned: List symptoms the user described (e.g., ["vomiting", "lethargy"])
+- possible_conditions: If concerns detected, list 2-4 possible causes
+- recommended_actions: 2-4 actionable steps the owner should take
+- home_care_tips: 1-3 home care suggestions (if appropriate)
+- should_see_vet: true if professional vet visit is recommended
+- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps
+
+IMPORTANT: When the user describes symptoms or health concerns, ALWAYS populate the structured fields (symptoms_mentioned, possible_conditions, recommended_actions). Keep "response" conversational but put the detailed breakdown in the structured fields.`
 
       const result = await chat.sendMessage(promptWithFormat)
       const response = result.response
@@ -611,6 +732,13 @@ Where:
         follow_up_questions: parsed.follow_up_questions,
         concerns_detected: parsed.concerns_detected,
         suggested_action: parsed.suggested_action,
+        // Structured health data
+        urgency_level: parsed.urgency_level,
+        symptoms_mentioned: parsed.symptoms_mentioned,
+        possible_conditions: parsed.possible_conditions,
+        recommended_actions: parsed.recommended_actions,
+        home_care_tips: parsed.home_care_tips,
+        should_see_vet: parsed.should_see_vet,
         emergency_steps: parsed.emergency_steps
       }
 
@@ -664,12 +792,26 @@ IMPORTANT: Respond ONLY with a valid JSON object (no markdown, no explanation). 
   "follow_up_questions": [],
   "concerns_detected": false,
   "suggested_action": "continue_chat",
+  "urgency_level": "low",
+  "symptoms_mentioned": [],
+  "possible_conditions": [],
+  "recommended_actions": [],
+  "home_care_tips": [],
+  "should_see_vet": false,
   "emergency_steps": []
 }
 
-Where:
-- suggested_action is one of: "continue_chat", "upload_photo", "see_vet", "emergency"
-- emergency_steps: For EMERGENCIES ONLY, include 2-4 actionable first-aid steps to take while getting to the vet`
+Field guidelines:
+- response: Your helpful, conversational message
+- concerns_detected: true if user mentions ANY health symptom or concern
+- suggested_action: "continue_chat" | "upload_photo" | "see_vet" | "emergency"
+- urgency_level: "low" | "moderate" | "urgent" | "emergency"
+- symptoms_mentioned: List symptoms the user described
+- possible_conditions: If concerns detected, list 2-4 possible causes
+- recommended_actions: 2-4 actionable steps
+- home_care_tips: 1-3 home care suggestions
+- should_see_vet: true if vet visit is recommended
+- emergency_steps: For EMERGENCIES ONLY, 2-4 immediate first-aid steps`
 
       const result = await chat.sendMessage(promptWithFormat)
       const text = result.response.text()
@@ -682,6 +824,12 @@ Where:
         follow_up_questions: parsed.follow_up_questions,
         concerns_detected: parsed.concerns_detected,
         suggested_action: parsed.suggested_action,
+        urgency_level: parsed.urgency_level,
+        symptoms_mentioned: parsed.symptoms_mentioned,
+        possible_conditions: parsed.possible_conditions,
+        recommended_actions: parsed.recommended_actions,
+        home_care_tips: parsed.home_care_tips,
+        should_see_vet: parsed.should_see_vet,
         emergency_steps: parsed.emergency_steps
       }
     } catch (error) {
@@ -700,6 +848,19 @@ Where:
    * @returns {Object} Structured photo analysis response
    */
   async analyzePhoto(imageBase64, mimeType, dog, bodyArea = '', description = '') {
+    // Check for mock mode (dev only)
+    if (isMockModeEnabled()) {
+      const scenario = getMockScenario()
+      const delay = getMockDelay()
+      await new Promise(resolve => setTimeout(resolve, delay))
+
+      // Check if it's an error scenario
+      if (scenario.startsWith('api_') || scenario.startsWith('safety_') || scenario.startsWith('auth_') || scenario.startsWith('network_')) {
+        return getMockErrorResponse(scenario)
+      }
+      return getMockPhotoResponse(scenario)
+    }
+
     const ai = getGenAI()
     if (!ai) {
       throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')

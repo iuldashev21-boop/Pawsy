@@ -35,15 +35,15 @@ const staggerItem = {
 
 function Dashboard() {
   const { user } = useAuth()
-  const { dogs, activeDog } = useDog()
+  const { dogs, activeDog, loading } = useDog()
   const navigate = useNavigate()
 
-  // Redirect to add-dog if no dogs exist
+  // Redirect to add-dog if no dogs exist (only after loading completes)
   useEffect(() => {
-    if (dogs.length === 0) {
+    if (!loading && dogs.length === 0) {
       navigate('/add-dog')
     }
-  }, [dogs, navigate])
+  }, [dogs, loading, navigate])
 
   // Calculate dog's age
   const calculateAge = (dateOfBirth) => {
@@ -70,7 +70,7 @@ function Dashboard() {
     return 'Good evening'
   }
 
-  if (!activeDog) {
+  if (loading || !activeDog) {
     return (
       <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
         <div className="text-center">

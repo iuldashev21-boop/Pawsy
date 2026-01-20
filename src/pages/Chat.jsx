@@ -138,18 +138,7 @@ function Chat() {
         contextMessage = `I just analyzed a photo of ${activeDog.name}'s ${analysis.body_area || 'health concern'}. `
       }
 
-      contextMessage += `Here's what I found:\n\n`
-      contextMessage += `**Summary:** ${analysis.summary}\n\n`
-
-      if (analysis.possible_conditions?.length > 0) {
-        contextMessage += `**Possible conditions:** ${analysis.possible_conditions.join(', ')}\n\n`
-      }
-
-      if (analysis.visible_symptoms?.length > 0) {
-        contextMessage += `**Visible symptoms:** ${analysis.visible_symptoms.join(', ')}\n\n`
-      }
-
-      contextMessage += `I'm here to answer any questions you have about this or provide more detailed guidance. What would you like to know?`
+      contextMessage += `${analysis.summary}\n\nI'm here to answer any questions you have about this. What would you like to know?`
 
       // Add the context message as assistant
       addMessage(session.id, {
@@ -162,7 +151,17 @@ function Chat() {
         } : null,
         metadata: {
           fromPhotoAnalysis: true,
-          analysis: analysis,
+          // Include photo_analysis for rich card rendering
+          photo_analysis: {
+            urgency_level: analysis.urgency_level,
+            confidence: analysis.confidence,
+            visible_symptoms: analysis.visible_symptoms || [],
+            possible_conditions: analysis.possible_conditions || [],
+            recommended_actions: analysis.recommended_actions || [],
+            home_care_tips: analysis.home_care_tips || [],
+            should_see_vet: analysis.should_see_vet,
+            vet_urgency: analysis.vet_urgency,
+          },
           photoContext: {
             detected_breed: detectedBreed,
             breed_matches_profile: breedMatchesProfile,
@@ -225,15 +224,22 @@ function Chat() {
         return
       }
 
-      // Add the AI response message
+      // Add the AI response message with structured health data
       addMessage(activeSession.id, {
         role: 'assistant',
         content: response.message,
-        // Store metadata for potential UI enhancements
+        // Store metadata for rich card UI rendering
         metadata: {
           follow_up_questions: response.follow_up_questions || [],
           concerns_detected: response.concerns_detected || false,
           suggested_action: response.suggested_action || 'continue_chat',
+          // Structured health data for rich cards
+          urgency_level: response.urgency_level || 'low',
+          visible_symptoms: response.symptoms_mentioned || [], // Map to visible_symptoms for RichHealthResponse
+          possible_conditions: response.possible_conditions || [],
+          recommended_actions: response.recommended_actions || [],
+          home_care_tips: response.home_care_tips || [],
+          should_see_vet: response.should_see_vet || false,
           emergency_steps: response.emergency_steps || [],
         },
       })
@@ -379,6 +385,23 @@ function Chat() {
 
   const handleQuickQuestion = (question) => {
     handleSendMessage(question)
+  }
+
+  // Handle action from rich health response cards
+  const handleAction = (action) => {
+    switch (action) {
+      case 'find_vet':
+        window.open('https://www.google.com/maps/search/veterinarian+near+me', '_blank')
+        break
+      case 'upload_photo':
+        navigate('/photo-analysis')
+        break
+      case 'ask_more':
+        // Focus the input - could be enhanced with a ref
+        break
+      default:
+        break
+    }
   }
 
   const handleNewChat = () => {
@@ -586,6 +609,7 @@ function Chat() {
               dogPhoto={null}
               isFirstAssistantMessage={isFirstMessage(index)}
               onQuickQuestion={handleQuickQuestion}
+              onAction={handleAction}
               showTimestamp={shouldShowTimestamp(index)}
             />
           ))}

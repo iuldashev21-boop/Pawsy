@@ -1,7 +1,87 @@
 import { motion } from 'framer-motion'
 import { Dog, User, PawPrint, Image } from 'lucide-react'
+import RichHealthResponse from './RichHealthResponse'
 
-function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion, showTimestamp = true }) {
+// Simple markdown renderer for chat messages
+function renderMarkdown(text) {
+  if (!text) return null
+
+  // Split into paragraphs
+  const paragraphs = text.split(/\n\n+/)
+
+  return paragraphs.map((paragraph, pIdx) => {
+    // Check if this paragraph is a list
+    const lines = paragraph.split('\n')
+    const isBulletList = lines.every(line => /^[-•]\s/.test(line.trim()) || line.trim() === '')
+    const isNumberedList = lines.every(line => /^\d+\.\s/.test(line.trim()) || line.trim() === '')
+
+    if (isBulletList) {
+      const items = lines.filter(line => /^[-•]\s/.test(line.trim()))
+      return (
+        <ul key={pIdx} className="space-y-1.5 my-2">
+          {items.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-2">
+              <span className="text-[#7EC8C8] mt-1.5 text-xs">●</span>
+              <span>{renderInlineMarkdown(item.replace(/^[-•]\s/, ''))}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    if (isNumberedList) {
+      const items = lines.filter(line => /^\d+\.\s/.test(line.trim()))
+      return (
+        <ol key={pIdx} className="space-y-1.5 my-2">
+          {items.map((item, idx) => {
+            const content = item.replace(/^\d+\.\s/, '')
+            return (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-[#F4A261] font-semibold min-w-[1.25rem]">{idx + 1}.</span>
+                <span>{renderInlineMarkdown(content)}</span>
+              </li>
+            )
+          })}
+        </ol>
+      )
+    }
+
+    // Regular paragraph - handle line breaks within
+    const lineElements = lines.map((line, lIdx) => (
+      <span key={lIdx}>
+        {renderInlineMarkdown(line)}
+        {lIdx < lines.length - 1 && <br />}
+      </span>
+    ))
+
+    return (
+      <p key={pIdx} className={pIdx > 0 ? 'mt-3' : ''}>
+        {lineElements}
+      </p>
+    )
+  })
+}
+
+// Render inline markdown (bold, headers)
+function renderInlineMarkdown(text) {
+  if (!text) return null
+
+  // Handle **bold** text
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={idx} className="font-semibold text-[#3D3D3D]">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    return <span key={idx}>{part}</span>
+  })
+}
+
+function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion, onAction, showTimestamp = true }) {
   const isUser = message.role === 'user'
   const hasImage = message.image?.preview
   const hadImagePreviously = message.image?.hadImage && !hasImage
@@ -17,6 +97,33 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
   // Get follow-up questions from AI response metadata
   const followUpQuestions = message.metadata?.follow_up_questions || []
   const hasFollowUpQuestions = !isUser && followUpQuestions.length > 0
+
+  // Check if this message has rich health data to display
+  // Only show rich cards for SUBSTANTIVE health assessments, not every message
+  const metadata = message.metadata || {}
+
+  // Count how many substantial data sections we have
+  const hasSymptoms = metadata.visible_symptoms?.length >= 2 || metadata.symptoms_mentioned?.length >= 2
+  const hasConditions = metadata.possible_conditions?.length >= 2
+  const hasRecommendations = metadata.recommended_actions?.length >= 2
+  const hasHomeCare = metadata.home_care_tips?.length >= 1
+  const hasEmergency = metadata.emergency_steps?.length > 0
+  const isUrgent = metadata.urgency_level === 'urgent' || metadata.urgency_level === 'emergency'
+  const isPhotoAnalysis = metadata.photo_analysis === true
+
+  // Only show rich cards when:
+  // 1. It's a photo analysis response, OR
+  // 2. It's urgent/emergency, OR
+  // 3. AI has provided comprehensive info (3+ sections with data) AND is not just asking questions
+  const substantialSections = [hasSymptoms, hasConditions, hasRecommendations, hasHomeCare].filter(Boolean).length
+  const isAskingQuestions = followUpQuestions.length >= 2 // AI is primarily gathering info
+
+  const hasRichHealthData = !isUser && (
+    isPhotoAnalysis ||
+    hasEmergency ||
+    isUrgent ||
+    (substantialSections >= 3 && !isAskingQuestions)
+  )
 
   return (
     <motion.div
@@ -41,18 +148,18 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
       </div>
 
       {/* Bubble and quick questions container */}
-      <div className="flex flex-col gap-2 max-w-[80%]">
+      <div className="flex flex-col gap-2 max-w-[85%]">
         {/* Bubble */}
         <div
-          className={`rounded-3xl px-4 py-3 ${
+          className={`rounded-2xl ${
             isUser
-              ? 'bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-tr-lg shadow-md'
-              : 'bg-white text-[#3D3D3D] rounded-tl-lg shadow-[0_2px_12px_rgba(61,61,61,0.08)] border border-[#F4A261]/10'
+              ? 'bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-tr-md shadow-md px-4 py-3'
+              : 'bg-[#FAFAFA] text-[#4A4A4A] rounded-tl-md border border-[#E8E8E8]/60 px-4 py-3'
           }`}
         >
           {/* Image if present */}
           {hasImage && (
-            <div className="mb-2">
+            <div className="mb-3">
               <div className="relative">
                 <img
                   src={message.image.preview}
@@ -68,18 +175,48 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
           )}
           {/* Placeholder for images from previous sessions (data not persisted) */}
           {hadImagePreviously && (
-            <div className="mb-2">
+            <div className="mb-3">
               <div className="w-full h-24 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] rounded-xl flex items-center justify-center gap-2 text-[#D4793A]">
                 <Image className="w-5 h-5" />
                 <span className="text-sm">Photo was shared</span>
               </div>
             </div>
           )}
+          {/* Message content with markdown for assistant, plain for user */}
           {message.content && (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <div className={`text-sm leading-relaxed ${isUser ? 'whitespace-pre-wrap' : ''}`}>
+              {isUser ? message.content : renderMarkdown(message.content)}
+            </div>
           )}
+
+          {/* Follow-up questions displayed as numbered list inside message */}
+          {hasFollowUpQuestions && (
+            <div className="mt-4 pt-3 border-t border-[#E8E8E8]/60">
+              <p className="text-xs font-semibold text-[#7EC8C8] mb-2">To help me better, please tell me:</p>
+              <ol className="space-y-2">
+                {followUpQuestions.slice(0, 3).map((question, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#7EC8C8]/15 text-[#5FB3B3] text-xs font-semibold flex items-center justify-center">
+                      {idx + 1}
+                    </span>
+                    <span className="text-[#4A4A4A]">{question}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Rich health response cards for structured data */}
+          {hasRichHealthData && (
+            <RichHealthResponse
+              metadata={metadata}
+              summary={message.content}
+              onAction={onAction}
+            />
+          )}
+
           {showTimestamp && (
-            <p className={`text-xs mt-2 ${isUser ? 'text-white/60' : 'text-[#9E9E9E]'}`}>
+            <p className={`text-[11px] mt-2 ${isUser ? 'text-white/60' : 'text-[#ADADAD]'}`}>
               {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
@@ -107,27 +244,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
           </motion.div>
         )}
 
-        {/* AI-suggested follow-up questions */}
-        {hasFollowUpQuestions && onQuickQuestion && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-wrap gap-2 mt-1"
-          >
-            {followUpQuestions.slice(0, 3).map((question, idx) => (
-              <motion.button
-                key={idx}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onQuickQuestion(question)}
-                className="px-3 py-1.5 text-xs font-medium bg-[#7EC8C8]/10 text-[#5FB3B3] rounded-full border border-[#7EC8C8]/20 hover:border-[#7EC8C8]/40 hover:bg-[#7EC8C8]/15 hover:shadow-sm transition-all"
-              >
-                {question}
-              </motion.button>
-            ))}
-          </motion.div>
-        )}
       </div>
     </motion.div>
   )
