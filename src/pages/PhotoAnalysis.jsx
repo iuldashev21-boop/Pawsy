@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Dog, PawPrint, Sparkles } from 'lucide-react'
+import { ChevronLeft, Dog, PawPrint, Sparkles, AlertCircle } from 'lucide-react'
 import { useDog } from '../context/DogContext'
+import { useUsage } from '../context/UsageContext'
 import { geminiService } from '../services/api/gemini'
 import PhotoUploader from '../components/photo/PhotoUploader'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import AnalysisResult from '../components/photo/AnalysisResult'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
+import UsageCounter from '../components/usage/UsageCounter'
+import UsageLimitModal from '../components/usage/UsageLimitModal'
 
 const BODY_AREAS = [
   { id: 'skin', label: 'Skin/Coat' },
@@ -22,6 +25,14 @@ const BODY_AREAS = [
 
 function PhotoAnalysis() {
   const { activeDog, dogs } = useDog()
+  const {
+    canPhoto,
+    canEmergencyPhoto,
+    usePhoto,
+    useEmergencyPhoto,
+    photosRemaining,
+    emergencyPhotosRemaining,
+  } = useUsage()
   const navigate = useNavigate()
 
   const [photo, setPhoto] = useState(null)
@@ -30,6 +41,8 @@ function PhotoAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState(null)
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [isEmergencyMode, setIsEmergencyMode] = useState(false)
 
   // Redirect if no dogs
   if (dogs.length === 0) {
@@ -39,6 +52,27 @@ function PhotoAnalysis() {
 
   const handleAnalyze = async () => {
     if (!photo || !selectedArea) return
+
+    // Check usage limits
+    if (!isEmergencyMode && !canPhoto) {
+      setShowLimitModal(true)
+      return
+    }
+
+    // Consume usage (regular or emergency)
+    if (isEmergencyMode) {
+      const allowed = useEmergencyPhoto()
+      if (!allowed) {
+        setShowLimitModal(true)
+        return
+      }
+    } else {
+      const allowed = usePhoto()
+      if (!allowed) {
+        setShowLimitModal(true)
+        return
+      }
+    }
 
     setIsAnalyzing(true)
     setError(null)
@@ -166,6 +200,35 @@ function PhotoAnalysis() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Usage Counter */}
+        {!isEmergencyMode && !analysis && (
+          <div className="mb-4">
+            <UsageCounter
+              type="photo"
+              showUpgrade={true}
+              onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+            />
+          </div>
+        )}
+
+        {/* Emergency Mode Banner */}
+        {isEmergencyMode && !analysis && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <p className="text-xs text-red-700 font-medium">
+                Emergency Mode • {emergencyPhotosRemaining} emergency scans remaining
+              </p>
+            </div>
+            <button
+              onClick={() => setIsEmergencyMode(false)}
+              className="text-xs text-red-500 hover:text-red-700"
+            >
+              Exit
+            </button>
+          </div>
+        )}
+
         {/* Dog context pill */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -310,6 +373,19 @@ function PhotoAnalysis() {
       </main>
 
       <BottomNav />
+
+      {/* Usage Limit Modal */}
+      <UsageLimitModal
+        type="photo"
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        onEmergency={() => {
+          setShowLimitModal(false)
+          setIsEmergencyMode(true)
+        }}
+        onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+        emergencyRemaining={emergencyPhotosRemaining}
+      />
     </div>
   )
 }

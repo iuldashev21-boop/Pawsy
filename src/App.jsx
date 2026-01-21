@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { DogProvider } from './context/DogContext'
 import { ChatProvider } from './context/ChatContext'
+import { UsageProvider } from './context/UsageContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import DevPanel from './components/dev/DevPanel'
 import Landing from './pages/Landing'
@@ -23,8 +24,9 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <DogProvider>
-          <ChatProvider>
-            <BrowserRouter>
+          <UsageProvider>
+            <ChatProvider>
+              <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/signup" element={<SignUp />} />
@@ -42,8 +44,9 @@ function App() {
               </Routes>
               {/* Dev tools - only renders in development mode */}
               <DevPanel />
-            </BrowserRouter>
-          </ChatProvider>
+              </BrowserRouter>
+            </ChatProvider>
+          </UsageProvider>
         </DogProvider>
       </AuthProvider>
     </ErrorBoundary>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useDog } from '../context/DogContext'
+import { useUsage } from '../context/UsageContext'
 import { geminiService } from '../services/api/gemini'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatInput from '../components/chat/ChatInput'
@@ -13,6 +14,8 @@ import PawTypingIndicator from '../components/chat/PawTypingIndicator'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import EmergencyOverlay from '../components/emergency/EmergencyOverlay'
+import UsageCounter from '../components/usage/UsageCounter'
+import UsageLimitModal from '../components/usage/UsageLimitModal'
 
 // Welcome message for new conversations
 function getWelcomeMessage(dogName) {
@@ -23,10 +26,20 @@ function getWelcomeMessage(dogName) {
 function Chat() {
   const { user } = useAuth()
   const { activeDog } = useDog()
+  const {
+    canChat,
+    canEmergencyChat,
+    useChat,
+    useEmergencyChat,
+    chatsRemaining,
+    emergencyChatsRemaining,
+  } = useUsage()
   const location = useLocation()
 
   // Session-based state (not persisted)
   const [messages, setMessages] = useState([])
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [isEmergencyMode, setIsEmergencyMode] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [error, setError] = useState(null)
   const [suggestedAction, setSuggestedAction] = useState(null)
@@ -131,6 +144,27 @@ function Chat() {
     setError(null)
     setSuggestedAction(null)
     setEmergencySteps([])
+
+    // Check usage limits
+    if (!isEmergencyMode && !canChat) {
+      setShowLimitModal(true)
+      return
+    }
+
+    // Consume usage (regular or emergency)
+    if (isEmergencyMode) {
+      const allowed = useEmergencyChat()
+      if (!allowed) {
+        setShowLimitModal(true)
+        return
+      }
+    } else {
+      const allowed = useChat()
+      if (!allowed) {
+        setShowLimitModal(true)
+        return
+      }
+    }
 
     // Add user message
     const userMessage = {
@@ -443,6 +477,37 @@ function Chat() {
         )}
       </AnimatePresence>
 
+      {/* Usage Counter */}
+      {!isEmergencyMode && (
+        <div className="max-w-lg mx-auto px-4 py-2">
+          <UsageCounter
+            type="chat"
+            showUpgrade={true}
+            onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+          />
+        </div>
+      )}
+
+      {/* Emergency Mode Banner */}
+      {isEmergencyMode && (
+        <div className="bg-red-50 border-b border-red-200">
+          <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <p className="text-xs text-red-700 font-medium">
+                Emergency Mode • {emergencyChatsRemaining} emergency chats remaining
+              </p>
+            </div>
+            <button
+              onClick={() => setIsEmergencyMode(false)}
+              className="text-xs text-red-500 hover:text-red-700"
+            >
+              Exit
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <main
         ref={chatContainerRef}
@@ -602,6 +667,19 @@ function Chat() {
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Usage Limit Modal */}
+      <UsageLimitModal
+        type="chat"
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        onEmergency={() => {
+          setShowLimitModal(false)
+          setIsEmergencyMode(true)
+        }}
+        onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+        emergencyRemaining={emergencyChatsRemaining}
+      />
     </div>
   )
 }
