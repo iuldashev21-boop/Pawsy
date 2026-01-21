@@ -79,10 +79,21 @@ export function DogProvider({ children }) {
     const storedDogs = localStorage.getItem(dogsKey)
     const storedActiveDog = localStorage.getItem(activeDogKey)
 
+    // Parse with error handling to prevent crashes from corrupted data
+    let dogs = []
+    if (storedDogs) {
+      try {
+        dogs = JSON.parse(storedDogs)
+      } catch {
+        // Corrupted data - reset to empty
+        localStorage.removeItem(dogsKey)
+      }
+    }
+
     dispatch({
       type: 'SET_DOGS',
       payload: {
-        dogs: storedDogs ? JSON.parse(storedDogs) : [],
+        dogs,
         activeDogId: storedActiveDog || null,
       }
     })
@@ -107,7 +118,15 @@ export function DogProvider({ children }) {
       const currentUserId = getCurrentUserId()
       const currentDogsKey = currentUserId ? getStorageKey(currentUserId, 'dogs') : null
       const storedDogs = currentDogsKey ? localStorage.getItem(currentDogsKey) : null
-      const currentDogs = storedDogs ? JSON.parse(storedDogs) : []
+
+      let currentDogs = []
+      if (storedDogs) {
+        try {
+          currentDogs = JSON.parse(storedDogs)
+        } catch {
+          // Corrupted data - will be handled by loadDogsForUser
+        }
+      }
 
       // If user changed or dogs don't match, reload
       if (currentDogs.length !== state.dogs.length) {

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 /**
  * PawsyMascot - Animated chubby corgi with head mirror
@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
  */
 export default function PawsyMascot({ mood = 'happy', size = 40, animate = true }) {
   const [isBlinking, setIsBlinking] = useState(false)
+  const blinkTimeoutRef = useRef(null)
 
   // Random blinking
   useEffect(() => {
@@ -18,11 +19,18 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
     const blinkInterval = setInterval(() => {
       if (Math.random() > 0.7) {
         setIsBlinking(true)
-        setTimeout(() => setIsBlinking(false), 150)
+        // Store timeout ref so we can clean it up
+        blinkTimeoutRef.current = setTimeout(() => setIsBlinking(false), 150)
       }
     }, 2000)
 
-    return () => clearInterval(blinkInterval)
+    return () => {
+      clearInterval(blinkInterval)
+      // Also clear any pending blink timeout
+      if (blinkTimeoutRef.current) {
+        clearTimeout(blinkTimeoutRef.current)
+      }
+    }
   }, [animate])
 
   // Mood-based configurations

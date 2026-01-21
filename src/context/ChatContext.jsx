@@ -133,15 +133,30 @@ export function ChatProvider({ children }) {
     const storedSessions = localStorage.getItem(sessionsKey)
     const storedHealthEvents = localStorage.getItem(healthEventsKey)
 
-    dispatch({
-      type: 'SET_SESSIONS',
-      payload: storedSessions ? JSON.parse(storedSessions) : [],
-    })
+    // Parse with error handling to prevent crashes from corrupted data
+    let sessions = []
+    let healthEvents = []
 
-    dispatch({
-      type: 'SET_HEALTH_EVENTS',
-      payload: storedHealthEvents ? JSON.parse(storedHealthEvents) : [],
-    })
+    if (storedSessions) {
+      try {
+        sessions = JSON.parse(storedSessions)
+      } catch {
+        // Corrupted data - reset to empty
+        localStorage.removeItem(sessionsKey)
+      }
+    }
+
+    if (storedHealthEvents) {
+      try {
+        healthEvents = JSON.parse(storedHealthEvents)
+      } catch {
+        // Corrupted data - reset to empty
+        localStorage.removeItem(healthEventsKey)
+      }
+    }
+
+    dispatch({ type: 'SET_SESSIONS', payload: sessions })
+    dispatch({ type: 'SET_HEALTH_EVENTS', payload: healthEvents })
   }, [])
 
   // Initial load

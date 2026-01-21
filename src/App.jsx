@@ -18,6 +18,7 @@ import ToxicChecker from './pages/ToxicChecker'
 import EmergencyGuides from './pages/EmergencyGuides'
 import BreedInfo from './pages/BreedInfo'
 import EmergencyVet from './pages/EmergencyVet'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
                 <Route path="/emergency-guides" element={<EmergencyGuides />} />
                 <Route path="/breed-info" element={<BreedInfo />} />
                 <Route path="/emergency-vet" element={<EmergencyVet />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
               {/* Dev tools - only renders in development mode */}
               <DevPanel />

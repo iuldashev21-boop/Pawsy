@@ -24,7 +24,7 @@ const BODY_AREAS = [
 ]
 
 function PhotoAnalysis() {
-  const { activeDog, dogs } = useDog()
+  const { activeDog, dogs, loading: dogsLoading } = useDog()
   const {
     canPhoto,
     canEmergencyPhoto,
@@ -44,7 +44,19 @@ function PhotoAnalysis() {
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [isEmergencyMode, setIsEmergencyMode] = useState(false)
 
-  // Redirect if no dogs
+  // Wait for dogs to load before checking
+  if (dogsLoading) {
+    return (
+      <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
+        <div className="text-center">
+          <Dog className="w-16 h-16 text-[#F4A261] mx-auto mb-4 animate-pulse" />
+          <p className="text-[#6B6B6B]">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect if no dogs (only after loading complete)
   if (dogs.length === 0) {
     navigate('/add-dog')
     return null
