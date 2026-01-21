@@ -144,7 +144,7 @@ function PhotoAnalysis() {
       // Response is already structured - use directly
       setAnalysis(response)
     } catch (err) {
-      console.error('Analysis error:', err)
+      if (import.meta.env.DEV) console.error('Analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
     } finally {
       setIsAnalyzing(false)
@@ -218,7 +218,7 @@ function PhotoAnalysis() {
             <UsageCounter
               type="photo"
               showUpgrade={true}
-              onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+              onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
             />
           </div>
         )}
@@ -395,7 +395,7 @@ function PhotoAnalysis() {
           setShowLimitModal(false)
           setIsEmergencyMode(true)
         }}
-        onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+        onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
         emergencyRemaining={emergencyPhotosRemaining}
       />
     </div>

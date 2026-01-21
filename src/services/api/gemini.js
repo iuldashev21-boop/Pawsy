@@ -771,7 +771,7 @@ export const geminiService = {
       }
 
     } catch (error) {
-      console.error('Gemini Chat Error:', error)
+      if (import.meta.env.DEV) console.error('Gemini Chat Error:', error)
 
       // Try fallback model
       if (error.message?.includes('not found') || error.message?.includes('404')) {
@@ -836,7 +836,7 @@ export const geminiService = {
         emergency_steps: parsed.emergency_steps
       }
     } catch (error) {
-      console.error('Fallback chat also failed:', error)
+      if (import.meta.env.DEV) console.error('Fallback chat also failed:', error)
       return handleGeminiError(error, null)
     }
   },
@@ -934,7 +934,7 @@ export const geminiService = {
           }
         }
       } catch (e) {
-        console.warn('Failed to parse structured photo response:', e.message)
+        if (import.meta.env.DEV) console.warn('Failed to parse structured photo response:', e.message)
       }
 
       // Fallback: create basic structure from raw text
@@ -958,7 +958,7 @@ export const geminiService = {
       }
 
     } catch (error) {
-      console.error('Gemini Photo Analysis Error:', error)
+      if (import.meta.env.DEV) console.error('Gemini Photo Analysis Error:', error)
 
       // Try fallback model
       if (error.message?.includes('not found') || error.message?.includes('404')) {
@@ -1038,7 +1038,7 @@ export const geminiService = {
         }
       }
     } catch (error) {
-      console.error('Fallback photo analysis also failed:', error)
+      if (import.meta.env.DEV) console.error('Fallback photo analysis also failed:', error)
       return handleGeminiError(error, null)
     }
   },
@@ -1100,7 +1100,7 @@ export const geminiService = {
       }
 
     } catch (error) {
-      console.error('Gemini Stream Error:', error)
+      if (import.meta.env.DEV) console.error('Gemini Stream Error:', error)
       return handleGeminiError(error, null)
     }
   }

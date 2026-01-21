@@ -162,7 +162,7 @@ export function DogProvider({ children }) {
   const addDog = (dogData) => {
     const userId = getCurrentUserId()
     if (!userId) {
-      console.error('Cannot add dog: no user logged in')
+      if (import.meta.env.DEV) console.error('Cannot add dog: no user logged in')
       return null
     }
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Mic, Camera, X } from 'lucide-react'
+import { Send, Camera, X } from 'lucide-react'
 
 function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything..." }) {
   const [message, setMessage] = useState('')
@@ -139,17 +139,6 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
               aria-label="Upload photo for analysis"
             >
               <Camera className="w-5 h-5" />
-            </motion.button>
-
-            {/* Voice input - placeholder */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              className="p-2 rounded-xl text-[#9E9E9E] hover:text-[#7EC8C8] hover:bg-[#7EC8C8]/10 transition-colors disabled:opacity-50"
-              disabled={disabled}
-              aria-label="Voice input (coming soon)"
-            >
-              <Mic className="w-5 h-5" />
             </motion.button>
 
             {/* Send button */}

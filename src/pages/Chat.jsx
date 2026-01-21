@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -54,6 +54,17 @@ function Chat() {
 
   // Detect emergency state
   const isEmergency = suggestedAction === 'emergency' || emergencySteps.length > 0
+
+  // Memoize dog context to avoid duplicate object creation
+  const dogContext = useMemo(() => activeDog ? {
+    name: activeDog.name,
+    breed: activeDog.breed || 'unknown',
+    age: activeDog.age,
+    weight: activeDog.weight,
+    sex: activeDog.sex,
+    allergies: activeDog.allergies || [],
+    conditions: activeDog.conditions || [],
+  } : { name: 'your dog', breed: 'unknown' }, [activeDog])
 
   // Auto-activate calm mode when emergency detected
   useEffect(() => {
@@ -194,18 +205,6 @@ function Chat() {
     setIsTyping(true)
     try {
       const history = messages.slice(-10)
-
-      // Use actual dog profile from context
-      const dogContext = activeDog ? {
-        name: activeDog.name,
-        breed: activeDog.breed || 'unknown',
-        age: activeDog.age,
-        weight: activeDog.weight,
-        sex: activeDog.sex,
-        allergies: activeDog.allergies || [],
-        conditions: activeDog.conditions || [],
-      } : { name: 'your dog', breed: 'unknown' }
-
       const response = await geminiService.chat(dogContext, content, history, photoContext)
 
       if (response.error) {
@@ -245,7 +244,7 @@ function Chat() {
       }
 
     } catch (err) {
-      console.error('Chat error:', err)
+      if (import.meta.env.DEV) console.error('Chat error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setIsTyping(false)
@@ -285,17 +284,6 @@ function Chat() {
 
     setIsTyping(true)
     try {
-      // Use actual dog profile from context
-      const dogContext = activeDog ? {
-        name: activeDog.name,
-        breed: activeDog.breed || 'unknown',
-        age: activeDog.age,
-        weight: activeDog.weight,
-        sex: activeDog.sex,
-        allergies: activeDog.allergies || [],
-        conditions: activeDog.conditions || [],
-      } : { name: 'your dog', breed: 'unknown' }
-
       const response = await geminiService.analyzePhoto(
         imageData.base64Data,
         imageData.mimeType,
@@ -328,7 +316,7 @@ function Chat() {
       }
 
     } catch (err) {
-      console.error('Photo analysis error:', err)
+      if (import.meta.env.DEV) console.error('Photo analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
     } finally {
       setIsTyping(false)
@@ -483,7 +471,7 @@ function Chat() {
           <UsageCounter
             type="chat"
             showUpgrade={true}
-            onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+            onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
           />
         </div>
       )}
@@ -677,7 +665,7 @@ function Chat() {
           setShowLimitModal(false)
           setIsEmergencyMode(true)
         }}
-        onUpgrade={() => {/* TODO: Navigate to upgrade */}}
+        onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
         emergencyRemaining={emergencyChatsRemaining}
       />
     </div>

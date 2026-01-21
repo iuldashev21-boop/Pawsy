@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
@@ -7,7 +7,6 @@ import {
   Phone,
   Clock,
   Navigation,
-  ExternalLink,
   AlertTriangle,
   Loader2,
   RefreshCw,
@@ -28,7 +27,7 @@ function EmergencyVet() {
   const [searchQuery, setSearchQuery] = useState('')
 
   // Get user location
-  const getLocation = () => {
+  const getLocation = useCallback(() => {
     setLoading(true)
     setError(null)
 
@@ -51,17 +50,17 @@ function EmergencyVet() {
         setLoading(false)
       },
       (err) => {
-        console.error('Location error:', err)
+        if (import.meta.env.DEV) console.error('Location error:', err)
         setError('Unable to get your location. Please enable location services.')
         setLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
-  }
+  }, [])
 
   useEffect(() => {
     getLocation()
-  }, [])
+  }, [getLocation])
 
   // Generate simulated vet clinics (in real app, this would be API call)
   function generateSimulatedVets(coords) {
