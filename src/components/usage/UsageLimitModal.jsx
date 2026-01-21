@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Sparkles, AlertTriangle, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { USAGE_LIMITS } from '../../constants/usage'
 
 /**
  * UsageLimitModal - Shown when user reaches their daily limit
@@ -22,7 +23,7 @@ function UsageLimitModal({
   emergencyRemaining = 0,
 }) {
   const isChat = type === 'chat'
-  const limit = isChat ? 5 : 3
+  const limit = isChat ? USAGE_LIMITS.dailyChats : USAGE_LIMITS.dailyPhotos
   const labelPlural = isChat ? 'chats' : 'photo scans'
 
   if (!isOpen) return null
@@ -48,6 +49,7 @@ function UsageLimitModal({
             <button
               onClick={onClose}
               className="absolute top-4 right-4 p-1 rounded-lg hover:bg-white/50 text-[#9E9E9E]"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>

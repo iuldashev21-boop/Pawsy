@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Dog, User, PawPrint, Image } from 'lucide-react'
 import RichHealthResponse from './RichHealthResponse'
@@ -231,4 +232,4 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
   )
 }
 
-export default ChatBubble
+export default memo(ChatBubble)

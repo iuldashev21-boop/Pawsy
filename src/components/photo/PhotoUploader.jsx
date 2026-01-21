@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Upload, X, Image } from 'lucide-react'
 
@@ -62,6 +62,7 @@ function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
           whileTap={{ scale: 0.95 }}
           onClick={onClear}
           className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:bg-white transition-colors"
+          aria-label="Remove photo"
         >
           <X className="w-5 h-5 text-[#3D3D3D]" />
         </motion.button>
@@ -151,4 +152,4 @@ function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
   )
 }
 
-export default PhotoUploader
+export default memo(PhotoUploader)

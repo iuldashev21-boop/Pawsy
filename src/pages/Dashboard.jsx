@@ -70,6 +70,7 @@ function Dashboard() {
             <motion.button
               whileTap={{ scale: 0.95 }}
               className="w-10 h-10 rounded-full bg-white shadow-sm border border-[#E8E8E8] flex items-center justify-center"
+              aria-label="Settings"
             >
               <Settings className="w-5 h-5 text-[#6B6B6B]" />
             </motion.button>

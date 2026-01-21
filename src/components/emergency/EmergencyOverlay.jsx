@@ -1,6 +1,6 @@
+import { memo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, MapPin, X, ChevronDown, ChevronUp } from 'lucide-react'
-import { useState } from 'react'
 
 /**
  * EmergencyOverlay - Gentle, supportive emergency assistance
@@ -8,7 +8,7 @@ import { useState } from 'react'
  * NOT intrusive - just a helpful banner with quick access to help
  * User can dismiss anytime and continue chatting
  */
-export default function EmergencyOverlay({
+function EmergencyOverlay({
   isActive,
   emergencySteps = [],
   dogName = 'your dog',
@@ -134,3 +134,5 @@ export default function EmergencyOverlay({
     </AnimatePresence>
   )
 }
+
+export default memo(EmergencyOverlay)

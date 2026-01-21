@@ -82,7 +82,6 @@ function Settings() {
   }
 
   const totalChats = sessions.length
-  const activeDogChats = sessions.filter(s => s.dogId === activeDog?.id).length
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">

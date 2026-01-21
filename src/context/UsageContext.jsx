@@ -1,18 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
+import { USAGE_LIMITS } from '../constants/usage'
 
 const UsageContext = createContext(null)
 
-// Usage limits configuration
-const LIMITS = {
-  dailyChats: 5,
-  dailyPhotos: 3,
-  emergencyChats: 5,
-  emergencyPhotos: 1,
-  // Day 1 bonus
-  firstDayChats: 10,
-  firstDayPhotos: 5,
-}
+// Alias for internal use
+const LIMITS = USAGE_LIMITS
 
 // Get today's date as YYYY-MM-DD in local timezone
 const getTodayDate = () => {

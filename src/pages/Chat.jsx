@@ -365,6 +365,7 @@ function Chat() {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
+                aria-label="Back to dashboard"
               >
                 <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
               </motion.button>
@@ -635,6 +636,7 @@ function Chat() {
             whileTap={{ scale: 0.95 }}
             onClick={scrollToBottom}
             className="fixed bottom-40 right-4 w-10 h-10 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-full shadow-lg z-40 flex items-center justify-center"
+            aria-label="Scroll to bottom"
           >
             <ChevronDown className="w-5 h-5" />
           </motion.button>
