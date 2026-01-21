@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { PawPrint } from 'lucide-react'
+import PawsyMascot from '../mascot/PawsyMascot'
 
 function PawTypingIndicator() {
   return (
@@ -7,16 +8,11 @@ function PawTypingIndicator() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="flex gap-3"
+      className="flex gap-3 items-end"
     >
-      {/* Avatar */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center shadow-sm">
-        <motion.div
-          animate={{ rotate: [0, -15, 15, -15, 0] }}
-          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 0.3 }}
-        >
-          <PawPrint className="w-4 h-4 text-white" />
-        </motion.div>
+      {/* Mascot Avatar */}
+      <div className="flex-shrink-0">
+        <PawsyMascot mood="thinking" size={32} />
       </div>
 
       {/* Bubble with dots */}

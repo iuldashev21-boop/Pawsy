@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Heart, AlertTriangle, Activity } from 'lucide-react'
 
 // Health status: 'good' | 'attention' | 'unknown'
-function HealthOrb({ status = 'good', dogName }) {
+function HealthOrb({ status = 'good', dogName, compact = false }) {
   const statusConfig = {
     good: {
       gradient: 'from-[#A5D6A7] via-[#81C784] to-[#66BB6A]',
@@ -36,6 +36,63 @@ function HealthOrb({ status = 'good', dogName }) {
   const config = statusConfig[status]
   const Icon = config.icon
 
+  // Use compact mode only when status is unknown
+  const isCompact = compact && status === 'unknown'
+
+  if (isCompact) {
+    return (
+      <div className="flex items-center gap-4">
+        {/* Small orb */}
+        <motion.div
+          className="relative flex items-center justify-center flex-shrink-0"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        >
+          {/* Outer glow - smaller */}
+          <div className={`absolute w-16 h-16 rounded-full ${config.glow} opacity-20 blur-xl`} />
+
+          {/* Main orb - smaller */}
+          <motion.div
+            className={`relative w-14 h-14 rounded-full bg-gradient-to-br ${config.gradient} flex items-center justify-center`}
+            animate={{
+              scale: [1, 1.03, 1],
+              boxShadow: [
+                `0 0 15px ${config.shadow}`,
+                `0 0 25px ${config.shadowBright}`,
+                `0 0 15px ${config.shadow}`,
+              ],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            <Icon className="w-6 h-6 text-white drop-shadow-md" />
+          </motion.div>
+        </motion.div>
+
+        {/* Status text - inline */}
+        <motion.div
+          className="flex-1"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <h3
+            className="text-base font-bold text-[#3D3D3D]"
+            style={{ fontFamily: 'Nunito, sans-serif' }}
+          >
+            {config.label}
+          </h3>
+          <p className="text-xs text-[#6B6B6B]">{config.sublabel}</p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Full size orb for good/attention status or when compact=false
   return (
     <div className="flex flex-col items-center">
       {/* Orb container */}

@@ -8,6 +8,7 @@ import PhotoUploader from '../components/photo/PhotoUploader'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import AnalysisResult from '../components/photo/AnalysisResult'
 import BottomNav from '../components/layout/BottomNav'
+import PawsyMascot from '../components/mascot/PawsyMascot'
 
 const BODY_AREAS = [
   { id: 'skin', label: 'Skin/Coat' },
@@ -49,7 +50,7 @@ function PhotoAnalysis() {
       if (!geminiService.isConfigured()) {
         // Demo mode - return structured response matching new schema
         await new Promise(resolve => setTimeout(resolve, 3000))
-        setAnalysis({
+        const demoResult = {
           is_dog: true,
           detected_subject: 'dog',
           detected_breed: activeDog?.breed || 'Mixed breed',
@@ -73,7 +74,8 @@ function PhotoAnalysis() {
             'Use an e-collar if your dog keeps licking the area',
           ],
           summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${bodyAreaLabel.toLowerCase()}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, this appears to be a minor issue that can likely be monitored at home.`,
-        })
+        }
+        setAnalysis(demoResult)
         setIsAnalyzing(false)
         return
       }
@@ -138,9 +140,17 @@ function PhotoAnalysis() {
               </motion.button>
             </Link>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              <PawsyMascot
+                mood={
+                  isAnalyzing ? 'thinking' :
+                  analysis?.urgency_level === 'emergency' ? 'alert' :
+                  analysis?.urgency_level === 'urgent' ? 'concerned' :
+                  analysis ? 'celebrating' :
+                  photo ? 'listening' :
+                  'happy'
+                }
+                size={36}
+              />
               <div>
                 <h1
                   className="text-lg font-bold text-[#3D3D3D]"

@@ -6,12 +6,28 @@ const initialState = {
   sessions: [],
   activeSessionId: null,
   loading: false,
+  healthEvents: [], // Timeline of health events (symptoms, photo analyses, concerns)
 }
 
 function chatReducer(state, action) {
   switch (action.type) {
     case 'SET_SESSIONS':
       return { ...state, sessions: action.payload, activeSessionId: null }
+
+    case 'SET_HEALTH_EVENTS':
+      return { ...state, healthEvents: action.payload }
+
+    case 'ADD_HEALTH_EVENT':
+      return {
+        ...state,
+        healthEvents: [...state.healthEvents, action.payload],
+      }
+
+    case 'CLEAR_HEALTH_EVENTS_FOR_DOG':
+      return {
+        ...state,
+        healthEvents: state.healthEvents.filter(e => e.dogId !== action.payload),
+      }
 
     case 'CREATE_SESSION':
       return {
@@ -67,6 +83,12 @@ function chatReducer(state, action) {
         activeSessionId: null,
       }
 
+    case 'CLEAR_ALL_HEALTH_EVENTS':
+      return {
+        ...state,
+        healthEvents: [],
+      }
+
     case 'RESET':
       return initialState
 
@@ -97,7 +119,7 @@ const getStorageKey = (userId, key) => {
 export function ChatProvider({ children }) {
   const [state, dispatch] = useReducer(chatReducer, initialState)
 
-  // Load sessions for current user
+  // Load sessions and health events for current user
   const loadSessionsForUser = useCallback(() => {
     const userId = getCurrentUserId()
     if (!userId) {
@@ -106,11 +128,19 @@ export function ChatProvider({ children }) {
     }
 
     const sessionsKey = getStorageKey(userId, 'chat_sessions')
-    const stored = localStorage.getItem(sessionsKey)
+    const healthEventsKey = getStorageKey(userId, 'health_events')
+
+    const storedSessions = localStorage.getItem(sessionsKey)
+    const storedHealthEvents = localStorage.getItem(healthEventsKey)
 
     dispatch({
       type: 'SET_SESSIONS',
-      payload: stored ? JSON.parse(stored) : [],
+      payload: storedSessions ? JSON.parse(storedSessions) : [],
+    })
+
+    dispatch({
+      type: 'SET_HEALTH_EVENTS',
+      payload: storedHealthEvents ? JSON.parse(storedHealthEvents) : [],
     })
   }, [])
 
@@ -134,7 +164,7 @@ export function ChatProvider({ children }) {
     }
   }, [loadSessionsForUser])
 
-  // Persist to localStorage (strip large image data to avoid bloating storage)
+  // Persist sessions to localStorage (strip large image data to avoid bloating storage)
   useEffect(() => {
     const userId = getCurrentUserId()
     if (!userId) return
@@ -156,6 +186,15 @@ export function ChatProvider({ children }) {
     }))
     localStorage.setItem(sessionsKey, JSON.stringify(sessionsForStorage))
   }, [state.sessions])
+
+  // Persist health events to localStorage
+  useEffect(() => {
+    const userId = getCurrentUserId()
+    if (!userId) return
+
+    const healthEventsKey = getStorageKey(userId, 'health_events')
+    localStorage.setItem(healthEventsKey, JSON.stringify(state.healthEvents))
+  }, [state.healthEvents])
 
   const createSession = (dogId, dogContext) => {
     const newSession = {
@@ -205,6 +244,26 @@ export function ChatProvider({ children }) {
     return state.sessions.find(s => s.id === state.activeSessionId) || null
   }
 
+  // Health Events for Timeline
+  const addHealthEvent = (dogId, event) => {
+    const newEvent = {
+      id: crypto.randomUUID(),
+      dogId,
+      timestamp: new Date().toISOString(),
+      ...event,
+    }
+    dispatch({ type: 'ADD_HEALTH_EVENT', payload: newEvent })
+    return newEvent
+  }
+
+  const getHealthEventsForDog = (dogId) => {
+    return state.healthEvents.filter(e => e.dogId === dogId)
+  }
+
+  const clearHealthEventsForDog = (dogId) => {
+    dispatch({ type: 'CLEAR_HEALTH_EVENTS_FOR_DOG', payload: dogId })
+  }
+
   // Expose reload for after login/signup
   const reloadForCurrentUser = useCallback(() => {
     loadSessionsForUser()
@@ -215,6 +274,7 @@ export function ChatProvider({ children }) {
     activeSessionId: state.activeSessionId,
     activeSession: getActiveSession(),
     loading: state.loading,
+    healthEvents: state.healthEvents,
     createSession,
     addMessage,
     setActiveSession,
@@ -223,6 +283,10 @@ export function ChatProvider({ children }) {
     clearAllSessions,
     getSessionsForDog,
     reloadForCurrentUser,
+    // Health Timeline
+    addHealthEvent,
+    getHealthEventsForDog,
+    clearHealthEventsForDog,
   }
 
   return (
