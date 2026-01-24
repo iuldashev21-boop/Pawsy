@@ -54,7 +54,7 @@ const faqs = [
   },
   {
     q: "What's included in the free version?",
-    a: "5 AI chats per day, 3 photo scans per day, unlimited access to symptom checker, toxic food database, emergency guides, and vet finder."
+    a: "3 AI chats per day, 3 photo scans per day, unlimited access to symptom checker, toxic food database, emergency guides, and vet finder."
   },
   {
     q: "What does Premium add?",
