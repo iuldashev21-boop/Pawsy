@@ -33,6 +33,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200',
     textColor: 'text-red-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Call vet immediately - this is a life-threatening emergency',
     when: 'If your dog is not breathing and has no heartbeat',
     warning: 'Only perform CPR if there is no pulse. Check for breathing first.',
     steps: [
@@ -55,6 +57,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-orange-50',
     borderColor: 'border-orange-200',
     textColor: 'text-orange-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Call vet immediately if unable to clear airway',
     when: 'If your dog is pawing at mouth, gagging, or struggling to breathe',
     warning: 'Be careful not to push object further down. Only try removal if you can clearly see it.',
     steps: [
@@ -77,6 +81,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
     textColor: 'text-purple-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Call poison control or vet immediately - time is critical',
     when: 'If your dog ate something toxic (chocolate, xylitol, chemicals, etc.)',
     warning: 'Do NOT induce vomiting unless instructed by a vet. Some substances cause more damage coming back up.',
     steps: [
@@ -99,6 +105,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
     textColor: 'text-amber-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Get to vet ASAP - internal organ damage may not be visible',
     when: 'If your dog is panting heavily, drooling excessively, or collapsed in heat',
     warning: 'Do NOT use ice water - it can cause shock. Cool gradually.',
     steps: [
@@ -121,6 +129,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-rose-50',
     borderColor: 'border-rose-200',
     textColor: 'text-rose-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Call vet while applying pressure - transport when stable',
     when: 'If your dog has a wound that won\'t stop bleeding',
     warning: 'Apply direct pressure. Do not remove bandages if blood soaks through - add more on top.',
     steps: [
@@ -143,6 +153,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-indigo-50',
     borderColor: 'border-indigo-200',
     textColor: 'text-indigo-700',
+    vetUrgency: 'urgent',
+    vetUrgencyText: 'Call vet after seizure ends, or immediately if it lasts 5+ minutes',
     when: 'If your dog is having a seizure (convulsing, stiff, unresponsive)',
     warning: 'Do NOT put anything in their mouth or restrain them. They cannot swallow their tongue.',
     steps: [
@@ -165,6 +177,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-yellow-50',
     borderColor: 'border-yellow-200',
     textColor: 'text-yellow-700',
+    vetUrgency: 'monitor',
+    vetUrgencyText: 'Call vet immediately if facial swelling or breathing difficulty',
     when: 'If your dog was stung by a bee, wasp, or other insect',
     warning: 'Watch for allergic reaction: facial swelling, difficulty breathing, collapse.',
     steps: [
@@ -187,6 +201,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-teal-50',
     borderColor: 'border-teal-200',
     textColor: 'text-teal-700',
+    vetUrgency: 'soon',
+    vetUrgencyText: 'Schedule vet visit within 24 hours, or sooner if bleeding won\'t stop',
     when: 'If your dog has a broken, torn, or bleeding nail',
     warning: 'Nail injuries bleed a lot but are rarely serious. Stay calm.',
     steps: [
@@ -209,6 +225,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-cyan-50',
     borderColor: 'border-cyan-200',
     textColor: 'text-cyan-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'See vet immediately - vision can be saved with quick treatment',
     when: 'If your dog has an eye injury, foreign object, or chemical exposure',
     warning: 'Do NOT rub or apply pressure. Eye injuries can worsen quickly.',
     steps: [
@@ -231,6 +249,8 @@ const EMERGENCY_GUIDES = [
     bgColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
     textColor: 'text-slate-700',
+    vetUrgency: 'immediate',
+    vetUrgencyText: 'Transport to vet as soon as safely possible',
     when: 'If your dog is limping severely, has visible deformity, or won\'t bear weight',
     warning: 'Do NOT try to set or splint the bone yourself. Minimize movement.',
     steps: [
@@ -385,6 +405,49 @@ function EmergencyGuides() {
           <h3 className={`text-sm font-semibold ${selectedGuide.textColor} mb-1`}>When to use this guide</h3>
           <p className="text-sm text-[#6B6B6B]">{selectedGuide.when}</p>
         </motion.div>
+
+        {/* Vet Urgency Indicator */}
+        {selectedGuide.vetUrgency && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className={`rounded-xl p-4 mb-4 ${
+              selectedGuide.vetUrgency === 'immediate' ? 'bg-red-50 border border-red-200' :
+              selectedGuide.vetUrgency === 'urgent' ? 'bg-orange-50 border border-orange-200' :
+              selectedGuide.vetUrgency === 'soon' ? 'bg-yellow-50 border border-yellow-200' :
+              'bg-blue-50 border border-blue-200'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <Phone className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                selectedGuide.vetUrgency === 'immediate' ? 'text-red-500' :
+                selectedGuide.vetUrgency === 'urgent' ? 'text-orange-500' :
+                selectedGuide.vetUrgency === 'soon' ? 'text-yellow-600' :
+                'text-blue-500'
+              }`} />
+              <div>
+                <h3 className={`text-sm font-semibold mb-1 ${
+                  selectedGuide.vetUrgency === 'immediate' ? 'text-red-700' :
+                  selectedGuide.vetUrgency === 'urgent' ? 'text-orange-700' :
+                  selectedGuide.vetUrgency === 'soon' ? 'text-yellow-700' :
+                  'text-blue-700'
+                }`}>
+                  {selectedGuide.vetUrgency === 'immediate' ? 'Call Vet Immediately' :
+                   selectedGuide.vetUrgency === 'urgent' ? 'Contact Vet Soon' :
+                   selectedGuide.vetUrgency === 'soon' ? 'Schedule Vet Visit' :
+                   'Monitor & Call If Needed'}
+                </h3>
+                <p className={`text-sm ${
+                  selectedGuide.vetUrgency === 'immediate' ? 'text-red-600' :
+                  selectedGuide.vetUrgency === 'urgent' ? 'text-orange-600' :
+                  selectedGuide.vetUrgency === 'soon' ? 'text-yellow-600' :
+                  'text-blue-600'
+                }`}>{selectedGuide.vetUrgencyText}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Warning */}
         <motion.div

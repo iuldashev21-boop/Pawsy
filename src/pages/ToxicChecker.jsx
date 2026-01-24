@@ -18,52 +18,64 @@ import {
 } from 'lucide-react'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
+import { useOnboarding } from '../context/OnboardingContext'
 
 // Toxicity database
 const TOXIC_ITEMS = [
   // Foods - Toxic
   { name: 'Chocolate', category: 'food', toxicity: 'toxic', icon: '🍫',
     description: 'Contains theobromine which dogs cannot metabolize. Dark chocolate is most dangerous.',
+    quantityNote: 'Small amount (1-2 bites): monitor closely. Large amount or dark chocolate: emergency',
     symptoms: ['Vomiting', 'Diarrhea', 'Rapid breathing', 'Seizures'],
     action: 'Contact vet immediately if large amount consumed' },
   { name: 'Grapes', category: 'food', toxicity: 'toxic', icon: '🍇',
     description: 'Can cause acute kidney failure in dogs. Raisins are equally dangerous.',
+    quantityNote: 'Even 1-2 grapes can be toxic for small dogs. Any amount is concerning',
     symptoms: ['Vomiting', 'Lethargy', 'Kidney failure'],
     action: 'Seek emergency vet care - even small amounts are dangerous' },
   { name: 'Raisins', category: 'food', toxicity: 'toxic', icon: '🍇',
     description: 'Concentrated form of grapes, extremely toxic to dogs.',
+    quantityNote: 'A single raisin can be dangerous. Treat any amount as an emergency',
     symptoms: ['Vomiting', 'Lethargy', 'Kidney failure'],
     action: 'Seek emergency vet care immediately' },
   { name: 'Onions', category: 'food', toxicity: 'toxic', icon: '🧅',
     description: 'Contains compounds that damage red blood cells causing anemia.',
+    quantityNote: 'Small bite: likely okay. More than 0.5% of body weight: toxic',
     symptoms: ['Weakness', 'Vomiting', 'Breathing problems', 'Pale gums'],
     action: 'Contact vet - toxicity can be delayed' },
   { name: 'Garlic', category: 'food', toxicity: 'toxic', icon: '🧄',
     description: 'More potent than onions. Even small amounts can cause issues.',
+    quantityNote: '1 clove per 10 lbs body weight is toxic. Less may still cause issues',
     symptoms: ['Weakness', 'Lethargy', 'Pale gums'],
     action: 'Contact vet if significant amount consumed' },
   { name: 'Xylitol', category: 'food', toxicity: 'toxic', icon: '🍬',
     description: 'Artificial sweetener found in sugar-free products. Extremely dangerous.',
+    quantityNote: 'Extremely toxic - even a small amount (1-2 pieces of gum) is an emergency',
     symptoms: ['Vomiting', 'Seizures', 'Liver failure', 'Hypoglycemia'],
     action: 'Emergency - seek immediate vet care' },
   { name: 'Macadamia Nuts', category: 'food', toxicity: 'toxic', icon: '🥜',
     description: 'Causes weakness and vomiting. Often combined with chocolate.',
+    quantityNote: '1 nut per 2 lbs body weight causes symptoms. Less is still concerning',
     symptoms: ['Weakness', 'Vomiting', 'Tremors', 'Hyperthermia'],
     action: 'Contact vet - usually not fatal but needs monitoring' },
   { name: 'Avocado', category: 'food', toxicity: 'caution', icon: '🥑',
     description: 'Contains persin. The pit is also a choking hazard.',
+    quantityNote: 'Small amount of flesh: usually fine. Pit or large amounts: concerning',
     symptoms: ['Vomiting', 'Diarrhea'],
     action: 'Monitor - small amounts usually okay' },
   { name: 'Alcohol', category: 'food', toxicity: 'toxic', icon: '🍺',
     description: 'Dogs are very sensitive to ethanol. Even small amounts are dangerous.',
+    quantityNote: 'Any amount is dangerous. A few laps of beer can affect small dogs',
     symptoms: ['Vomiting', 'Disorientation', 'Difficulty breathing', 'Coma'],
     action: 'Seek emergency vet care' },
   { name: 'Caffeine', category: 'food', toxicity: 'toxic', icon: '☕',
     description: 'Found in coffee, tea, energy drinks. Similar effects to chocolate.',
+    quantityNote: 'A lap or two: monitor. Coffee grounds or caffeine pills: emergency',
     symptoms: ['Restlessness', 'Rapid breathing', 'Heart palpitations'],
     action: 'Contact vet based on amount consumed' },
   { name: 'Raw Yeast Dough', category: 'food', toxicity: 'toxic', icon: '🍞',
     description: 'Expands in stomach and produces alcohol as it ferments.',
+    quantityNote: 'Even a small ball of dough can expand significantly in the stomach',
     symptoms: ['Bloating', 'Disorientation', 'Vomiting'],
     action: 'Seek vet care - can cause dangerous bloat' },
 
@@ -188,6 +200,15 @@ function ToxicChecker() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedItem, setSelectedItem] = useState(null)
+  const { completeStep, progress } = useOnboarding()
+
+  // Handle item selection and mark onboarding step complete
+  const handleSelectItem = (item) => {
+    setSelectedItem(item)
+    if (!progress.checkedFood) {
+      completeStep('checkedFood')
+    }
+  }
 
   // Filter items based on search and category
   const filteredItems = useMemo(() => {
@@ -299,7 +320,7 @@ function ToxicChecker() {
                 </div>
                 <div className="space-y-2">
                   {groupedItems.toxic.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => setSelectedItem(item)} />
+                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
                   ))}
                 </div>
               </div>
@@ -314,7 +335,7 @@ function ToxicChecker() {
                 </div>
                 <div className="space-y-2">
                   {groupedItems.caution.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => setSelectedItem(item)} />
+                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
                   ))}
                 </div>
               </div>
@@ -329,7 +350,7 @@ function ToxicChecker() {
                 </div>
                 <div className="space-y-2">
                   {groupedItems.safe.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => setSelectedItem(item)} />
+                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
                   ))}
                 </div>
               </div>
@@ -431,6 +452,16 @@ function ItemDetailModal({ item, onClose }) {
             <h3 className="text-sm font-semibold text-[#3D3D3D] mb-2">About</h3>
             <p className="text-sm text-[#6B6B6B]">{item.description}</p>
           </div>
+
+          {item.quantityNote && (
+            <div className="bg-[#FFF5ED] border border-[#F4A261]/20 rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-[#E8924F] mb-1 flex items-center gap-2">
+                <span className="text-base">📏</span>
+                Amount Matters
+              </h3>
+              <p className="text-sm text-[#6B6B6B]">{item.quantityNote}</p>
+            </div>
+          )}
 
           {item.symptoms.length > 0 && (
             <div>

@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, Camera, Sparkles } from 'lucide-react'
+import { MessageCircle, Camera } from 'lucide-react'
 import { useUsage } from '../../context/UsageContext'
+import PremiumIcon from '../common/PremiumIcon'
 
 /**
  * UsageCounter - Displays remaining usage for chat or photo
@@ -112,7 +113,7 @@ function UsageCounter({ type = 'chat', showUpgrade = true, onUpgrade, className 
             onClick={onUpgrade}
             className="flex items-center gap-1 text-xs font-medium text-[#F4A261] hover:text-[#E8924F] transition-colors"
           >
-            <Sparkles className="w-3 h-3" />
+            <PremiumIcon size={12} />
             Upgrade
           </button>
         )}

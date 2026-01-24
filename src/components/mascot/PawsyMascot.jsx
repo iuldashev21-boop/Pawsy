@@ -4,13 +4,17 @@ import { useEffect, useState, useRef } from 'react'
 /**
  * PawsyMascot - Animated chubby corgi with head mirror
  *
- * @param {string} mood - 'happy' | 'thinking' | 'concerned' | 'alert' | 'celebrating'
+ * @param {string} mood - 'happy' | 'thinking' | 'concerned' | 'alert' | 'celebrating' | 'listening' | 'confused' | 'proud' | 'sleepy' | 'excited'
  * @param {number} size - Size in pixels (default 40)
  * @param {boolean} animate - Enable animations (default true)
+ * @param {function} onEasterEgg - Callback when Easter egg is triggered (tap 5x)
  */
-export default function PawsyMascot({ mood = 'happy', size = 40, animate = true }) {
+export default function PawsyMascot({ mood = 'happy', size = 40, animate = true, onEasterEgg }) {
   const [isBlinking, setIsBlinking] = useState(false)
+  const [tapCount, setTapCount] = useState(0)
+  const [showEasterEgg, setShowEasterEgg] = useState(false)
   const blinkTimeoutRef = useRef(null)
+  const tapTimeoutRef = useRef(null)
 
   // Random blinking
   useEffect(() => {
@@ -32,6 +36,42 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
       }
     }
   }, [animate])
+
+  // Easter egg handler - tap 5 times quickly
+  const handleTap = () => {
+    setTapCount(prev => prev + 1)
+
+    // Clear existing timeout
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current)
+    }
+
+    // Reset tap count after 2 seconds of no taps
+    tapTimeoutRef.current = setTimeout(() => {
+      setTapCount(0)
+    }, 2000)
+  }
+
+  // Trigger Easter egg at 5 taps
+  useEffect(() => {
+    if (tapCount >= 5) {
+      setShowEasterEgg(true)
+      setTapCount(0)
+      onEasterEgg?.()
+
+      // Hide Easter egg after animation
+      setTimeout(() => setShowEasterEgg(false), 2000)
+    }
+  }, [tapCount, onEasterEgg])
+
+  // Cleanup tap timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Mood-based configurations
   const moodConfig = {
@@ -89,6 +129,46 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
       headMirrorGlow: 0.5,
       bodyBounce: 1,
     },
+    confused: {
+      eyeScale: 1.1,
+      eyeY: 2, // Looking down slightly
+      mouthPath: 'M 36,53 Q 40,51 44,53', // Wavy uncertain mouth
+      earRotateLeft: 5,
+      earRotateRight: -15, // One ear up, one down
+      headMirrorGlow: 0.4,
+      bodyBounce: 0,
+      headTilt: 12, // Tilted head
+    },
+    proud: {
+      eyeScale: 0.9,
+      eyeY: -1, // Slightly closed confident eyes
+      mouthPath: 'M 34,51 Q 40,56 46,51', // Confident smile
+      earRotateLeft: -5,
+      earRotateRight: 5, // Perked up
+      headMirrorGlow: 0.9,
+      bodyBounce: 1,
+      headTilt: 0,
+    },
+    sleepy: {
+      eyeScale: 0.4,
+      eyeY: 2, // Droopy eyes
+      mouthPath: 'M 37,53 Q 40,52 43,53', // Small relaxed mouth
+      earRotateLeft: 15,
+      earRotateRight: -15, // Ears drooping
+      headMirrorGlow: 0.2,
+      bodyBounce: 0,
+      headTilt: 5,
+    },
+    excited: {
+      eyeScale: 1.2,
+      eyeY: -1,
+      mouthPath: 'M 32,50 Q 40,60 48,50', // Wide open happy mouth
+      earRotateLeft: -12,
+      earRotateRight: 12, // Super perked
+      headMirrorGlow: 1,
+      bodyBounce: 5, // Extra bouncy
+      headTilt: 0,
+    },
   }
 
   const config = moodConfig[mood] || moodConfig.happy
@@ -114,8 +194,14 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
 
   return (
     <motion.div
-      style={{ width: size, height: size, display: 'inline-flex' }}
-      animate={{ ...breathingVariant, ...bounceVariant }}
+      style={{ width: size, height: size, display: 'inline-flex', cursor: 'pointer' }}
+      animate={{
+        ...breathingVariant,
+        ...bounceVariant,
+        rotate: config.headTilt || 0,
+      }}
+      onClick={handleTap}
+      whileTap={{ scale: 0.95 }}
     >
       <svg
         viewBox="0 0 80 80"
@@ -233,19 +319,86 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         />
 
-        {/* Tongue (for celebrating) */}
+        {/* Tongue (for celebrating and excited) */}
         <AnimatePresence>
-          {mood === 'celebrating' && (
+          {(mood === 'celebrating' || mood === 'excited') && (
             <motion.ellipse
               cx="40"
-              cy="58"
-              rx="4"
-              ry="5"
+              cy={mood === 'excited' ? 60 : 58}
+              rx={mood === 'excited' ? 5 : 4}
+              ry={mood === 'excited' ? 7 : 5}
               fill="#FF8A9B"
               initial={{ scaleY: 0, originY: '54px' }}
               animate={{ scaleY: 1 }}
               exit={{ scaleY: 0 }}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Question mark (for confused) */}
+        <AnimatePresence>
+          {mood === 'confused' && (
+            <motion.text
+              x="58"
+              y="18"
+              fontSize="14"
+              fill="#F4A261"
+              fontWeight="bold"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: [18, 14, 18] }}
+              exit={{ opacity: 0 }}
+              transition={{ y: { duration: 1.5, repeat: Infinity } }}
+            >
+              ?
+            </motion.text>
+          )}
+        </AnimatePresence>
+
+        {/* Z's for sleepy */}
+        <AnimatePresence>
+          {mood === 'sleepy' && (
+            <>
+              <motion.text
+                x="55"
+                y="25"
+                fontSize="10"
+                fill="#9E9E9E"
+                fontWeight="bold"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0], x: [55, 60, 65], y: [25, 20, 15] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                z
+              </motion.text>
+              <motion.text
+                x="60"
+                y="20"
+                fontSize="8"
+                fill="#9E9E9E"
+                fontWeight="bold"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0], x: [60, 65, 70], y: [20, 15, 10] }}
+                transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+              >
+                z
+              </motion.text>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Crown/star for proud */}
+        <AnimatePresence>
+          {mood === 'proud' && (
+            <motion.text
+              x="34"
+              y="12"
+              fontSize="12"
+              initial={{ opacity: 0, scale: 0, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 12 }}
+              exit={{ opacity: 0, scale: 0 }}
+            >
+              ⭐
+            </motion.text>
           )}
         </AnimatePresence>
 
@@ -300,6 +453,43 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true 
               >
                 ✨
               </motion.text>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Easter Egg Animation - hearts and sparkles explosion */}
+        <AnimatePresence>
+          {showEasterEgg && (
+            <>
+              {/* Multiple floating hearts and paws */}
+              {[
+                { emoji: '🐾', x: 5, y: 40, delay: 0, direction: -1 },
+                { emoji: '💛', x: 70, y: 35, delay: 0.1, direction: 1 },
+                { emoji: '✨', x: 10, y: 20, delay: 0.2, direction: -1 },
+                { emoji: '🧡', x: 65, y: 55, delay: 0.15, direction: 1 },
+                { emoji: '🐾', x: 35, y: 5, delay: 0.25, direction: 0 },
+                { emoji: '💛', x: 50, y: 10, delay: 0.3, direction: 0 },
+                { emoji: '✨', x: 5, y: 60, delay: 0.05, direction: -1 },
+                { emoji: '🐾', x: 75, y: 20, delay: 0.2, direction: 1 },
+              ].map((item, i) => (
+                <motion.text
+                  key={i}
+                  x={item.x}
+                  y={item.y}
+                  fontSize="12"
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{
+                    opacity: [0, 1, 1, 0],
+                    scale: [0, 1.2, 1, 0.5],
+                    y: [item.y, item.y - 20, item.y - 40, item.y - 60],
+                    x: [item.x, item.x + (item.direction * 10), item.x + (item.direction * 15), item.x + (item.direction * 20)],
+                  }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.5, delay: item.delay, ease: 'easeOut' }}
+                >
+                  {item.emoji}
+                </motion.text>
+              ))}
             </>
           )}
         </AnimatePresence>

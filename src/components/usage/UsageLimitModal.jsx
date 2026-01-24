@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, AlertTriangle, MapPin } from 'lucide-react'
+import { X, AlertTriangle, MapPin, MessageCircle, Camera } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import PremiumIcon from '../common/PremiumIcon'
 import { USAGE_LIMITS } from '../../constants/usage'
 
 /**
@@ -55,8 +56,8 @@ function UsageLimitModal({
             </button>
 
             <div className="text-center">
-              <div className="text-4xl mb-3">
-                {isChat ? '💬' : '📷'}
+              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-[#FFE4B5] to-[#FFD699] flex items-center justify-center">
+                {isChat ? <MessageCircle className="w-8 h-8 text-[#B8860B]" /> : <Camera className="w-8 h-8 text-[#B8860B]" />}
               </div>
               <h2
                 className="text-xl font-bold text-[#3D3D3D]"
@@ -75,9 +76,9 @@ function UsageLimitModal({
             {/* Upgrade CTA */}
             <button
               onClick={onUpgrade}
-              className="w-full bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white rounded-xl py-3 px-4 font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-shadow"
+              className="w-full bg-gradient-to-r from-[#FFD54F] via-[#F4A261] to-[#E8924F] text-white rounded-xl py-3 px-4 font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-shadow"
             >
-              <Sparkles className="w-5 h-5" />
+              <PremiumIcon size={20} gradient={false} />
               Upgrade to Premium
             </button>
 

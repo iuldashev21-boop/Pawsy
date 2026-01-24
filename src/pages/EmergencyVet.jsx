@@ -11,7 +11,9 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  Star
+  Star,
+  Copy,
+  Check
 } from 'lucide-react'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
@@ -272,6 +274,26 @@ function EmergencyVet() {
 }
 
 function VetCard({ vet, index, onNavigate, onCall }) {
+  const [copied, setCopied] = useState(false)
+
+  const copyPhone = async () => {
+    try {
+      await navigator.clipboard.writeText(vet.phone)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = vet.phone
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -305,6 +327,17 @@ function VetCard({ vet, index, onNavigate, onCall }) {
         <div className="flex items-center gap-2">
           <Phone className="w-4 h-4 text-[#9E9E9E]" />
           <span>{vet.phone}</span>
+          <button
+            onClick={copyPhone}
+            className="ml-auto p-1 rounded hover:bg-gray-100 transition-colors"
+            aria-label={copied ? 'Copied!' : 'Copy phone number'}
+          >
+            {copied ? (
+              <Check className="w-4 h-4 text-green-500" />
+            ) : (
+              <Copy className="w-4 h-4 text-[#9E9E9E] hover:text-[#6B6B6B]" />
+            )}
+          </button>
         </div>
       </div>
 

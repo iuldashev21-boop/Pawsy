@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import { geminiService } from '../services/api/gemini'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatInput from '../components/chat/ChatInput'
@@ -16,6 +17,8 @@ import PawsyMascot from '../components/mascot/PawsyMascot'
 import EmergencyOverlay from '../components/emergency/EmergencyOverlay'
 import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
+import InlinePremiumHint from '../components/common/InlinePremiumHint'
+import ErrorMessage from '../components/common/ErrorMessage'
 
 // Welcome message for new conversations
 function getWelcomeMessage(dogName) {
@@ -34,6 +37,7 @@ function Chat() {
     chatsRemaining,
     emergencyChatsRemaining,
   } = useUsage()
+  const { completeStep, progress } = useOnboarding()
   const location = useLocation()
 
   // Session-based state (not persisted)
@@ -48,9 +52,11 @@ function Chat() {
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [calmMode, setCalmMode] = useState(false)
   const [showSessionBanner, setShowSessionBanner] = useState(true)
+  const [showPremiumHint, setShowPremiumHint] = useState(true)
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
   const hasInitialized = useRef(false)
+  const hasProcessedPhotoContext = useRef(false)
 
   // Detect emergency state
   const isEmergency = suggestedAction === 'emergency' || emergencySteps.length > 0
@@ -89,7 +95,9 @@ function Chat() {
   // Handle photo analysis context from PhotoAnalysis page
   useEffect(() => {
     const state = location.state
-    if (state?.fromPhotoAnalysis) {
+    if (state?.fromPhotoAnalysis && !hasProcessedPhotoContext.current) {
+      // Mark as processed to prevent duplicate messages
+      hasProcessedPhotoContext.current = true
       // Clear the location state
       window.history.replaceState({}, document.title)
 
@@ -152,6 +160,9 @@ function Chat() {
   }
 
   const handleSendMessage = async (content) => {
+    // Prevent duplicate submissions
+    if (isTyping) return
+
     setError(null)
     setSuggestedAction(null)
     setEmergencySteps([])
@@ -175,6 +186,11 @@ function Chat() {
         setShowLimitModal(true)
         return
       }
+    }
+
+    // Mark first chat step complete
+    if (!progress.firstChat) {
+      completeStep('firstChat')
     }
 
     // Add user message
@@ -252,6 +268,10 @@ function Chat() {
   }
 
   const handleImageUpload = async (imageData, userDescription = '') => {
+    // Prevent duplicate submissions
+    if (isTyping) return
+    setIsTyping(true)
+
     setError(null)
     setSuggestedAction(null)
 
@@ -269,9 +289,7 @@ function Chat() {
     }])
 
     if (!geminiService.isConfigured()) {
-      setIsTyping(true)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      setIsTyping(false)
 
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
@@ -279,10 +297,10 @@ function Chat() {
         content: `I can see you've shared a photo! However, the Gemini API isn't configured yet, so I can't analyze it.\n\nTo enable AI photo analysis, add your API key to a .env file.`,
         timestamp: new Date().toISOString(),
       }])
+      setIsTyping(false)
       return
     }
 
-    setIsTyping(true)
     try {
       const response = await geminiService.analyzePhoto(
         imageData.base64Data,
@@ -446,20 +464,20 @@ function Chat() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-[#FFF9C4]/50 border-b border-[#FFD54F]/30"
+            className="bg-gradient-to-r from-[#FFF5ED] to-[#FFE8D6] border-b border-[#F4A261]/20"
           >
-            <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
+            <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-[#F4A261]" />
-                <p className="text-xs text-[#6B6B6B]">
-                  This chat is not saved • <span className="text-[#F4A261]">Upgrade for history</span>
+                <p className="text-xs text-[#4A4A4A]">
+                  Free chat • Won't be saved after you leave
                 </p>
               </div>
               <button
                 onClick={() => setShowSessionBanner(false)}
-                className="text-xs text-[#9E9E9E] hover:text-[#6B6B6B]"
+                className="text-xs text-[#F4A261] font-medium hover:text-[#E8924F] transition-colors"
               >
-                Dismiss
+                Got it
               </button>
             </div>
           </motion.div>
@@ -531,16 +549,30 @@ function Chat() {
             {isTyping && <PawTypingIndicator />}
           </AnimatePresence>
 
+          {/* Premium hint after 2+ user messages */}
+          <AnimatePresence>
+            {showPremiumHint && !isTyping && messages.filter(m => m.role === 'user').length >= 2 && (
+              <InlinePremiumHint
+                variant="card"
+                message={`Premium saves your conversations with ${activeDog?.name || 'your dog'} so you can reference them later.`}
+                actionText="Save this chat"
+                onAction={() => {
+                  setShowPremiumHint(false)
+                  alert('Premium upgrade coming soon! For now, enjoy free features.')
+                }}
+                dismissable={true}
+                delay={0.5}
+              />
+            )}
+          </AnimatePresence>
+
           {/* Error */}
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 text-red-500 text-sm bg-red-50 rounded-xl p-3"
-            >
-              <AlertCircle className="w-4 h-4" />
-              {error}
-            </motion.div>
+            <ErrorMessage
+              type="generic"
+              message={error}
+              onDismiss={() => setError(null)}
+            />
           )}
 
           {/* Suggested Action Banner */}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
@@ -13,10 +13,12 @@ import {
   Activity,
   Thermometer,
   Eye,
-  Bone
+  Bone,
+  Dog
 } from 'lucide-react'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
+import InlinePremiumHint from '../components/common/InlinePremiumHint'
 
 // Breed database with health information
 const BREED_DATA = [
@@ -28,7 +30,7 @@ const BREED_DATA = [
     weight: '55-80 lbs',
     lifespan: '10-12 years',
     energy: 'High',
-    image: '🦮',
+    iconColor: '#F4A261',
     description: 'Friendly, active, and outgoing. America\'s most popular breed.',
     healthRisks: [
       { condition: 'Hip Dysplasia', severity: 'common', description: 'Joint condition causing lameness and arthritis' },
@@ -47,7 +49,7 @@ const BREED_DATA = [
     weight: '50-90 lbs',
     lifespan: '9-13 years',
     energy: 'High',
-    image: '🐕‍🦺',
+    iconColor: '#8B6914',
     description: 'Intelligent, loyal, and versatile working dog.',
     healthRisks: [
       { condition: 'Hip Dysplasia', severity: 'common', description: 'Very common in the breed - affects mobility' },
@@ -66,7 +68,7 @@ const BREED_DATA = [
     weight: '55-75 lbs',
     lifespan: '10-12 years',
     energy: 'High',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Gentle, intelligent, and devoted family companion.',
     healthRisks: [
       { condition: 'Cancer', severity: 'serious', description: 'Higher cancer rates than most breeds' },
@@ -85,7 +87,7 @@ const BREED_DATA = [
     weight: '16-28 lbs',
     lifespan: '10-12 years',
     energy: 'Low-Medium',
-    image: '🐶',
+    iconColor: '#9E9E9E',
     description: 'Playful, adaptable, and charming companion dog.',
     healthRisks: [
       { condition: 'Brachycephalic Syndrome', severity: 'serious', description: 'Breathing difficulties due to flat face' },
@@ -104,7 +106,7 @@ const BREED_DATA = [
     weight: '40-50 lbs',
     lifespan: '8-10 years',
     energy: 'Low',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Calm, courageous, and friendly. Iconic wrinkled face.',
     healthRisks: [
       { condition: 'Brachycephalic Syndrome', severity: 'serious', description: 'Severe breathing issues common' },
@@ -123,7 +125,7 @@ const BREED_DATA = [
     weight: '40-70 lbs',
     lifespan: '12-15 years',
     energy: 'High',
-    image: '🐩',
+    iconColor: '#81C784',
     description: 'Highly intelligent, athletic, and hypoallergenic.',
     healthRisks: [
       { condition: 'Hip Dysplasia', severity: 'moderate', description: 'Less common than other large breeds' },
@@ -142,7 +144,7 @@ const BREED_DATA = [
     weight: '20-30 lbs',
     lifespan: '12-15 years',
     energy: 'High',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Merry, curious, and friendly scent hound.',
     healthRisks: [
       { condition: 'Obesity', severity: 'common', description: 'Food-driven breed prone to weight gain' },
@@ -161,7 +163,7 @@ const BREED_DATA = [
     weight: '80-135 lbs',
     lifespan: '8-10 years',
     energy: 'Medium-High',
-    image: '🐕‍🦺',
+    iconColor: '#7EC8C8',
     description: 'Confident, loyal, and protective guardian breed.',
     healthRisks: [
       { condition: 'Hip Dysplasia', severity: 'common', description: 'Very common - screening recommended' },
@@ -180,7 +182,7 @@ const BREED_DATA = [
     weight: '4-7 lbs',
     lifespan: '12-15 years',
     energy: 'Medium',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Feisty, affectionate, and sprightly toy breed.',
     healthRisks: [
       { condition: 'Luxating Patella', severity: 'common', description: 'Kneecap dislocation common in toy breeds' },
@@ -199,7 +201,7 @@ const BREED_DATA = [
     weight: '11-32 lbs',
     lifespan: '12-16 years',
     energy: 'Medium',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Clever, lively, and courageous with iconic long body.',
     healthRisks: [
       { condition: 'Intervertebral Disc Disease', severity: 'serious', description: 'Very high risk due to long back' },
@@ -218,7 +220,7 @@ const BREED_DATA = [
     weight: '50-80 lbs',
     lifespan: '10-12 years',
     energy: 'High',
-    image: '🐕',
+    iconColor: '#D4793A',
     description: 'Fun-loving, bright, and active family companion.',
     healthRisks: [
       { condition: 'Cancer', severity: 'serious', description: 'Higher rates of various cancers' },
@@ -237,7 +239,7 @@ const BREED_DATA = [
     weight: '9-16 lbs',
     lifespan: '10-16 years',
     energy: 'Low-Medium',
-    image: '🐶',
+    iconColor: '#9E9E9E',
     description: 'Affectionate, playful, and outgoing companion.',
     healthRisks: [
       { condition: 'Brachycephalic Syndrome', severity: 'moderate', description: 'Breathing issues due to flat face' },
@@ -268,6 +270,21 @@ function BreedInfo() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [selectedBreed, setSelectedBreed] = useState(null)
+  const [viewedBreeds, setViewedBreeds] = useState(new Set())
+  const [showPremiumHint, setShowPremiumHint] = useState(false)
+
+  // Track when a breed is viewed
+  const handleBreedSelect = (breed) => {
+    setSelectedBreed(breed)
+    setViewedBreeds(prev => new Set([...prev, breed.id]))
+  }
+
+  // Show premium hint after viewing 1+ breeds
+  useEffect(() => {
+    if (viewedBreeds.size >= 1 && !showPremiumHint) {
+      setShowPremiumHint(true)
+    }
+  }, [viewedBreeds.size, showPremiumHint])
 
   // Filter breeds
   const filteredBreeds = useMemo(() => {
@@ -293,7 +310,9 @@ function BreedInfo() {
               <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
             </motion.button>
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{selectedBreed.image}</span>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${selectedBreed.iconColor}20` }}>
+                <Dog className="w-7 h-7" style={{ color: selectedBreed.iconColor }} />
+              </div>
               <div>
                 <h1
                   className="text-lg font-bold text-[#3D3D3D]"
@@ -512,10 +531,12 @@ function BreedInfo() {
                 transition={{ delay: index * 0.03 }}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onClick={() => setSelectedBreed(breed)}
+                onClick={() => handleBreedSelect(breed)}
                 className="w-full bg-white rounded-xl p-4 border border-[#E8E8E8]/50 shadow-sm flex items-center gap-4"
               >
-                <span className="text-3xl">{breed.image}</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${breed.iconColor}20` }}>
+                  <Dog className="w-5 h-5" style={{ color: breed.iconColor }} />
+                </div>
                 <div className="flex-1 text-left">
                   <h3 className="font-semibold text-[#3D3D3D]">{breed.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
@@ -529,6 +550,18 @@ function BreedInfo() {
                 <ChevronRight className="w-5 h-5 text-[#9E9E9E]" />
               </motion.button>
             ))}
+          </div>
+        )}
+
+        {/* Premium hint after browsing breeds */}
+        {showPremiumHint && (
+          <div className="mt-6">
+            <InlinePremiumHint
+              variant="card"
+              message="Build your dog's health profile and get AI responses tailored to their unique history."
+              actionText="Start tracking"
+              delay={0.2}
+            />
           </div>
         )}
 

@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, User, Dog, Plus, Trash2,
   MessageCircle, LogOut, Shield, HelpCircle, Check, X,
-  Edit3, PawPrint
+  Edit3, PawPrint, Lock, Heart, Clock, Bell
 } from 'lucide-react'
+import PremiumIcon from '../components/common/PremiumIcon'
 import { useAuth } from '../context/AuthContext'
 import { useDog } from '../context/DogContext'
 import { useChat } from '../context/ChatContext'
@@ -207,6 +208,104 @@ function Settings() {
                 </Link>
               </div>
             )}
+          </div>
+        </motion.section>
+
+        {/* Premium Features Preview Section */}
+        <motion.section variants={staggerItem}>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide flex items-center gap-1.5">
+              <PremiumIcon size={14} />
+              Premium Features
+            </h2>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+              className="text-sm text-[#F4A261] font-medium"
+            >
+              Unlock all →
+            </motion.button>
+          </div>
+          <div className="bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] rounded-2xl border border-[#E8B855]/30 overflow-hidden">
+            {/* Extended Health Profile */}
+            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
+              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
+                <Heart className="w-5 h-5 text-[#F4A261]" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
+                  <Lock className="w-2.5 h-2.5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-[#3D3D3D]">Extended Health Profile</p>
+                <p className="text-xs text-[#6B6B6B]">
+                  Track conditions, medications, vet info for {activeDog?.name || 'your dog'}
+                </p>
+              </div>
+            </div>
+
+            {/* Health Timeline */}
+            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
+              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
+                <Clock className="w-5 h-5 text-[#7EC8C8]" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
+                  <Lock className="w-2.5 h-2.5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-[#3D3D3D]">Health Timeline</p>
+                <p className="text-xs text-[#6B6B6B]">
+                  Track symptoms, vet visits, and health changes over time
+                </p>
+              </div>
+            </div>
+
+            {/* Breed Alerts */}
+            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
+              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
+                <Bell className="w-5 h-5 text-[#81C784]" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
+                  <Lock className="w-2.5 h-2.5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-[#3D3D3D]">Breed & Age Alerts</p>
+                <p className="text-xs text-[#6B6B6B]">
+                  Get alerts for health issues common in {activeDog?.breed || 'your dog\'s breed'}
+                </p>
+              </div>
+            </div>
+
+            {/* Unlimited Usage */}
+            <div className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
+                <MessageCircle className="w-5 h-5 text-[#7EC8C8]" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
+                  <Lock className="w-2.5 h-2.5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-[#3D3D3D]">Unlimited Chats & Photos</p>
+                <p className="text-xs text-[#6B6B6B]">
+                  No daily limits on AI chats and photo analysis
+                </p>
+              </div>
+            </div>
+
+            {/* Upgrade CTA */}
+            <div className="p-4 bg-white/40 border-t border-[#F4A261]/10">
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+                className="w-full py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2"
+              >
+                <PremiumIcon size={16} gradient={false} />
+                Upgrade to Premium
+              </motion.button>
+              <p className="text-xs text-[#6B6B6B] text-center mt-2">
+                $4.99/month or $39.99/year
+              </p>
+            </div>
           </div>
         </motion.section>
 

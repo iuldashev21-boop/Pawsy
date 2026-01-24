@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, X, ChevronRight } from 'lucide-react'
+import { X, ChevronRight } from 'lucide-react'
+import PremiumIcon, { PremiumBadge } from './common/PremiumIcon'
 
 /**
  * PremiumHint - Soft upsell component for Premium features
@@ -16,18 +17,18 @@ import { Sparkles, X, ChevronRight } from 'lucide-react'
 
 const VARIANTS = {
   inline: {
-    container: 'flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-[#FFF8F3] to-[#FFE8D6] border border-[#F4A261]/20',
-    icon: 'w-4 h-4',
+    container: 'flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-[#FFF8E7] to-[#FFE4B5] border border-[#E8B855]/30',
+    iconSize: 16,
     text: 'text-xs',
   },
   banner: {
-    container: 'flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-[#FFF8F3] to-[#FFE8D6] border border-[#F4A261]/20',
-    icon: 'w-5 h-5',
+    container: 'flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-[#FFF8E7] to-[#FFE4B5] border border-[#E8B855]/30',
+    iconSize: 20,
     text: 'text-sm',
   },
   card: {
-    container: 'p-4 rounded-xl bg-gradient-to-br from-[#FFF8F3] via-[#FFE8D6] to-[#FFDBC4] border border-[#F4A261]/20 shadow-sm',
-    icon: 'w-6 h-6',
+    container: 'p-4 rounded-xl bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] border border-[#E8B855]/30 shadow-sm',
+    iconSize: 24,
     text: 'text-sm',
   },
 }
@@ -64,9 +65,7 @@ function PremiumHint({
           )}
 
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <PremiumBadge size={40} />
             <div>
               <h4
                 className="font-bold text-[#3D3D3D]"
@@ -102,7 +101,7 @@ function PremiumHint({
         exit={{ opacity: 0, y: -10 }}
         className={`${styles.container} ${className}`}
       >
-        <Sparkles className={`${styles.icon} text-[#F4A261] flex-shrink-0`} />
+        <PremiumIcon size={styles.iconSize} className="flex-shrink-0" />
 
         <div className="flex-1 min-w-0">
           <p className={`${styles.text} text-[#6B6B6B]`}>

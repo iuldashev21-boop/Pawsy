@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Dog, Camera, ArrowRight, ArrowLeft, Check, Sparkles,
+  Dog, Camera, ArrowRight, ArrowLeft, Check,
   Calendar, Weight, Heart, AlertCircle, X, Plus, ChevronDown, Search, PawPrint
 } from 'lucide-react'
+import PremiumIcon from '../components/common/PremiumIcon'
 import { useDog } from '../context/DogContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -457,7 +458,7 @@ function AddDogProfile() {
               transition={{ delay: 0.6 }}
               className="absolute -top-2 -right-2 w-10 h-10 bg-[#FFD54F] rounded-full flex items-center justify-center shadow-lg"
             >
-              <Sparkles className="w-5 h-5 text-white" />
+              <PremiumIcon size={20} gradient={false} />
             </motion.div>
 
             <motion.div
@@ -491,7 +492,7 @@ function AddDogProfile() {
             >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-5 h-5 text-white" />
+                  <PremiumIcon size={20} gradient={false} />
                 </div>
                 <p className="text-[#3D3D3D] text-left">
                   I'll take care of <span className="font-semibold text-[#F4A261]">{dogData.name}</span>!

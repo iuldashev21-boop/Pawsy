@@ -1,9 +1,7 @@
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  MessageCircle,
   Camera,
-  Stethoscope,
   AlertTriangle,
   MapPin,
   BookOpen,
@@ -13,8 +11,13 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useDog } from '../context/DogContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
+import UsageStatsCard from '../components/dashboard/UsageStatsCard'
+import DashboardPremiumCard from '../components/dashboard/DashboardPremiumCard'
+import WelcomeModal from '../components/onboarding/WelcomeModal'
+import Skeleton from '../components/common/SkeletonLoader'
 
 const staggerContainer = {
   initial: {},
@@ -41,7 +44,14 @@ const staggerItem = {
 
 function Dashboard() {
   const { user } = useAuth()
-  const { activeDog } = useDog()
+  const { activeDog, loading: dogsLoading } = useDog()
+  const { showWelcome, dismissWelcome, completeStep, progress } = useOnboarding()
+  const navigate = useNavigate()
+
+  // Mark hasDog step complete when we have an active dog
+  if (activeDog && !progress.hasDog) {
+    completeStep('hasDog')
+  }
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -49,6 +59,10 @@ function Dashboard() {
     if (hour < 12) return 'Good morning'
     if (hour < 18) return 'Good afternoon'
     return 'Good evening'
+  }
+
+  const handleUpgrade = () => {
+    alert('Premium upgrade coming soon! For now, enjoy free features.')
   }
 
   return (
@@ -86,7 +100,11 @@ function Dashboard() {
         animate="animate"
       >
         {/* Dog Profile Card */}
-        {activeDog && (
+        {dogsLoading ? (
+          <motion.div variants={staggerItem} className="mb-4">
+            <Skeleton.DogProfile />
+          </motion.div>
+        ) : activeDog ? (
           <motion.div
             variants={staggerItem}
             className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8]/50 mb-4"
@@ -128,99 +146,78 @@ function Dashboard() {
               </div>
             </div>
           </motion.div>
-        )}
+        ) : null}
 
-        {/* Mascot Hero */}
-        <motion.div
-          variants={staggerItem}
-          className="flex flex-col items-center mb-6"
-        >
-          <PawsyMascot mood="happy" size={56} />
-          <h2
-            className="text-base font-bold text-[#3D3D3D] mt-2"
-            style={{ fontFamily: 'Nunito, sans-serif' }}
-          >
-            How can I help {activeDog?.name || 'your pet'} today?
-          </h2>
+        {/* Usage Stats Card */}
+        <motion.div variants={staggerItem} className="mb-4">
+          {dogsLoading ? (
+            <Skeleton.UsageStats />
+          ) : (
+            <UsageStatsCard onUpgrade={handleUpgrade} />
+          )}
         </motion.div>
 
-        {/* Primary Actions - 2x2 Grid */}
-        <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3 mb-4">
-          {/* Chat */}
+        {/* Primary Action - Start Health Check */}
+        <motion.div variants={staggerItem} className="mb-3">
           <Link to="/chat">
             <motion.div
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              className="bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] rounded-2xl p-4 text-white shadow-md h-full"
+              className="bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] rounded-2xl p-5 text-white shadow-lg flex items-center gap-4"
             >
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                <MessageCircle className="w-5 h-5" />
+              <div className="flex-shrink-0">
+                <PawsyMascot mood="happy" size={48} />
               </div>
-              <h4 className="font-bold text-base" style={{ fontFamily: 'Nunito, sans-serif' }}>
-                Ask Pawsy
-              </h4>
-              <p className="text-white/80 text-xs mt-0.5">
-                Describe symptoms
-              </p>
+              <div className="flex-1">
+                <h4 className="font-bold text-lg" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                  Start Health Check
+                </h4>
+                <p className="text-white/80 text-sm mt-0.5">
+                  Describe symptoms or ask any health question
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white/60 flex-shrink-0" />
             </motion.div>
           </Link>
+        </motion.div>
 
+        {/* Secondary Actions - Neutral */}
+        <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3 mb-4">
           {/* Photo */}
-          <Link to="/photo">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-gradient-to-br from-[#F4A261] to-[#E8924F] rounded-2xl p-4 text-white shadow-md h-full"
-            >
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                <Camera className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-base" style={{ fontFamily: 'Nunito, sans-serif' }}>
-                Scan Photo
-              </h4>
-              <p className="text-white/80 text-xs mt-0.5">
-                Show me the issue
-              </p>
-            </motion.div>
-          </Link>
-
-          {/* Symptom Checker */}
-          <Link to="/symptom-checker">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-gradient-to-br from-[#81C784] to-[#66BB6A] rounded-2xl p-4 text-white shadow-md h-full"
-            >
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                <Stethoscope className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-base" style={{ fontFamily: 'Nunito, sans-serif' }}>
-                Symptom Check
-              </h4>
-              <p className="text-white/80 text-xs mt-0.5">
-                Quick assessment
-              </p>
-            </motion.div>
-          </Link>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/photo')}
+            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer"
+          >
+            <div className="w-10 h-10 bg-[#F5F5F5] rounded-xl flex items-center justify-center mb-2">
+              <Camera className="w-5 h-5 text-[#6B6B6B]" />
+            </div>
+            <h4 className="font-bold text-sm text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              Scan Photo
+            </h4>
+            <p className="text-[#9E9E9E] text-xs mt-0.5">
+              Visual health check
+            </p>
+          </motion.button>
 
           {/* Toxic Checker */}
-          <Link to="/toxic-checker">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-gradient-to-br from-[#FFB74D] to-[#FFA726] rounded-2xl p-4 text-white shadow-md h-full"
-            >
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-2">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-base" style={{ fontFamily: 'Nunito, sans-serif' }}>
-                Is This Toxic?
-              </h4>
-              <p className="text-white/80 text-xs mt-0.5">
-                Food & plant safety
-              </p>
-            </motion.div>
-          </Link>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/toxic-checker')}
+            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer"
+          >
+            <div className="w-10 h-10 bg-[#F5F5F5] rounded-xl flex items-center justify-center mb-2">
+              <AlertTriangle className="w-5 h-5 text-[#6B6B6B]" />
+            </div>
+            <h4 className="font-bold text-sm text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              Is This Toxic?
+            </h4>
+            <p className="text-[#9E9E9E] text-xs mt-0.5">
+              Food & plant safety
+            </p>
+          </motion.button>
         </motion.div>
 
         {/* Emergency Button */}
@@ -247,50 +244,57 @@ function Dashboard() {
           </Link>
         </motion.div>
 
-        {/* First Aid Guides */}
-        <motion.div variants={staggerItem}>
+        {/* Premium Upsell Card */}
+        <motion.div variants={staggerItem} className="mb-4">
+          <DashboardPremiumCard
+            dogName={activeDog?.name}
+            onUpgrade={handleUpgrade}
+          />
+        </motion.div>
+
+        {/* Quick Links */}
+        <motion.div variants={staggerItem} className="bg-white rounded-2xl shadow-sm border border-[#E8E8E8]/50 overflow-hidden">
           <Link to="/emergency-guides">
             <motion.div
-              whileHover={{ scale: 1.01 }}
+              whileHover={{ backgroundColor: 'rgba(244, 162, 97, 0.04)' }}
               whileTap={{ scale: 0.99 }}
-              className="bg-white rounded-xl p-4 shadow-sm border border-[#E8E8E8] flex items-center gap-3"
+              className="px-3.5 py-3 flex items-center gap-3 transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-[#FDF8F3] flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-[#F4A261]" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FFE8D6] to-[#FFD6B8] flex items-center justify-center flex-shrink-0">
+                <BookOpen className="w-4 h-4 text-[#E8924F]" />
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-[#3D3D3D] text-sm" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-[#3D3D3D] text-[13px] leading-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
                   First Aid Guides
                 </h4>
-                <p className="text-[#6B6B6B] text-xs">
+                <p className="text-[#8E8E8E] text-[11px] leading-tight mt-0.5">
                   CPR, choking, poisoning & more
                 </p>
               </div>
-              <ChevronRight className="w-5 h-5 text-[#9E9E9E]" />
+              <ChevronRight className="w-4 h-4 text-[#C0C0C0] flex-shrink-0" />
             </motion.div>
           </Link>
-        </motion.div>
 
-        {/* Breed Info Link */}
-        <motion.div variants={staggerItem} className="mt-3">
+          <div className="h-px bg-[#F0F0F0] mx-3.5" />
+
           <Link to="/breed-info">
             <motion.div
-              whileHover={{ scale: 1.01 }}
+              whileHover={{ backgroundColor: 'rgba(102, 187, 106, 0.04)' }}
               whileTap={{ scale: 0.99 }}
-              className="bg-white rounded-xl p-4 shadow-sm border border-[#E8E8E8] flex items-center gap-3"
+              className="px-3.5 py-3 flex items-center gap-3 transition-colors"
             >
-              <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                <span className="text-lg">🐕</span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E8F5E9] to-[#C8E6C9] flex items-center justify-center flex-shrink-0">
+                <Dog className="w-4 h-4 text-[#4CAF50]" />
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-[#3D3D3D] text-sm" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-[#3D3D3D] text-[13px] leading-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
                   Breed Health Info
                 </h4>
-                <p className="text-[#6B6B6B] text-xs">
+                <p className="text-[#8E8E8E] text-[11px] leading-tight mt-0.5">
                   Common health issues by breed
                 </p>
               </div>
-              <ChevronRight className="w-5 h-5 text-[#9E9E9E]" />
+              <ChevronRight className="w-4 h-4 text-[#C0C0C0] flex-shrink-0" />
             </motion.div>
           </Link>
         </motion.div>
@@ -301,13 +305,20 @@ function Dashboard() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-[#9E9E9E]">
-            Free version • Chats are not saved
+            Free version • <button onClick={handleUpgrade} className="underline hover:text-[#F4A261]">Upgrade</button> to save chats
           </p>
         </motion.div>
       </motion.main>
 
       {/* Bottom Navigation */}
       <BottomNav />
+
+      {/* Welcome Modal for first-time users */}
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={dismissWelcome}
+        dogName={activeDog?.name}
+      />
     </div>
   )
 }

@@ -111,7 +111,7 @@ function ActionChip({ icon: Icon, label, onClick, variant = 'default' }) {
   )
 }
 
-function RichHealthResponse({ metadata, summary, onAction }) {
+function RichHealthResponse({ metadata, onAction }) {
   // Extract data from metadata
   const urgencyLevel = metadata?.urgency_level || metadata?.photo_analysis?.urgency_level || 'moderate'
   const visibleSymptoms = metadata?.visible_symptoms || metadata?.photo_analysis?.visible_symptoms || []

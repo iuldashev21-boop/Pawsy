@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Dog, User, PawPrint, Image } from 'lucide-react'
+import { User, PawPrint, Image } from 'lucide-react'
 import RichHealthResponse from './RichHealthResponse'
 
 // Simple markdown renderer for chat messages
@@ -192,7 +192,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
           {hasRichHealthData && (
             <RichHealthResponse
               metadata={metadata}
-              summary={message.content}
               onAction={onAction}
             />
           )}

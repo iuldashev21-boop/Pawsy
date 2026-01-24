@@ -3,8 +3,10 @@ import { AuthProvider } from './context/AuthContext'
 import { DogProvider } from './context/DogContext'
 import { ChatProvider } from './context/ChatContext'
 import { UsageProvider } from './context/UsageContext'
+import { OnboardingProvider } from './context/OnboardingContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import DevPanel from './components/dev/DevPanel'
+import CelebrationToast from './components/feedback/CelebrationToast'
 import Landing from './pages/Landing'
 import SignUp from './pages/SignUp'
 import Login from './pages/Login'
@@ -27,6 +29,7 @@ function App() {
         <DogProvider>
           <UsageProvider>
             <ChatProvider>
+              <OnboardingProvider>
               <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Landing />} />
@@ -46,7 +49,10 @@ function App() {
               </Routes>
               {/* Dev tools - only renders in development mode */}
               <DevPanel />
+              {/* Celebration toast for onboarding milestones */}
+              <CelebrationToast />
               </BrowserRouter>
+              </OnboardingProvider>
             </ChatProvider>
           </UsageProvider>
         </DogProvider>

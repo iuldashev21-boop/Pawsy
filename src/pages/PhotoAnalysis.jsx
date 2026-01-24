@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Dog, PawPrint, Sparkles, AlertCircle } from 'lucide-react'
+import { ChevronLeft, Dog, PawPrint, AlertCircle } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
+import { useOnboarding } from '../context/OnboardingContext'
 import { geminiService } from '../services/api/gemini'
 import PhotoUploader from '../components/photo/PhotoUploader'
 import ScanAnimation from '../components/photo/ScanAnimation'
@@ -12,6 +13,8 @@ import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
+import InlinePremiumHint from '../components/common/InlinePremiumHint'
+import ErrorMessage from '../components/common/ErrorMessage'
 
 const BODY_AREAS = [
   { id: 'skin', label: 'Skin/Coat' },
@@ -33,6 +36,7 @@ function PhotoAnalysis() {
     photosRemaining,
     emergencyPhotosRemaining,
   } = useUsage()
+  const { completeStep, progress } = useOnboarding()
   const navigate = useNavigate()
 
   const [photo, setPhoto] = useState(null)
@@ -122,6 +126,9 @@ function PhotoAnalysis() {
           summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${bodyAreaLabel.toLowerCase()}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, this appears to be a minor issue that can likely be monitored at home.`,
         }
         setAnalysis(demoResult)
+        if (!progress.firstPhoto) {
+          completeStep('firstPhoto')
+        }
         setIsAnalyzing(false)
         return
       }
@@ -143,6 +150,9 @@ function PhotoAnalysis() {
 
       // Response is already structured - use directly
       setAnalysis(response)
+      if (!progress.firstPhoto) {
+        completeStep('firstPhoto')
+      }
     } catch (err) {
       if (import.meta.env.DEV) console.error('Analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
@@ -278,6 +288,15 @@ function PhotoAnalysis() {
               onReset={handleReset}
               profileBreed={activeDog?.breed}
             />
+
+            {/* Premium hint after analysis */}
+            <InlinePremiumHint
+              variant="card"
+              message={`Track ${activeDog?.name || 'your dog'}'s health over time with Premium. See patterns and share history with your vet.`}
+              actionText="Track health"
+              delay={0.3}
+            />
+
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -372,13 +391,12 @@ function PhotoAnalysis() {
 
             {/* Error message */}
             {error && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center"
-              >
-                {error}
-              </motion.div>
+              <ErrorMessage
+                type="generic"
+                message={error}
+                onRetry={handleAnalyze}
+                onDismiss={() => setError(null)}
+              />
             )}
           </div>
         )}
