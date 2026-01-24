@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, User, Dog, Plus, Trash2,
   MessageCircle, LogOut, Shield, HelpCircle, Check, X,
@@ -40,6 +40,18 @@ function Settings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false)
+  const [showPremiumModal, setShowPremiumModal] = useState(false)
+
+  // Free users can only have 1 dog
+  const canAddDog = dogs.length === 0
+
+  const handleAddDogClick = () => {
+    if (canAddDog) {
+      navigate('/add-dog')
+    } else {
+      setShowPremiumModal(true)
+    }
+  }
 
   const handleDeleteDog = (dogId) => {
     deleteDog(dogId)
@@ -137,15 +149,23 @@ function Settings() {
             <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide">
               Dog Profiles
             </h2>
-            <Link to="/add-dog">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1 text-sm text-[#F4A261] font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                Add Dog
-              </motion.button>
-            </Link>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleAddDogClick}
+              className="flex items-center gap-1 text-sm text-[#F4A261] font-medium"
+            >
+              {canAddDog ? (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Add Dog
+                </>
+              ) : (
+                <>
+                  <PremiumIcon size={14} />
+                  Add Dog
+                </>
+              )}
+            </motion.button>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-[#F4A261]/10 overflow-hidden divide-y divide-[#F4A261]/10">
             {dogs.map((dog) => (
@@ -537,6 +557,73 @@ function Settings() {
                   className="flex-1 py-3 rounded-xl bg-[#EF5350] text-white font-semibold hover:bg-[#E53935] transition-colors"
                 >
                   Clear All
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium Upgrade Modal for Adding Dogs */}
+      <AnimatePresence>
+        {showPremiumModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => setShowPremiumModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            >
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FFE8D6] to-[#F4A261] flex items-center justify-center mx-auto mb-4">
+                <Dog className="w-7 h-7 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
+                Add More Dogs with Premium
+              </h3>
+              <p className="text-sm text-[#6B6B6B] text-center mb-4">
+                Free accounts are limited to 1 dog profile. Upgrade to Premium to add unlimited dogs and unlock all features!
+              </p>
+
+              <div className="bg-[#FDF8F3] rounded-xl p-3 mb-5">
+                <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
+                  <Check className="w-4 h-4 text-[#81C784]" />
+                  <span>Unlimited dog profiles</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-[#6B6B6B] mt-1">
+                  <Check className="w-4 h-4 text-[#81C784]" />
+                  <span>Unlimited AI chats & photos</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-[#6B6B6B] mt-1">
+                  <Check className="w-4 h-4 text-[#81C784]" />
+                  <span>Health timeline & tracking</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowPremiumModal(false)}
+                  className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
+                >
+                  Maybe Later
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setShowPremiumModal(false)
+                    alert('Premium upgrade coming soon!')
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <PremiumIcon size={16} gradient={false} />
+                  Upgrade
                 </motion.button>
               </div>
             </motion.div>
