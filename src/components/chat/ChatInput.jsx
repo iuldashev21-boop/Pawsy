@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Camera, X } from 'lucide-react'
 
-function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything..." }) {
+function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything…" }) {
   const [message, setMessage] = useState('')
   const [selectedImage, setSelectedImage] = useState(null)
   const textareaRef = useRef(null)
@@ -108,9 +108,11 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={selectedImage ? "Describe what you'd like me to look at (optional)..." : placeholder}
+            placeholder={selectedImage ? "Describe what you'd like me to look at (optional)…" : placeholder}
             disabled={disabled}
             rows={1}
+            autoComplete="off"
+            aria-label="Message to Pawsy"
             className="flex-1 bg-transparent text-[#3D3D3D] placeholder:text-[#9E9E9E] resize-none outline-none py-2 px-2 text-sm leading-relaxed max-h-[120px]"
           />
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Dog, MessageCircle, Camera, Heart, Shield, ChevronRight, Star, ChevronDown, Users, Clock, CreditCard, Lock, CheckCircle, ArrowRight } from 'lucide-react'
 import PremiumIcon from '../components/common/PremiumIcon'
@@ -73,10 +73,14 @@ const faqs = [
 function Landing() {
   const featuresRef = useRef(null)
   const [openFaq, setOpenFaq] = useState(null)
+  const prefersReducedMotion = useReducedMotion()
 
   const scrollToFeatures = () => {
-    featuresRef.current?.scrollIntoView({ behavior: 'smooth' })
+    featuresRef.current?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' })
   }
+
+  // Motion-safe float animation
+  const floatAnimationSafe = prefersReducedMotion ? {} : floatAnimation.animate
   return (
     <div className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
@@ -220,8 +224,7 @@ function Landing() {
 
               {/* Main card */}
               <motion.div
-                variants={floatAnimation}
-                animate="animate"
+                animate={floatAnimationSafe}
                 className="relative bg-white rounded-3xl p-8 shadow-xl border border-[#F4A261]/10"
               >
                 {/* Dog avatar */}
@@ -232,28 +235,28 @@ function Landing() {
                 {/* Chat preview */}
                 <div className="space-y-4">
                   <div className="bg-[#FDF8F3] rounded-2xl rounded-tl-sm p-4 max-w-[80%]">
-                    <p className="text-[#3D3D3D] text-sm">My dog threw up this morning and seems tired...</p>
+                    <p className="text-[#3D3D3D] text-sm">My dog threw up this morning and seems tired…</p>
                   </div>
 
                   <div className="bg-gradient-to-r from-[#7EC8C8] to-[#5FB3B3] rounded-2xl rounded-tr-sm p-4 max-w-[80%] ml-auto">
                     <p className="text-white text-sm">
-                      I understand your concern! Since Luna is a Golden Retriever with no food allergies, let's check a few things...
+                      I understand your concern! Since Luna is a Golden Retriever with no food allergies, let's check a few things…
                     </p>
                   </div>
                 </div>
 
-                {/* Floating elements */}
+                {/* Floating elements - respect reduced motion */}
                 <motion.div
-                  animate={{ y: [0, -5, 0], rotate: [0, 5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                  animate={prefersReducedMotion ? {} : { y: [0, -5, 0], rotate: [0, 5, 0] }}
+                  transition={prefersReducedMotion ? {} : { duration: 2, repeat: Infinity }}
                   className="absolute -top-4 -right-4 w-12 h-12 bg-[#81C784] rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <Heart className="w-6 h-6 text-white" />
                 </motion.div>
 
                 <motion.div
-                  animate={{ y: [0, 5, 0], rotate: [0, -5, 0] }}
-                  transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
+                  animate={prefersReducedMotion ? {} : { y: [0, 5, 0], rotate: [0, -5, 0] }}
+                  transition={prefersReducedMotion ? {} : { duration: 2.5, repeat: Infinity, delay: 0.5 }}
                   className="absolute -bottom-4 -left-4 w-12 h-12 bg-[#FFD54F] rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <PremiumIcon size={24} gradient={false} />
@@ -716,7 +719,7 @@ function Landing() {
             </p>
           </motion.div>
 
-          <div className="space-y-3">
+          <div className="space-y-3" role="list">
             {faqs.map((faq, idx) => (
               <motion.div
                 key={idx}
@@ -725,15 +728,20 @@ function Landing() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: idx * 0.05 }}
                 className="border border-[#E8E8E8] rounded-xl overflow-hidden"
+                role="listitem"
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#FDF8F3] transition-colors"
+                  aria-expanded={openFaq === idx}
+                  aria-controls={`faq-answer-${idx}`}
+                  id={`faq-question-${idx}`}
+                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#FDF8F3] transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-inset"
                 >
                   <span className="font-medium text-[#3D3D3D]">{faq.q}</span>
                   <motion.div
                     animate={{ rotate: openFaq === idx ? 180 : 0 }}
                     transition={{ duration: 0.2 }}
+                    aria-hidden="true"
                   >
                     <ChevronDown className="w-5 h-5 text-[#9E9E9E]" />
                   </motion.div>
@@ -742,6 +750,9 @@ function Landing() {
                 <AnimatePresence>
                   {openFaq === idx && (
                     <motion.div
+                      id={`faq-answer-${idx}`}
+                      role="region"
+                      aria-labelledby={`faq-question-${idx}`}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}

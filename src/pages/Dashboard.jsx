@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { useCallback } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Camera,
@@ -47,6 +48,11 @@ function Dashboard() {
   const { activeDog, loading: dogsLoading } = useDog()
   const { showWelcome, dismissWelcome, completeStep, progress } = useOnboarding()
   const navigate = useNavigate()
+  const prefersReducedMotion = useReducedMotion()
+
+  // Motion-safe animation variants
+  const staggerContainerSafe = prefersReducedMotion ? {} : staggerContainer
+  const staggerItemSafe = prefersReducedMotion ? {} : staggerItem
 
   // Mark hasDog step complete when we have an active dog
   if (activeDog && !progress.hasDog) {
@@ -61,9 +67,9 @@ function Dashboard() {
     return 'Good evening'
   }
 
-  const handleUpgrade = () => {
+  const handleUpgrade = useCallback(() => {
     alert('Premium upgrade coming soon! For now, enjoy free features.')
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
@@ -95,24 +101,24 @@ function Dashboard() {
       {/* Main content */}
       <motion.main
         className="max-w-lg mx-auto px-4 py-5"
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
+        variants={staggerContainerSafe}
+        initial={prefersReducedMotion ? false : "initial"}
+        animate={prefersReducedMotion ? false : "animate"}
       >
         {/* Dog Profile Card */}
         {dogsLoading ? (
-          <motion.div variants={staggerItem} className="mb-4">
+          <motion.div variants={staggerItemSafe} className="mb-4">
             <Skeleton.DogProfile />
           </motion.div>
         ) : activeDog ? (
           <motion.div
-            variants={staggerItem}
+            variants={staggerItemSafe}
             className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8]/50 mb-4"
           >
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-[#F4A261]/30 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] flex-shrink-0">
                 {activeDog.photoUrl ? (
-                  <img src={activeDog.photoUrl} alt={activeDog.name} className="w-full h-full object-cover" />
+                  <img src={activeDog.photoUrl} alt={activeDog.name} width={64} height={64} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Dog className="w-8 h-8 text-[#F4A261]" />
@@ -149,7 +155,7 @@ function Dashboard() {
         ) : null}
 
         {/* Usage Stats Card */}
-        <motion.div variants={staggerItem} className="mb-4">
+        <motion.div variants={staggerItemSafe} className="mb-4">
           {dogsLoading ? (
             <Skeleton.UsageStats />
           ) : (
@@ -158,7 +164,7 @@ function Dashboard() {
         </motion.div>
 
         {/* Primary Action - Start Health Check */}
-        <motion.div variants={staggerItem} className="mb-3">
+        <motion.div variants={staggerItemSafe} className="mb-3">
           <Link to="/chat">
             <motion.div
               whileHover={{ scale: 1.01 }}
@@ -182,13 +188,14 @@ function Dashboard() {
         </motion.div>
 
         {/* Secondary Actions - Neutral */}
-        <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3 mb-4">
+        <motion.div variants={staggerItemSafe} className="grid grid-cols-2 gap-3 mb-4">
           {/* Photo */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/photo')}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer"
+            aria-label="Scan photo for visual health check"
+            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
           >
             <div className="w-10 h-10 bg-[#F5F5F5] rounded-xl flex items-center justify-center mb-2">
               <Camera className="w-5 h-5 text-[#6B6B6B]" />
@@ -206,7 +213,8 @@ function Dashboard() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/toxic-checker')}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer"
+            aria-label="Check if food or plant is toxic for dogs"
+            className="bg-white rounded-2xl p-4 shadow-sm border border-[#E8E8E8] text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
           >
             <div className="w-10 h-10 bg-[#F5F5F5] rounded-xl flex items-center justify-center mb-2">
               <AlertTriangle className="w-5 h-5 text-[#6B6B6B]" />
@@ -221,7 +229,7 @@ function Dashboard() {
         </motion.div>
 
         {/* Emergency Button */}
-        <motion.div variants={staggerItem} className="mb-4">
+        <motion.div variants={staggerItemSafe} className="mb-4">
           <Link to="/emergency-vet">
             <motion.div
               whileHover={{ scale: 1.01 }}
@@ -245,7 +253,7 @@ function Dashboard() {
         </motion.div>
 
         {/* Premium Upsell Card */}
-        <motion.div variants={staggerItem} className="mb-4">
+        <motion.div variants={staggerItemSafe} className="mb-4">
           <DashboardPremiumCard
             dogName={activeDog?.name}
             onUpgrade={handleUpgrade}
@@ -253,7 +261,7 @@ function Dashboard() {
         </motion.div>
 
         {/* Quick Links */}
-        <motion.div variants={staggerItem} className="bg-white rounded-2xl shadow-sm border border-[#E8E8E8]/50 overflow-hidden">
+        <motion.div variants={staggerItemSafe} className="bg-white rounded-2xl shadow-sm border border-[#E8E8E8]/50 overflow-hidden">
           <Link to="/emergency-guides">
             <motion.div
               whileHover={{ backgroundColor: 'rgba(244, 162, 97, 0.04)' }}
@@ -301,7 +309,7 @@ function Dashboard() {
 
         {/* Session Notice */}
         <motion.div
-          variants={staggerItem}
+          variants={staggerItemSafe}
           className="mt-6 text-center"
         >
           <p className="text-xs text-[#9E9E9E]">

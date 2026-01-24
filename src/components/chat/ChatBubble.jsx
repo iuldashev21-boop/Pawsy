@@ -161,7 +161,8 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
               <div className="relative">
                 <img
                   src={message.image.preview}
-                  alt="Uploaded"
+                  alt="Uploaded photo for analysis"
+                  loading="lazy"
                   className="max-w-full max-h-48 rounded-xl object-cover"
                 />
                 <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 rounded-lg text-[10px] text-white flex items-center gap-1">
@@ -217,7 +218,14 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onQuickQuestion(question)}
-                className="px-3 py-1.5 text-xs font-medium bg-gradient-to-br from-[#FFF5ED] to-[#FFE8D6] text-[#D4793A] rounded-full border border-[#F4A261]/20 hover:border-[#F4A261]/40 hover:shadow-sm transition-all"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onQuickQuestion(question)
+                  }
+                }}
+                aria-label={`Ask: ${question}`}
+                className="px-3 py-1.5 text-xs font-medium bg-gradient-to-br from-[#FFF5ED] to-[#FFE8D6] text-[#D4793A] rounded-full border border-[#F4A261]/20 hover:border-[#F4A261]/40 hover:shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
               >
                 {question}
               </motion.button>

@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useEffect, useState, useRef } from 'react'
 
 /**
@@ -10,15 +10,17 @@ import { useEffect, useState, useRef } from 'react'
  * @param {function} onEasterEgg - Callback when Easter egg is triggered (tap 5x)
  */
 export default function PawsyMascot({ mood = 'happy', size = 40, animate = true, onEasterEgg }) {
+  const prefersReducedMotion = useReducedMotion()
+  const shouldAnimate = animate && !prefersReducedMotion
   const [isBlinking, setIsBlinking] = useState(false)
   const [tapCount, setTapCount] = useState(0)
   const [showEasterEgg, setShowEasterEgg] = useState(false)
   const blinkTimeoutRef = useRef(null)
   const tapTimeoutRef = useRef(null)
 
-  // Random blinking
+  // Random blinking - respect reduced motion preference
   useEffect(() => {
-    if (!animate) return
+    if (!shouldAnimate) return
 
     const blinkInterval = setInterval(() => {
       if (Math.random() > 0.7) {
@@ -35,7 +37,7 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true,
         clearTimeout(blinkTimeoutRef.current)
       }
     }
-  }, [animate])
+  }, [shouldAnimate])
 
   // Easter egg handler - tap 5 times quickly
   const handleTap = () => {
@@ -173,8 +175,8 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true,
 
   const config = moodConfig[mood] || moodConfig.happy
 
-  // Animation variants
-  const breathingVariant = animate ? {
+  // Animation variants - respect reduced motion preference
+  const breathingVariant = shouldAnimate ? {
     scale: [1, 1.02, 1],
     transition: {
       duration: 3,
@@ -183,7 +185,7 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true,
     },
   } : {}
 
-  const bounceVariant = animate && config.bodyBounce ? {
+  const bounceVariant = shouldAnimate && config.bodyBounce ? {
     y: [0, -config.bodyBounce, 0],
     transition: {
       duration: 0.6,
@@ -194,6 +196,9 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true,
 
   return (
     <motion.div
+      role="button"
+      aria-label={`Pawsy mascot - ${mood} mood. Tap 5 times for a surprise!`}
+      tabIndex={0}
       style={{ width: size, height: size, display: 'inline-flex', cursor: 'pointer' }}
       animate={{
         ...breathingVariant,
@@ -201,6 +206,12 @@ export default function PawsyMascot({ mood = 'happy', size = 40, animate = true,
         rotate: config.headTilt || 0,
       }}
       onClick={handleTap}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleTap()
+        }
+      }}
       whileTap={{ scale: 0.95 }}
     >
       <svg

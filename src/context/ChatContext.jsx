@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
 
 const ChatContext = createContext(null)
 
@@ -284,10 +284,12 @@ export function ChatProvider({ children }) {
     loadSessionsForUser()
   }, [loadSessionsForUser])
 
-  const value = {
+  const activeSession = getActiveSession()
+
+  const value = useMemo(() => ({
     sessions: state.sessions,
     activeSessionId: state.activeSessionId,
-    activeSession: getActiveSession(),
+    activeSession,
     loading: state.loading,
     healthEvents: state.healthEvents,
     createSession,
@@ -302,7 +304,7 @@ export function ChatProvider({ children }) {
     addHealthEvent,
     getHealthEventsForDog,
     clearHealthEventsForDog,
-  }
+  }), [state.sessions, state.activeSessionId, activeSession, state.loading, state.healthEvents, reloadForCurrentUser])
 
   return (
     <ChatContext.Provider value={value}>

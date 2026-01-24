@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -146,20 +146,20 @@ function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  }, [])
 
-  const handleScroll = (e) => {
+  const handleScroll = useCallback((e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target
     setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
-  }
+  }, [])
 
-  const handleDismissEmergency = () => {
+  const handleDismissEmergency = useCallback(() => {
     setCalmMode(false)
-  }
+  }, [])
 
-  const handleSendMessage = async (content) => {
+  const handleSendMessage = useCallback(async (content) => {
     // Prevent duplicate submissions
     if (isTyping) return
 
@@ -265,9 +265,9 @@ function Chat() {
     } finally {
       setIsTyping(false)
     }
-  }
+  }, [isTyping, isEmergencyMode, canChat, useEmergencyChat, useChat, progress.firstChat, completeStep, messages, dogContext, photoContext])
 
-  const handleImageUpload = async (imageData, userDescription = '') => {
+  const handleImageUpload = useCallback(async (imageData, userDescription = '') => {
     // Prevent duplicate submissions
     if (isTyping) return
     setIsTyping(true)
@@ -339,7 +339,7 @@ function Chat() {
     } finally {
       setIsTyping(false)
     }
-  }
+  }, [isTyping, dogContext])
 
   const formatPhotoAnalysisForChat = (analysis) => {
     let message = analysis.summary || "Here's what I can see in the photo."
@@ -363,15 +363,15 @@ function Chat() {
     return message
   }
 
-  const handleQuickQuestion = (question) => {
+  const handleQuickQuestion = useCallback((question) => {
     handleSendMessage(question)
-  }
+  }, [handleSendMessage])
 
-  const handleAction = (action) => {
+  const handleAction = useCallback((action) => {
     if (action === 'find_vet') {
       window.open('https://www.google.com/maps/search/veterinarian+near+me', '_blank')
     }
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] flex flex-col overflow-hidden">
@@ -416,7 +416,7 @@ function Chat() {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#F4A261]/30 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] flex-shrink-0">
                 {activeDog.photoUrl ? (
-                  <img src={activeDog.photoUrl} alt={activeDog.name} className="w-full h-full object-cover" />
+                  <img src={activeDog.photoUrl} alt={activeDog.name} width={48} height={48} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Dog className="w-6 h-6 text-[#F4A261]" />
@@ -475,7 +475,7 @@ function Chat() {
               </div>
               <button
                 onClick={() => setShowSessionBanner(false)}
-                className="text-xs text-[#F4A261] font-medium hover:text-[#E8924F] transition-colors"
+                className="text-xs text-[#F4A261] font-medium hover:text-[#E8924F] transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2 rounded"
               >
                 Got it
               </button>
@@ -682,7 +682,7 @@ function Chat() {
             onSend={handleSendMessage}
             onImageUpload={handleImageUpload}
             disabled={isTyping}
-            placeholder={activeDog ? `Ask about ${activeDog.name}'s health...` : "Describe your dog's symptoms..."}
+            placeholder={activeDog ? `Ask about ${activeDog.name}'s health…` : "Describe your dog's symptoms…"}
           />
         </div>
       </div>

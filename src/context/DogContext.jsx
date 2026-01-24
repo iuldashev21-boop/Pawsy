@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
 
 const DogContext = createContext(null)
 
@@ -201,17 +201,19 @@ export function DogProvider({ children }) {
     loadDogsForUser()
   }, [loadDogsForUser])
 
-  const value = {
+  const activeDog = getActiveDog()
+
+  const value = useMemo(() => ({
     dogs: state.dogs,
     activeDogId: state.activeDogId,
-    activeDog: getActiveDog(),
+    activeDog,
     loading: state.loading,
     addDog,
     updateDog,
     deleteDog,
     setActiveDog,
     reloadForCurrentUser,
-  }
+  }), [state.dogs, state.activeDogId, activeDog, state.loading, reloadForCurrentUser])
 
   return (
     <DogContext.Provider value={value}>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 
 const AuthContext = createContext(null)
 
@@ -72,14 +72,14 @@ export function AuthProvider({ children }) {
     return `pawsy_${user.id}_${key}`
   }, [user])
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     isAuthenticated: !!user,
     signup,
     login,
     logout,
     getUserStorageKey,
-  }
+  }), [user, signup, login, logout, getUserStorageKey])
 
   return (
     <AuthContext.Provider value={value}>
