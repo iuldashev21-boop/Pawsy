@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft,
@@ -11,246 +11,13 @@ import {
   ChevronRight,
   X,
   Activity,
-  Thermometer,
-  Eye,
   Bone,
   Dog
 } from 'lucide-react'
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import InlinePremiumHint from '../components/common/InlinePremiumHint'
-
-// Breed database with health information
-const BREED_DATA = [
-  {
-    id: 'labrador',
-    name: 'Labrador Retriever',
-    group: 'Sporting',
-    size: 'Large',
-    weight: '55-80 lbs',
-    lifespan: '10-12 years',
-    energy: 'High',
-    iconColor: '#F4A261',
-    description: 'Friendly, active, and outgoing. America\'s most popular breed.',
-    healthRisks: [
-      { condition: 'Hip Dysplasia', severity: 'common', description: 'Joint condition causing lameness and arthritis' },
-      { condition: 'Elbow Dysplasia', severity: 'common', description: 'Developmental abnormality of the elbow joint' },
-      { condition: 'Obesity', severity: 'common', description: 'Labs love food - weight management is crucial' },
-      { condition: 'Progressive Retinal Atrophy', severity: 'moderate', description: 'Degenerative eye disease leading to blindness' },
-      { condition: 'Exercise-Induced Collapse', severity: 'moderate', description: 'Genetic condition causing collapse after exercise' },
-    ],
-    careNotes: 'Needs daily exercise and mental stimulation. Watch food intake closely. Regular joint supplements may help.',
-  },
-  {
-    id: 'german-shepherd',
-    name: 'German Shepherd',
-    group: 'Herding',
-    size: 'Large',
-    weight: '50-90 lbs',
-    lifespan: '9-13 years',
-    energy: 'High',
-    iconColor: '#8B6914',
-    description: 'Intelligent, loyal, and versatile working dog.',
-    healthRisks: [
-      { condition: 'Hip Dysplasia', severity: 'common', description: 'Very common in the breed - affects mobility' },
-      { condition: 'Degenerative Myelopathy', severity: 'moderate', description: 'Progressive spinal cord disease' },
-      { condition: 'Bloat (GDV)', severity: 'serious', description: 'Life-threatening stomach condition' },
-      { condition: 'Elbow Dysplasia', severity: 'common', description: 'Joint malformation causing lameness' },
-      { condition: 'Allergies', severity: 'moderate', description: 'Skin and food allergies are common' },
-    ],
-    careNotes: 'Avoid exercise right after meals to reduce bloat risk. Regular hip/elbow screening recommended.',
-  },
-  {
-    id: 'golden-retriever',
-    name: 'Golden Retriever',
-    group: 'Sporting',
-    size: 'Large',
-    weight: '55-75 lbs',
-    lifespan: '10-12 years',
-    energy: 'High',
-    iconColor: '#D4793A',
-    description: 'Gentle, intelligent, and devoted family companion.',
-    healthRisks: [
-      { condition: 'Cancer', severity: 'serious', description: 'Higher cancer rates than most breeds' },
-      { condition: 'Hip Dysplasia', severity: 'common', description: 'Joint condition common in large breeds' },
-      { condition: 'Heart Disease', severity: 'moderate', description: 'Subvalvular aortic stenosis can occur' },
-      { condition: 'Skin Conditions', severity: 'common', description: 'Hot spots and allergies are frequent' },
-      { condition: 'Cataracts', severity: 'moderate', description: 'Eye condition that can cause vision loss' },
-    ],
-    careNotes: 'Regular vet checkups important for early cancer detection. Keep coat clean and dry to prevent hot spots.',
-  },
-  {
-    id: 'french-bulldog',
-    name: 'French Bulldog',
-    group: 'Non-Sporting',
-    size: 'Small',
-    weight: '16-28 lbs',
-    lifespan: '10-12 years',
-    energy: 'Low-Medium',
-    iconColor: '#9E9E9E',
-    description: 'Playful, adaptable, and charming companion dog.',
-    healthRisks: [
-      { condition: 'Brachycephalic Syndrome', severity: 'serious', description: 'Breathing difficulties due to flat face' },
-      { condition: 'Spinal Issues', severity: 'common', description: 'IVDD and other back problems' },
-      { condition: 'Allergies', severity: 'common', description: 'Food and environmental allergies' },
-      { condition: 'Heat Sensitivity', severity: 'serious', description: 'Cannot regulate temperature well - heat stroke risk' },
-      { condition: 'Eye Problems', severity: 'moderate', description: 'Cherry eye and corneal ulcers' },
-    ],
-    careNotes: 'Never exercise in heat. Keep in air conditioning. Watch for labored breathing. Avoid stairs and jumping.',
-  },
-  {
-    id: 'bulldog',
-    name: 'Bulldog (English)',
-    group: 'Non-Sporting',
-    size: 'Medium',
-    weight: '40-50 lbs',
-    lifespan: '8-10 years',
-    energy: 'Low',
-    iconColor: '#D4793A',
-    description: 'Calm, courageous, and friendly. Iconic wrinkled face.',
-    healthRisks: [
-      { condition: 'Brachycephalic Syndrome', severity: 'serious', description: 'Severe breathing issues common' },
-      { condition: 'Hip Dysplasia', severity: 'common', description: 'Joint problems despite smaller size' },
-      { condition: 'Skin Fold Infections', severity: 'common', description: 'Wrinkles need daily cleaning' },
-      { condition: 'Heart Disease', severity: 'moderate', description: 'Pulmonic stenosis risk' },
-      { condition: 'Heat Stroke', severity: 'serious', description: 'Very heat intolerant' },
-    ],
-    careNotes: 'Clean skin folds daily. Strict heat avoidance. May need surgery for breathing. No strenuous exercise.',
-  },
-  {
-    id: 'poodle',
-    name: 'Poodle (Standard)',
-    group: 'Non-Sporting',
-    size: 'Medium-Large',
-    weight: '40-70 lbs',
-    lifespan: '12-15 years',
-    energy: 'High',
-    iconColor: '#81C784',
-    description: 'Highly intelligent, athletic, and hypoallergenic.',
-    healthRisks: [
-      { condition: 'Hip Dysplasia', severity: 'moderate', description: 'Less common than other large breeds' },
-      { condition: 'Bloat (GDV)', severity: 'serious', description: 'Deep-chested breeds are at risk' },
-      { condition: 'Addison\'s Disease', severity: 'moderate', description: 'Adrenal gland insufficiency' },
-      { condition: 'Progressive Retinal Atrophy', severity: 'moderate', description: 'Can lead to blindness' },
-      { condition: 'Epilepsy', severity: 'moderate', description: 'Seizure disorder in some lines' },
-    ],
-    careNotes: 'Regular grooming essential. Feed multiple small meals to reduce bloat risk. Mentally stimulating activities important.',
-  },
-  {
-    id: 'beagle',
-    name: 'Beagle',
-    group: 'Hound',
-    size: 'Small-Medium',
-    weight: '20-30 lbs',
-    lifespan: '12-15 years',
-    energy: 'High',
-    iconColor: '#D4793A',
-    description: 'Merry, curious, and friendly scent hound.',
-    healthRisks: [
-      { condition: 'Obesity', severity: 'common', description: 'Food-driven breed prone to weight gain' },
-      { condition: 'Epilepsy', severity: 'moderate', description: 'More common than in many breeds' },
-      { condition: 'Hypothyroidism', severity: 'moderate', description: 'Thyroid gland underactivity' },
-      { condition: 'Intervertebral Disc Disease', severity: 'moderate', description: 'Back problems, especially if overweight' },
-      { condition: 'Cherry Eye', severity: 'common', description: 'Third eyelid gland prolapse' },
-    ],
-    careNotes: 'Strict portion control essential. Keep secure - they follow their nose. Regular exercise prevents obesity.',
-  },
-  {
-    id: 'rottweiler',
-    name: 'Rottweiler',
-    group: 'Working',
-    size: 'Large',
-    weight: '80-135 lbs',
-    lifespan: '8-10 years',
-    energy: 'Medium-High',
-    iconColor: '#7EC8C8',
-    description: 'Confident, loyal, and protective guardian breed.',
-    healthRisks: [
-      { condition: 'Hip Dysplasia', severity: 'common', description: 'Very common - screening recommended' },
-      { condition: 'Elbow Dysplasia', severity: 'common', description: 'Joint malformation issues' },
-      { condition: 'Osteosarcoma', severity: 'serious', description: 'Bone cancer - higher incidence than average' },
-      { condition: 'Heart Disease', severity: 'moderate', description: 'Subaortic stenosis risk' },
-      { condition: 'Bloat (GDV)', severity: 'serious', description: 'Large, deep-chested breeds at risk' },
-    ],
-    careNotes: 'Early health screening important. Avoid rapid growth in puppies. Multiple small meals reduce bloat risk.',
-  },
-  {
-    id: 'yorkshire-terrier',
-    name: 'Yorkshire Terrier',
-    group: 'Toy',
-    size: 'Toy',
-    weight: '4-7 lbs',
-    lifespan: '12-15 years',
-    energy: 'Medium',
-    iconColor: '#D4793A',
-    description: 'Feisty, affectionate, and sprightly toy breed.',
-    healthRisks: [
-      { condition: 'Luxating Patella', severity: 'common', description: 'Kneecap dislocation common in toy breeds' },
-      { condition: 'Portosystemic Shunt', severity: 'serious', description: 'Liver blood vessel abnormality' },
-      { condition: 'Tracheal Collapse', severity: 'moderate', description: 'Windpipe weakness causing coughing' },
-      { condition: 'Dental Disease', severity: 'common', description: 'Small mouths prone to dental issues' },
-      { condition: 'Hypoglycemia', severity: 'moderate', description: 'Low blood sugar, especially in puppies' },
-    ],
-    careNotes: 'Use harness instead of collar. Regular dental care essential. Feed frequent small meals to prevent low blood sugar.',
-  },
-  {
-    id: 'dachshund',
-    name: 'Dachshund',
-    group: 'Hound',
-    size: 'Small',
-    weight: '11-32 lbs',
-    lifespan: '12-16 years',
-    energy: 'Medium',
-    iconColor: '#D4793A',
-    description: 'Clever, lively, and courageous with iconic long body.',
-    healthRisks: [
-      { condition: 'Intervertebral Disc Disease', severity: 'serious', description: 'Very high risk due to long back' },
-      { condition: 'Obesity', severity: 'common', description: 'Extra weight stresses the spine' },
-      { condition: 'Dental Disease', severity: 'common', description: 'Prone to tooth and gum problems' },
-      { condition: 'Epilepsy', severity: 'moderate', description: 'Seizures occur in some lines' },
-      { condition: 'Eye Problems', severity: 'moderate', description: 'PRA and cataracts can occur' },
-    ],
-    careNotes: 'Prevent jumping on/off furniture. Use ramps. Keep weight strictly controlled. Support back when carrying.',
-  },
-  {
-    id: 'boxer',
-    name: 'Boxer',
-    group: 'Working',
-    size: 'Medium-Large',
-    weight: '50-80 lbs',
-    lifespan: '10-12 years',
-    energy: 'High',
-    iconColor: '#D4793A',
-    description: 'Fun-loving, bright, and active family companion.',
-    healthRisks: [
-      { condition: 'Cancer', severity: 'serious', description: 'Higher rates of various cancers' },
-      { condition: 'Heart Disease', severity: 'serious', description: 'Boxer cardiomyopathy and aortic stenosis' },
-      { condition: 'Hip Dysplasia', severity: 'moderate', description: 'Joint issues in some lines' },
-      { condition: 'Bloat (GDV)', severity: 'serious', description: 'Deep chest puts them at risk' },
-      { condition: 'Allergies', severity: 'common', description: 'Skin and food allergies frequent' },
-    ],
-    careNotes: 'Regular cardiac screening recommended. Avoid extreme temperatures. Multiple small meals to reduce bloat risk.',
-  },
-  {
-    id: 'shih-tzu',
-    name: 'Shih Tzu',
-    group: 'Toy',
-    size: 'Small',
-    weight: '9-16 lbs',
-    lifespan: '10-16 years',
-    energy: 'Low-Medium',
-    iconColor: '#9E9E9E',
-    description: 'Affectionate, playful, and outgoing companion.',
-    healthRisks: [
-      { condition: 'Brachycephalic Syndrome', severity: 'moderate', description: 'Breathing issues due to flat face' },
-      { condition: 'Eye Problems', severity: 'common', description: 'Prominent eyes prone to injury and dry eye' },
-      { condition: 'Dental Disease', severity: 'common', description: 'Small mouth causes crowding' },
-      { condition: 'Hip Dysplasia', severity: 'moderate', description: 'Surprisingly common for size' },
-      { condition: 'Ear Infections', severity: 'common', description: 'Floppy ears trap moisture' },
-    ],
-    careNotes: 'Keep face hair trimmed. Clean eye area daily. Regular dental care. Keep ears clean and dry.',
-  },
-]
+import { BREED_DATA } from '../constants/breeds'
 
 const SEVERITY_CONFIG = {
   common: { color: 'text-yellow-600', bg: 'bg-yellow-100', label: 'Common' },
@@ -266,36 +33,36 @@ const SIZE_FILTERS = [
   { id: 'Large', label: 'Large' },
 ]
 
+const NUNITO_FONT = { fontFamily: 'Nunito, sans-serif' }
+
+const FADE_UP = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } }
+
+const QUICK_STATS = [
+  { key: 'weight', icon: Scale, label: 'Weight' },
+  { key: 'lifespan', icon: Clock, label: 'Lifespan' },
+  { key: 'energy', icon: Activity, label: 'Energy' },
+  { key: 'size', icon: Bone, label: 'Size' },
+]
+
 function BreedInfo() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sizeFilter, setSizeFilter] = useState('all')
   const [selectedBreed, setSelectedBreed] = useState(null)
-  const [viewedBreeds, setViewedBreeds] = useState(new Set())
-  const [showPremiumHint, setShowPremiumHint] = useState(false)
+  const [hasViewedBreed, setHasViewedBreed] = useState(false)
 
-  // Track when a breed is viewed
   const handleBreedSelect = (breed) => {
     setSelectedBreed(breed)
-    setViewedBreeds(prev => new Set([...prev, breed.id]))
+    setHasViewedBreed(true)
   }
 
-  // Show premium hint after viewing 1+ breeds
-  useEffect(() => {
-    if (viewedBreeds.size >= 1 && !showPremiumHint) {
-      setShowPremiumHint(true)
-    }
-  }, [viewedBreeds.size, showPremiumHint])
-
-  // Filter breeds
   const filteredBreeds = useMemo(() => {
-    return BREED_DATA.filter(breed => {
-      const matchesSearch = breed.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesSize = sizeFilter === 'all' || breed.size.includes(sizeFilter)
-      return matchesSearch && matchesSize
-    })
+    const query = searchQuery.toLowerCase()
+    return BREED_DATA.filter(breed =>
+      breed.name.toLowerCase().includes(query) &&
+      (sizeFilter === 'all' || breed.size.includes(sizeFilter))
+    )
   }, [searchQuery, sizeFilter])
 
-  // Detail modal
   if (selectedBreed) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
@@ -316,7 +83,7 @@ function BreedInfo() {
               <div>
                 <h1
                   className="text-lg font-bold text-[#3D3D3D]"
-                  style={{ fontFamily: 'Nunito, sans-serif' }}
+                  style={NUNITO_FONT}
                 >
                   {selectedBreed.name}
                 </h1>
@@ -328,37 +95,19 @@ function BreedInfo() {
 
         <main className="max-w-lg mx-auto px-4 py-6">
           {/* Quick stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-4 gap-2 mb-6"
-          >
-            <div className="bg-white rounded-xl p-3 text-center border border-[#E8E8E8]/50">
-              <Scale className="w-4 h-4 text-[#F4A261] mx-auto mb-1" />
-              <p className="text-xs text-[#6B6B6B]">Weight</p>
-              <p className="text-xs font-semibold text-[#3D3D3D]">{selectedBreed.weight}</p>
-            </div>
-            <div className="bg-white rounded-xl p-3 text-center border border-[#E8E8E8]/50">
-              <Clock className="w-4 h-4 text-[#F4A261] mx-auto mb-1" />
-              <p className="text-xs text-[#6B6B6B]">Lifespan</p>
-              <p className="text-xs font-semibold text-[#3D3D3D]">{selectedBreed.lifespan}</p>
-            </div>
-            <div className="bg-white rounded-xl p-3 text-center border border-[#E8E8E8]/50">
-              <Activity className="w-4 h-4 text-[#F4A261] mx-auto mb-1" />
-              <p className="text-xs text-[#6B6B6B]">Energy</p>
-              <p className="text-xs font-semibold text-[#3D3D3D]">{selectedBreed.energy}</p>
-            </div>
-            <div className="bg-white rounded-xl p-3 text-center border border-[#E8E8E8]/50">
-              <Bone className="w-4 h-4 text-[#F4A261] mx-auto mb-1" />
-              <p className="text-xs text-[#6B6B6B]">Size</p>
-              <p className="text-xs font-semibold text-[#3D3D3D]">{selectedBreed.size}</p>
-            </div>
+          <motion.div {...FADE_UP} className="grid grid-cols-4 gap-2 mb-6">
+            {QUICK_STATS.map(({ key, icon: Icon, label }) => (
+              <div key={key} className="bg-white rounded-xl p-3 text-center border border-[#E8E8E8]/50">
+                <Icon className="w-4 h-4 text-[#F4A261] mx-auto mb-1" />
+                <p className="text-xs text-[#6B6B6B]">{label}</p>
+                <p className="text-xs font-semibold text-[#3D3D3D]">{selectedBreed[key]}</p>
+              </div>
+            ))}
           </motion.div>
 
           {/* Description */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            {...FADE_UP}
             transition={{ delay: 0.1 }}
             className="bg-white rounded-xl p-4 border border-[#E8E8E8]/50 mb-4"
           >
@@ -367,8 +116,7 @@ function BreedInfo() {
 
           {/* Health Risks */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            {...FADE_UP}
             transition={{ delay: 0.2 }}
             className="bg-white rounded-xl p-4 border border-[#E8E8E8]/50 mb-4"
           >
@@ -376,7 +124,7 @@ function BreedInfo() {
               <AlertTriangle className="w-5 h-5 text-[#F4A261]" />
               <h3
                 className="font-bold text-[#3D3D3D]"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+                style={NUNITO_FONT}
               >
                 Common Health Concerns
               </h3>
@@ -401,8 +149,7 @@ function BreedInfo() {
 
           {/* Care Notes */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            {...FADE_UP}
             transition={{ delay: 0.3 }}
             className="bg-gradient-to-br from-[#7EC8C8]/10 to-[#5FB3B3]/10 rounded-xl p-4 border border-[#7EC8C8]/20"
           >
@@ -410,7 +157,7 @@ function BreedInfo() {
               <Heart className="w-5 h-5 text-[#7EC8C8]" />
               <h3
                 className="font-bold text-[#3D3D3D]"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+                style={NUNITO_FONT}
               >
                 Care Notes
               </h3>
@@ -444,7 +191,6 @@ function BreedInfo() {
     )
   }
 
-  // List view
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
       {/* Header */}
@@ -463,7 +209,7 @@ function BreedInfo() {
             <div>
               <h1
                 className="text-lg font-bold text-[#3D3D3D]"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+                style={NUNITO_FONT}
               >
                 Breed Health Info
               </h1>
@@ -526,8 +272,7 @@ function BreedInfo() {
             {filteredBreeds.map((breed, index) => (
               <motion.button
                 key={breed.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                {...FADE_UP}
                 transition={{ delay: index * 0.03 }}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
@@ -554,7 +299,7 @@ function BreedInfo() {
         )}
 
         {/* Premium hint after browsing breeds */}
-        {showPremiumHint && (
+        {hasViewedBreed && (
           <div className="mt-6">
             <InlinePremiumHint
               variant="card"

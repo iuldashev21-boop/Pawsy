@@ -4,6 +4,13 @@ import { Check, X, Dog, MessageCircle, Camera, Search, ChevronDown } from 'lucid
 import { Link } from 'react-router-dom'
 import { useOnboarding } from '../../context/OnboardingContext'
 
+const STEP_DEFINITIONS = [
+  { key: 'hasDog', label: 'Add dog', icon: Dog, link: '/add-dog' },
+  { key: 'firstChat', label: 'Ask question', icon: MessageCircle, link: '/chat' },
+  { key: 'checkedFood', label: 'Check food', icon: Search, link: '/toxic-checker' },
+  { key: 'firstPhoto', label: 'Photo scan', icon: Camera, link: '/photo' },
+]
+
 function OnboardingChecklist() {
   const { progress, completedCount, totalSteps, showChecklist } = useOnboarding()
   const [dismissed, setDismissed] = useState(false)
@@ -11,38 +18,9 @@ function OnboardingChecklist() {
 
   if (!showChecklist || dismissed) return null
 
-  const steps = [
-    {
-      key: 'hasDog',
-      label: 'Add dog',
-      icon: Dog,
-      done: progress.hasDog,
-      link: '/add-dog',
-    },
-    {
-      key: 'firstChat',
-      label: 'Ask question',
-      icon: MessageCircle,
-      done: progress.firstChat,
-      link: '/chat',
-    },
-    {
-      key: 'checkedFood',
-      label: 'Check food',
-      icon: Search,
-      done: progress.checkedFood,
-      link: '/toxic-checker',
-    },
-    {
-      key: 'firstPhoto',
-      label: 'Photo scan',
-      icon: Camera,
-      done: progress.firstPhoto,
-      link: '/photo',
-    },
-  ]
-
+  const steps = STEP_DEFINITIONS.map(step => ({ ...step, done: progress[step.key] }))
   const progressPercent = (completedCount / totalSteps) * 100
+  const allDone = completedCount === totalSteps
   const nextStep = steps.find(s => !s.done)
 
   return (
@@ -52,12 +30,10 @@ function OnboardingChecklist() {
       exit={{ opacity: 0, y: -10 }}
       className="bg-white rounded-xl shadow-sm border border-[#F4A261]/10 overflow-hidden"
     >
-      {/* Compact header - always visible */}
       <div
         className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-[#FAFAFA] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        {/* Progress circle */}
         <div className="relative w-8 h-8 flex-shrink-0">
           <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
             <circle
@@ -80,7 +56,6 @@ function OnboardingChecklist() {
           </span>
         </div>
 
-        {/* Title and next action */}
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-[#3D3D3D]">Getting Started</span>
           {nextStep && (
@@ -88,12 +63,11 @@ function OnboardingChecklist() {
               Next: {nextStep.label}
             </p>
           )}
-          {completedCount === totalSteps && (
+          {allDone && (
             <p className="text-[11px] text-[#81C784] font-medium">All done!</p>
           )}
         </div>
 
-        {/* Expand/collapse */}
         <motion.div
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
@@ -101,7 +75,6 @@ function OnboardingChecklist() {
           <ChevronDown className="w-4 h-4 text-[#9E9E9E]" />
         </motion.div>
 
-        {/* Dismiss */}
         <button
           onClick={(e) => { e.stopPropagation(); setDismissed(true) }}
           className="p-1 rounded-full hover:bg-[#E8E8E8]/50 text-[#9E9E9E]"
@@ -111,7 +84,6 @@ function OnboardingChecklist() {
         </button>
       </div>
 
-      {/* Expanded content */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -148,7 +120,6 @@ function ChecklistItem({ step, index }) {
           : 'bg-[#FDF8F3] hover:bg-[#F4A261]/10 cursor-pointer'
       }`}
     >
-      {/* Checkbox */}
       <div
         className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
           done ? 'bg-[#81C784]' : 'border-2 border-[#E8E8E8]'
@@ -157,10 +128,8 @@ function ChecklistItem({ step, index }) {
         {done && <Check className="w-3 h-3 text-white" />}
       </div>
 
-      {/* Icon */}
       <Icon className={`w-3.5 h-3.5 ${done ? 'text-[#81C784]' : 'text-[#F4A261]'}`} />
 
-      {/* Label */}
       <span
         className={`text-xs font-medium flex-1 ${
           done ? 'text-[#81C784] line-through' : 'text-[#3D3D3D]'
@@ -169,18 +138,13 @@ function ChecklistItem({ step, index }) {
         {label}
       </span>
 
-      {/* Arrow for incomplete */}
       {!done && (
-        <span className="text-[#F4A261] text-[10px] font-medium">Go →</span>
+        <span className="text-[#F4A261] text-[10px] font-medium">Go &rarr;</span>
       )}
     </motion.div>
   )
 
-  if (done) {
-    return content
-  }
-
-  return <Link to={link}>{content}</Link>
+  return done ? content : <Link to={link}>{content}</Link>
 }
 
 export default OnboardingChecklist

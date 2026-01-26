@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft,
-  ChevronRight,
   Heart,
   Wind,
   Thermometer,
@@ -14,7 +13,6 @@ import {
   Scissors,
   Eye,
   Bone,
-  X,
   Phone,
   MapPin,
   ArrowLeft
@@ -266,114 +264,143 @@ const EMERGENCY_GUIDES = [
   },
 ]
 
-function EmergencyGuides() {
-  const [selectedGuide, setSelectedGuide] = useState(null)
+const VET_URGENCY_STYLES = {
+  immediate: {
+    container: 'bg-red-50 border border-red-200',
+    icon: 'text-red-500',
+    heading: 'text-red-700',
+    body: 'text-red-600',
+    label: 'Call Vet Immediately',
+  },
+  urgent: {
+    container: 'bg-orange-50 border border-orange-200',
+    icon: 'text-orange-500',
+    heading: 'text-orange-700',
+    body: 'text-orange-600',
+    label: 'Contact Vet Soon',
+  },
+  soon: {
+    container: 'bg-yellow-50 border border-yellow-200',
+    icon: 'text-yellow-600',
+    heading: 'text-yellow-700',
+    body: 'text-yellow-600',
+    label: 'Schedule Vet Visit',
+  },
+  monitor: {
+    container: 'bg-blue-50 border border-blue-200',
+    icon: 'text-blue-500',
+    heading: 'text-blue-700',
+    body: 'text-blue-600',
+    label: 'Monitor & Call If Needed',
+  },
+}
 
-  // Guide list view
-  if (!selectedGuide) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
-        {/* Header */}
-        <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
-          <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-            <Link to="/dashboard">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
-              </motion.button>
-            </Link>
-            <div className="flex items-center gap-2">
-              <PawsyMascot mood="concerned" size={36} />
-              <div>
-                <h1
-                  className="text-lg font-bold text-[#3D3D3D]"
-                  style={{ fontFamily: 'Nunito, sans-serif' }}
-                >
-                  First Aid Guides
-                </h1>
-                <p className="text-xs text-[#6B6B6B]">Step-by-step emergency help</p>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="max-w-lg mx-auto px-4 py-6">
-          {/* Emergency banner */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-[#EF5350] to-[#E53935] rounded-xl p-4 mb-6"
-          >
-            <div className="flex items-center gap-3">
-              <Phone className="w-6 h-6 text-white" />
-              <div className="flex-1">
-                <p className="text-white font-semibold text-sm">In an emergency?</p>
-                <p className="text-white/80 text-xs">First aid helps, but always get to a vet</p>
-              </div>
-              <Link to="/emergency-vet">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  className="px-3 py-1.5 bg-white rounded-lg text-red-600 text-sm font-semibold"
-                >
-                  Find Vet
-                </motion.button>
-              </Link>
-            </div>
-          </motion.div>
-
-          {/* Guide grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {EMERGENCY_GUIDES.map((guide, index) => {
-              const Icon = guide.icon
-              return (
-                <motion.button
-                  key={guide.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedGuide(guide)}
-                  className={`${guide.bgColor} ${guide.borderColor} border rounded-xl p-4 text-left`}
-                >
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3`}>
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <h3
-                    className={`font-bold text-sm ${guide.textColor}`}
-                    style={{ fontFamily: 'Nunito, sans-serif' }}
-                  >
-                    {guide.title}
-                  </h3>
-                  <p className="text-xs text-[#6B6B6B] mt-0.5">{guide.subtitle}</p>
-                </motion.button>
-              )
-            })}
-          </div>
-
-          {/* Disclaimer */}
-          <p className="text-xs text-[#9E9E9E] text-center mt-8">
-            These guides are for reference only. Always seek professional veterinary care in emergencies.
-          </p>
-        </main>
-
-        <BottomNav />
-      </div>
-    )
-  }
-
-  // Guide detail view
-  const Icon = selectedGuide.icon
+function GuideListView({ onSelectGuide }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
       {/* Header */}
-      <header className={`sticky top-0 z-40 bg-gradient-to-br ${selectedGuide.color}`}>
+      <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          <Link to="/dashboard">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-[#3D3D3D]" />
+            </motion.button>
+          </Link>
+          <div className="flex items-center gap-2">
+            <PawsyMascot mood="concerned" size={36} />
+            <div>
+              <h1
+                className="text-lg font-bold text-[#3D3D3D]"
+                style={{ fontFamily: 'Nunito, sans-serif' }}
+              >
+                First Aid Guides
+              </h1>
+              <p className="text-xs text-[#6B6B6B]">Step-by-step emergency help</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-lg mx-auto px-4 py-6">
+        {/* Emergency banner */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-[#EF5350] to-[#E53935] rounded-xl p-4 mb-6"
+        >
+          <div className="flex items-center gap-3">
+            <Phone className="w-6 h-6 text-white" />
+            <div className="flex-1">
+              <p className="text-white font-semibold text-sm">In an emergency?</p>
+              <p className="text-white/80 text-xs">First aid helps, but always get to a vet</p>
+            </div>
+            <Link to="/emergency-vet">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 bg-white rounded-lg text-red-600 text-sm font-semibold"
+              >
+                Find Vet
+              </motion.button>
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Guide grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {EMERGENCY_GUIDES.map((guide, index) => {
+            const Icon = guide.icon
+            return (
+              <motion.button
+                key={guide.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onSelectGuide(guide)}
+                className={`${guide.bgColor} ${guide.borderColor} border rounded-xl p-4 text-left`}
+              >
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${guide.color} flex items-center justify-center mb-3`}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <h3
+                  className={`font-bold text-sm ${guide.textColor}`}
+                  style={{ fontFamily: 'Nunito, sans-serif' }}
+                >
+                  {guide.title}
+                </h3>
+                <p className="text-xs text-[#6B6B6B] mt-0.5">{guide.subtitle}</p>
+              </motion.button>
+            )
+          })}
+        </div>
+
+        {/* Disclaimer */}
+        <p className="text-xs text-[#9E9E9E] text-center mt-8">
+          These guides are for reference only. Always seek professional veterinary care in emergencies.
+        </p>
+      </main>
+
+      <BottomNav />
+    </div>
+  )
+}
+
+function GuideDetailView({ guide, onBack }) {
+  const Icon = guide.icon
+  const urgency = VET_URGENCY_STYLES[guide.vetUrgency]
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
+      {/* Header */}
+      <header className={`sticky top-0 z-40 bg-gradient-to-br ${guide.color}`}>
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedGuide(null)}
+            onClick={onBack}
             className="p-2 rounded-xl bg-white/20 hover:bg-white/30 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-white" />
@@ -387,9 +414,9 @@ function EmergencyGuides() {
                 className="text-lg font-bold text-white"
                 style={{ fontFamily: 'Nunito, sans-serif' }}
               >
-                {selectedGuide.title}
+                {guide.title}
               </h1>
-              <p className="text-xs text-white/80">{selectedGuide.subtitle}</p>
+              <p className="text-xs text-white/80">{guide.subtitle}</p>
             </div>
           </div>
         </div>
@@ -400,54 +427,29 @@ function EmergencyGuides() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`${selectedGuide.bgColor} ${selectedGuide.borderColor} border rounded-xl p-4 mb-4`}
+          className={`${guide.bgColor} ${guide.borderColor} border rounded-xl p-4 mb-4`}
         >
-          <h3 className={`text-sm font-semibold ${selectedGuide.textColor} mb-1`}>When to use this guide</h3>
-          <p className="text-sm text-[#6B6B6B]">{selectedGuide.when}</p>
+          <h3 className={`text-sm font-semibold ${guide.textColor} mb-1`}>When to use this guide</h3>
+          <p className="text-sm text-[#6B6B6B]">{guide.when}</p>
         </motion.div>
 
         {/* Vet Urgency Indicator */}
-        {selectedGuide.vetUrgency && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className={`rounded-xl p-4 mb-4 ${
-              selectedGuide.vetUrgency === 'immediate' ? 'bg-red-50 border border-red-200' :
-              selectedGuide.vetUrgency === 'urgent' ? 'bg-orange-50 border border-orange-200' :
-              selectedGuide.vetUrgency === 'soon' ? 'bg-yellow-50 border border-yellow-200' :
-              'bg-blue-50 border border-blue-200'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <Phone className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                selectedGuide.vetUrgency === 'immediate' ? 'text-red-500' :
-                selectedGuide.vetUrgency === 'urgent' ? 'text-orange-500' :
-                selectedGuide.vetUrgency === 'soon' ? 'text-yellow-600' :
-                'text-blue-500'
-              }`} />
-              <div>
-                <h3 className={`text-sm font-semibold mb-1 ${
-                  selectedGuide.vetUrgency === 'immediate' ? 'text-red-700' :
-                  selectedGuide.vetUrgency === 'urgent' ? 'text-orange-700' :
-                  selectedGuide.vetUrgency === 'soon' ? 'text-yellow-700' :
-                  'text-blue-700'
-                }`}>
-                  {selectedGuide.vetUrgency === 'immediate' ? 'Call Vet Immediately' :
-                   selectedGuide.vetUrgency === 'urgent' ? 'Contact Vet Soon' :
-                   selectedGuide.vetUrgency === 'soon' ? 'Schedule Vet Visit' :
-                   'Monitor & Call If Needed'}
-                </h3>
-                <p className={`text-sm ${
-                  selectedGuide.vetUrgency === 'immediate' ? 'text-red-600' :
-                  selectedGuide.vetUrgency === 'urgent' ? 'text-orange-600' :
-                  selectedGuide.vetUrgency === 'soon' ? 'text-yellow-600' :
-                  'text-blue-600'
-                }`}>{selectedGuide.vetUrgencyText}</p>
-              </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className={`rounded-xl p-4 mb-4 ${urgency.container}`}
+        >
+          <div className="flex items-start gap-3">
+            <Phone className={`w-5 h-5 flex-shrink-0 mt-0.5 ${urgency.icon}`} />
+            <div>
+              <h3 className={`text-sm font-semibold mb-1 ${urgency.heading}`}>
+                {urgency.label}
+              </h3>
+              <p className={`text-sm ${urgency.body}`}>{guide.vetUrgencyText}</p>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
 
         {/* Warning */}
         <motion.div
@@ -460,14 +462,14 @@ function EmergencyGuides() {
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="text-sm font-semibold text-amber-700 mb-1">Important</h3>
-              <p className="text-sm text-amber-600">{selectedGuide.warning}</p>
+              <p className="text-sm text-amber-600">{guide.warning}</p>
             </div>
           </div>
         </motion.div>
 
         {/* Steps */}
         <div className="space-y-3">
-          {selectedGuide.steps.map((step, index) => (
+          {guide.steps.map((step, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}
@@ -476,7 +478,7 @@ function EmergencyGuides() {
               className="bg-white rounded-xl p-4 shadow-sm border border-[#E8E8E8]/50"
             >
               <div className="flex gap-3">
-                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${selectedGuide.color} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${guide.color} flex items-center justify-center flex-shrink-0`}>
                   <span className="text-white text-sm font-bold">{index + 1}</span>
                 </div>
                 <div>
@@ -516,6 +518,16 @@ function EmergencyGuides() {
       <BottomNav />
     </div>
   )
+}
+
+function EmergencyGuides() {
+  const [selectedGuide, setSelectedGuide] = useState(null)
+
+  if (!selectedGuide) {
+    return <GuideListView onSelectGuide={setSelectedGuide} />
+  }
+
+  return <GuideDetailView guide={selectedGuide} onBack={() => setSelectedGuide(null)} />
 }
 
 export default EmergencyGuides

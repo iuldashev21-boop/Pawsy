@@ -1,54 +1,57 @@
 import { motion } from 'framer-motion'
 import { AlertCircle, RefreshCw, WifiOff, ServerCrash, XCircle } from 'lucide-react'
 
-/**
- * ErrorMessage - Standardized error display component
- *
- * Props:
- * - type: 'generic' | 'network' | 'server' | 'validation' | 'notFound'
- * - title: Custom error title (optional)
- * - message: Custom error message (optional)
- * - onRetry: Retry handler (optional - shows retry button if provided)
- * - onDismiss: Dismiss handler (optional - shows X button if provided)
- * - variant: 'inline' | 'card' | 'fullpage' (default: 'inline')
- */
-
 const ERROR_TYPES = {
   generic: {
     icon: AlertCircle,
     iconColor: '#EF5350',
     title: 'Oops! Something went wrong',
     message: "Don't worry, even the best pups trip sometimes. Try refreshing the page or come back in a moment.",
-    solution: 'Refresh the page',
   },
   network: {
     icon: WifiOff,
     iconColor: '#FF9800',
     title: 'Lost connection',
     message: "We can't reach the internet right now. Check your Wi-Fi or mobile data, then try again.",
-    solution: 'Check your connection',
   },
   server: {
     icon: ServerCrash,
     iconColor: '#EF5350',
     title: 'Taking a quick nap',
     message: "Our servers are temporarily unavailable. This usually resolves within a few minutes.",
-    solution: 'Wait a moment and retry',
   },
   validation: {
     icon: XCircle,
     iconColor: '#F4A261',
     title: "That doesn't look right",
     message: 'Please check your input for any typos or missing information.',
-    solution: 'Review your input',
   },
   notFound: {
     icon: AlertCircle,
     iconColor: '#9E9E9E',
     title: "Can't find that",
     message: "The page or item you're looking for doesn't exist. It may have been moved or deleted.",
-    solution: 'Go back or try a different search',
   },
+}
+
+function RetryButton({ onClick, variant }) {
+  const isFullpage = variant === 'fullpage'
+  const baseClass = "inline-flex items-center gap-2 font-semibold rounded-xl"
+  const sizeClass = isFullpage
+    ? "px-6 py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-bold shadow-lg"
+    : "px-5 py-2.5 bg-[#EF5350] text-white"
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`${baseClass} ${sizeClass}`}
+    >
+      <RefreshCw className={isFullpage ? "w-5 h-5" : "w-4 h-4"} />
+      Try Again
+    </motion.button>
+  )
 }
 
 function ErrorMessage({
@@ -62,11 +65,9 @@ function ErrorMessage({
 }) {
   const config = ERROR_TYPES[type] || ERROR_TYPES.generic
   const Icon = config.icon
-
   const displayTitle = title || config.title
   const displayMessage = message || config.message
 
-  // Inline variant - compact error display
   if (variant === 'inline') {
     return (
       <motion.div
@@ -102,7 +103,6 @@ function ErrorMessage({
     )
   }
 
-  // Card variant - larger error card
   if (variant === 'card') {
     return (
       <motion.div
@@ -118,22 +118,11 @@ function ErrorMessage({
         </div>
         <h3 className="text-lg font-bold text-[#3D3D3D] mb-2">{displayTitle}</h3>
         <p className="text-sm text-[#6B6B6B] mb-4">{displayMessage}</p>
-        {onRetry && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#EF5350] text-white font-semibold rounded-xl"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </motion.button>
-        )}
+        {onRetry && <RetryButton onClick={onRetry} variant="card" />}
       </motion.div>
     )
   }
 
-  // Fullpage variant - centered full-page error
   if (variant === 'fullpage') {
     return (
       <div className={`min-h-[60vh] flex items-center justify-center p-4 ${className}`}>
@@ -150,17 +139,7 @@ function ErrorMessage({
           </div>
           <h2 className="text-xl font-bold text-[#3D3D3D] mb-3">{displayTitle}</h2>
           <p className="text-[#6B6B6B] mb-6">{displayMessage}</p>
-          {onRetry && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onRetry}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-bold rounded-xl shadow-lg"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Try Again
-            </motion.button>
-          )}
+          {onRetry && <RetryButton onClick={onRetry} variant="fullpage" />}
         </motion.div>
       </div>
     )

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, AlertTriangle, MapPin, MessageCircle, Camera } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -26,6 +27,49 @@ function UsageLimitModal({
   const isChat = type === 'chat'
   const limit = isChat ? USAGE_LIMITS.dailyChats : USAGE_LIMITS.dailyPhotos
   const labelPlural = isChat ? 'chats' : 'photo scans'
+  const labelSingular = isChat ? 'chat' : 'scan'
+  const HeaderIcon = isChat ? MessageCircle : Camera
+  const dialogRef = useRef(null)
+
+  // ESC key dismissal + focus trap
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Focus the close button on open
+    const timer = setTimeout(() => {
+      const closeBtn = dialogRef.current?.querySelector('[aria-label="Close"]')
+      closeBtn?.focus()
+    }, 100)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      clearTimeout(timer)
+    }
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 
@@ -37,8 +81,12 @@ function UsageLimitModal({
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="usage-limit-modal-title"
       >
         <motion.div
+          ref={dialogRef}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -57,9 +105,10 @@ function UsageLimitModal({
 
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-[#FFE4B5] to-[#FFD699] flex items-center justify-center">
-                {isChat ? <MessageCircle className="w-8 h-8 text-[#B8860B]" /> : <Camera className="w-8 h-8 text-[#B8860B]" />}
+                <HeaderIcon className="w-8 h-8 text-[#B8860B]" />
               </div>
               <h2
+                id="usage-limit-modal-title"
                 className="text-xl font-bold text-[#3D3D3D]"
                 style={{ fontFamily: 'Nunito, sans-serif' }}
               >
@@ -79,11 +128,11 @@ function UsageLimitModal({
               className="w-full bg-gradient-to-r from-[#FFD54F] via-[#F4A261] to-[#E8924F] text-white rounded-xl py-3 px-4 font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-shadow"
             >
               <PremiumIcon size={20} gradient={false} />
-              Upgrade to Premium
+              Get Personalized Care
             </button>
 
             <p className="text-center text-xs text-[#9E9E9E]">
-              Unlimited {labelPlural}, saved history & more
+              Unlimited {labelPlural} + AI that remembers your dog's health history
             </p>
 
             {/* Divider */}
@@ -108,7 +157,7 @@ function UsageLimitModal({
                       Is this an emergency?
                     </h3>
                     <p className="text-xs text-[#6B6B6B] mt-0.5">
-                      Your dog's safety comes first. Use an emergency {isChat ? 'chat' : 'scan'} if your pet needs urgent help.
+                      Your dog's safety comes first. Use an emergency {labelSingular} if your pet needs urgent help.
                     </p>
                     <button
                       onClick={onEmergency}

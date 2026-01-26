@@ -1,9 +1,15 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { User, PawPrint, Image } from 'lucide-react'
+import { User, PawPrint, Image as ImageIcon } from 'lucide-react'
 import RichHealthResponse from './RichHealthResponse'
 
-// Simple markdown renderer for chat messages
+const QUICK_QUESTIONS = [
+  "My dog threw up",
+  "Is this food safe?",
+  "Check this photo",
+  "Won't eat today",
+]
+
 function renderMarkdown(text) {
   if (!text) return null
 
@@ -63,7 +69,6 @@ function renderMarkdown(text) {
   })
 }
 
-// Render inline markdown (bold, headers)
 function renderInlineMarkdown(text) {
   if (!text) return null
 
@@ -82,46 +87,29 @@ function renderInlineMarkdown(text) {
   })
 }
 
-function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion, onAction, showTimestamp = true }) {
-  const isUser = message.role === 'user'
-  const hasImage = message.image?.preview
-  const hadImagePreviously = message.image?.hadImage && !hasImage
-
-  // Quick question suggestions for first assistant message
-  const quickQuestions = [
-    "My dog threw up",
-    "Is this food safe?",
-    "Check this photo",
-    "Won't eat today",
-  ]
-
-
-  // Check if this message has rich health data to display
-  // Only show rich cards for SUBSTANTIVE health assessments, not every message
-  const metadata = message.metadata || {}
-
-  // Count how many substantial data sections we have
+function hasRichData(metadata) {
   const hasSymptoms = metadata.visible_symptoms?.length >= 2 || metadata.symptoms_mentioned?.length >= 2
   const hasConditions = metadata.possible_conditions?.length >= 2
   const hasRecommendations = metadata.recommended_actions?.length >= 2
   const hasHomeCare = metadata.home_care_tips?.length >= 1
-  const hasEmergency = metadata.emergency_steps?.length > 0
-  const isUrgent = metadata.urgency_level === 'urgent' || metadata.urgency_level === 'emergency'
-  const isPhotoAnalysis = metadata.photo_analysis === true
-
-  // Only show rich cards when:
-  // 1. It's a photo analysis response, OR
-  // 2. It's urgent/emergency, OR
-  // 3. AI has provided comprehensive info (3+ sections with data) AND is not just asking questions
   const substantialSections = [hasSymptoms, hasConditions, hasRecommendations, hasHomeCare].filter(Boolean).length
-  const isAskingQuestions = (metadata.follow_up_questions?.length || 0) >= 2 // AI is primarily gathering info
+  const isAskingQuestions = (metadata.follow_up_questions?.length || 0) >= 2
 
-  const hasRichHealthData = !isUser && (
-    isPhotoAnalysis ||
-    hasEmergency ||
-    isUrgent ||
+  return (
+    metadata.photo_analysis === true ||
+    metadata.emergency_steps?.length > 0 ||
+    metadata.urgency_level === 'urgent' ||
+    metadata.urgency_level === 'emergency' ||
     (substantialSections >= 3 && !isAskingQuestions)
   )
+}
+
+function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestion, onAction, showTimestamp = true }) {
+  const isUser = message.role === 'user'
+  const hasImage = message.image?.preview
+  const hadImagePreviously = message.image?.hadImage && !hasImage
+  const metadata = message.metadata || {}
+  const hasRichHealthData = !isUser && hasRichData(metadata)
 
   return (
     <motion.div
@@ -166,7 +154,7 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
                   className="max-w-full max-h-48 rounded-xl object-cover"
                 />
                 <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 rounded-lg text-[10px] text-white flex items-center gap-1">
-                  <Image className="w-3 h-3" />
+                  <ImageIcon className="w-3 h-3" />
                   Photo for analysis
                 </div>
               </div>
@@ -176,7 +164,7 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
           {hadImagePreviously && (
             <div className="mb-3">
               <div className="w-full h-24 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] rounded-xl flex items-center justify-center gap-2 text-[#D4793A]">
-                <Image className="w-5 h-5" />
+                <ImageIcon className="w-5 h-5" />
                 <span className="text-sm">Photo was shared</span>
               </div>
             </div>
@@ -187,7 +175,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
               {isUser ? message.content : renderMarkdown(message.content)}
             </div>
           )}
-
 
           {/* Rich health response cards for structured data */}
           {hasRichHealthData && (
@@ -212,7 +199,7 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
             transition={{ delay: 0.3 }}
             className="flex flex-wrap gap-2 mt-1"
           >
-            {quickQuestions.map((question, idx) => (
+            {QUICK_QUESTIONS.map((question, idx) => (
               <motion.button
                 key={idx}
                 whileHover={{ scale: 1.02 }}
@@ -232,8 +219,6 @@ function ChatBubble({ message, dogPhoto, isFirstAssistantMessage, onQuickQuestio
             ))}
           </motion.div>
         )}
-
-
       </div>
     </motion.div>
   )

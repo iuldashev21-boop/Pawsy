@@ -104,26 +104,16 @@ function EmptyState({
   const displayMessage = message || config.message
   const displayActionText = actionText || config.actionText
   const displayActionLink = actionLink || config.actionLink
+  const showAction = displayActionText || onAction
 
-  // Render action button inline to avoid component creation during render
-  const renderActionButton = () => {
-    if (!displayActionText && !onAction) return null
-
-    const buttonContent = (
-      <button
-        onClick={onAction}
-        className="mt-4 px-6 py-2.5 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-shadow"
-      >
-        {displayActionText}
-      </button>
-    )
-
-    if (displayActionLink && !onAction) {
-      return <Link to={displayActionLink}>{buttonContent}</Link>
-    }
-
-    return buttonContent
-  }
+  const actionButton = showAction && (
+    <button
+      onClick={onAction}
+      className="mt-4 px-6 py-2.5 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-shadow"
+    >
+      {displayActionText}
+    </button>
+  )
 
   return (
     <div className={`text-center py-12 px-4 ${className}`}>
@@ -151,7 +141,9 @@ function EmptyState({
         {displayMessage}
       </p>
 
-      {renderActionButton()}
+      {displayActionLink && !onAction
+        ? <Link to={displayActionLink}>{actionButton}</Link>
+        : actionButton}
     </div>
   )
 }

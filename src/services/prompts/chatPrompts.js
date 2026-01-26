@@ -1,14 +1,20 @@
+const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000
+const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000
+
+function pluralize(count, unit) {
+  return `${count} ${unit}${count !== 1 ? 's' : ''}`
+}
+
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return 'Unknown age'
 
-  const birth = new Date(dateOfBirth)
-  const now = new Date()
-  const years = Math.floor((now - birth) / (365.25 * 24 * 60 * 60 * 1000))
-  const months = Math.floor(((now - birth) % (365.25 * 24 * 60 * 60 * 1000)) / (30.44 * 24 * 60 * 60 * 1000))
+  const elapsed = new Date() - new Date(dateOfBirth)
+  const years = Math.floor(elapsed / MS_PER_YEAR)
+  const months = Math.floor((elapsed % MS_PER_YEAR) / MS_PER_MONTH)
 
-  if (years === 0) return `${months} month${months !== 1 ? 's' : ''}`
-  if (months === 0) return `${years} year${years !== 1 ? 's' : ''}`
-  return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`
+  if (years === 0) return pluralize(months, 'month')
+  if (months === 0) return pluralize(years, 'year')
+  return `${pluralize(years, 'year')}, ${pluralize(months, 'month')}`
 }
 
 export function buildSystemPrompt(dog, healthEvents = []) {

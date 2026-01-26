@@ -18,21 +18,64 @@ import {
 import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 
-// Note: In a real app, this would use Google Places API or similar
-// For demo, we'll simulate nearby vets based on location
+const VET_CLINICS = [
+  { name: 'PetCare Emergency Hospital', type: '24-Hour Emergency' },
+  { name: 'Animal Medical Center', type: '24-Hour Emergency' },
+  { name: 'VCA Emergency Services', type: '24-Hour Emergency' },
+  { name: 'BluePearl Pet Hospital', type: '24-Hour Emergency' },
+  { name: 'Emergency Veterinary Clinic', type: '24-Hour Emergency' },
+  { name: 'Pet Emergency Room', type: 'After Hours Emergency' },
+  { name: 'City Animal Hospital', type: 'Extended Hours' },
+  { name: 'Urgent Pet Care', type: 'After Hours Emergency' },
+]
+
+function generateSimulatedVets(coords) {
+  return VET_CLINICS.map((clinic, index) => ({
+    id: index + 1,
+    ...clinic,
+    address: `${100 + index * 50} Main Street`,
+    distance: (0.5 + Math.random() * 8).toFixed(1),
+    phone: `(555) ${100 + index}-${1000 + index * 111}`,
+    rating: (3.5 + Math.random() * 1.5).toFixed(1),
+    isOpen: index < 5,
+    hours: index < 5 ? 'Open 24 hours' : 'Opens 6:00 PM',
+    lat: coords.lat + (Math.random() - 0.5) * 0.1,
+    lng: coords.lng + (Math.random() - 0.5) * 0.1,
+  })).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
+}
+
+function openInMaps(vet) {
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`, '_blank')
+}
+
+function callVet(phone) {
+  window.location.href = `tel:${phone.replace(/[^\d]/g, '')}`
+}
+
+function VetSection({ vets, label, dotClass, labelClass }) {
+  if (vets.length === 0) return null
+  return (
+    <div className={label === 'Open Now' ? 'mb-6' : ''}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-2 h-2 rounded-full ${dotClass}`} />
+        <h3 className={`text-sm font-semibold ${labelClass}`}>{label} ({vets.length})</h3>
+      </div>
+      <div className="space-y-3">
+        {vets.map((vet, index) => (
+          <VetCard key={vet.id} vet={vet} index={index} onNavigate={() => openInMaps(vet)} onCall={() => callVet(vet.phone)} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function EmergencyVet() {
-  const [location, setLocation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [vets, setVets] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Get user location
-  const getLocation = useCallback(() => {
-    setLoading(true)
-    setError(null)
-
+  const fetchLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser')
       setLoading(false)
@@ -45,14 +88,11 @@ function EmergencyVet() {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         }
-        setLocation(coords)
-        // In real app, would fetch nearby vets from API
-        // For demo, generate simulated results
         setVets(generateSimulatedVets(coords))
         setLoading(false)
       },
-      (err) => {
-        if (import.meta.env.DEV) console.error('Location error:', err)
+      (locationErr) => {
+        if (import.meta.env.DEV) console.error('Location error:', locationErr)
         setError('Unable to get your location. Please enable location services.')
         setLoading(false)
       },
@@ -61,36 +101,14 @@ function EmergencyVet() {
   }, [])
 
   useEffect(() => {
-    getLocation()
-  }, [getLocation])
+    fetchLocation() // eslint-disable-line react-hooks/set-state-in-effect -- Geolocation fetch on mount
+  }, [fetchLocation])
 
-  // Generate simulated vet clinics (in real app, this would be API call)
-  function generateSimulatedVets(coords) {
-    const vetNames = [
-      { name: 'PetCare Emergency Hospital', type: '24-Hour Emergency' },
-      { name: 'Animal Medical Center', type: '24-Hour Emergency' },
-      { name: 'VCA Emergency Services', type: '24-Hour Emergency' },
-      { name: 'BluePearl Pet Hospital', type: '24-Hour Emergency' },
-      { name: 'Emergency Veterinary Clinic', type: '24-Hour Emergency' },
-      { name: 'Pet Emergency Room', type: 'After Hours Emergency' },
-      { name: 'City Animal Hospital', type: 'Extended Hours' },
-      { name: 'Urgent Pet Care', type: 'After Hours Emergency' },
-    ]
-
-    return vetNames.map((vet, index) => ({
-      id: index + 1,
-      name: vet.name,
-      type: vet.type,
-      address: `${100 + index * 50} Main Street`,
-      distance: (0.5 + Math.random() * 8).toFixed(1),
-      phone: `(555) ${100 + index}-${1000 + index * 111}`,
-      rating: (3.5 + Math.random() * 1.5).toFixed(1),
-      isOpen: index < 5, // First 5 are open
-      hours: index < 5 ? 'Open 24 hours' : 'Opens 6:00 PM',
-      lat: coords.lat + (Math.random() - 0.5) * 0.1,
-      lng: coords.lng + (Math.random() - 0.5) * 0.1,
-    })).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
-  }
+  const handleRetry = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetchLocation()
+  }, [fetchLocation])
 
   const filteredVets = vets.filter(vet =>
     vet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -99,17 +117,6 @@ function EmergencyVet() {
 
   const openVets = filteredVets.filter(v => v.isOpen)
   const closedVets = filteredVets.filter(v => !v.isOpen)
-
-  // Open in maps app
-  const openInMaps = (vet) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`
-    window.open(url, '_blank')
-  }
-
-  // Call vet
-  const callVet = (phone) => {
-    window.location.href = `tel:${phone.replace(/[^\d]/g, '')}`
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
@@ -185,7 +192,7 @@ function EmergencyVet() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={getLocation}
+              onClick={handleRetry}
               className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 bg-[#F4A261] text-white rounded-xl font-medium"
             >
               <RefreshCw className="w-4 h-4" />
@@ -217,42 +224,15 @@ function EmergencyVet() {
               </div>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={getLocation}
+                onClick={handleRetry}
                 className="p-2 rounded-lg hover:bg-[#E8E8E8]/50"
               >
                 <RefreshCw className="w-4 h-4 text-[#6B6B6B]" />
               </motion.button>
             </div>
 
-            {/* Open now section */}
-            {openVets.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <h3 className="text-sm font-semibold text-[#3D3D3D]">Open Now ({openVets.length})</h3>
-                </div>
-                <div className="space-y-3">
-                  {openVets.map((vet, index) => (
-                    <VetCard key={vet.id} vet={vet} index={index} onNavigate={() => openInMaps(vet)} onCall={() => callVet(vet.phone)} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Closed section */}
-            {closedVets.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full bg-gray-400" />
-                  <h3 className="text-sm font-semibold text-[#6B6B6B]">Currently Closed ({closedVets.length})</h3>
-                </div>
-                <div className="space-y-3">
-                  {closedVets.map((vet, index) => (
-                    <VetCard key={vet.id} vet={vet} index={index} onNavigate={() => openInMaps(vet)} onCall={() => callVet(vet.phone)} />
-                  ))}
-                </div>
-              </div>
-            )}
+            <VetSection vets={openVets} label="Open Now" dotClass="bg-green-500 animate-pulse" labelClass="text-[#3D3D3D]" />
+            <VetSection vets={closedVets} label="Currently Closed" dotClass="bg-gray-400" labelClass="text-[#6B6B6B]" />
 
             {filteredVets.length === 0 && (
               <div className="text-center py-8">
@@ -279,19 +259,16 @@ function VetCard({ vet, index, onNavigate, onCall }) {
   const copyPhone = async () => {
     try {
       await navigator.clipboard.writeText(vet.phone)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      // Fallback for older browsers
+    } catch {
       const textArea = document.createElement('textarea')
       textArea.value = vet.phone
       document.body.appendChild(textArea)
       textArea.select()
       document.execCommand('copy')
       document.body.removeChild(textArea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
     }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (

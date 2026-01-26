@@ -79,26 +79,23 @@ function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileB
   const [showHomeCare, setShowHomeCare] = useState(false)
   const navigate = useNavigate()
 
-  // Dog validation fields
-  const isDog = analysis.is_dog ?? true
-  const detectedSubject = analysis.detected_subject || 'unknown'
-
-  // Breed verification fields
-  const detectedBreed = analysis.detected_breed || null
-  const breedMatchesProfile = analysis.breed_matches_profile ?? true
-
-  // Handle new schema with snake_case keys
-  const imageQuality = analysis.image_quality || 'good'
-  const imageQualityNote = analysis.image_quality_note || null
-  const urgencyLevel = analysis.urgency_level || 'moderate'
-  const confidence = analysis.confidence || 'medium'
-  const possibleConditions = analysis.possible_conditions || []
-  const visibleSymptoms = analysis.visible_symptoms || []
-  const recommendedActions = analysis.recommended_actions || []
-  const shouldSeeVet = analysis.should_see_vet ?? true
-  const vetUrgency = analysis.vet_urgency || 'routine_checkup'
-  const homeCareTips = analysis.home_care_tips || []
-  const summary = analysis.summary || ''
+  const {
+    is_dog: isDog = true,
+    detected_subject: detectedSubject = 'unknown',
+    detected_breed: detectedBreed = null,
+    breed_matches_profile: breedMatchesProfile = true,
+    image_quality: imageQuality = 'good',
+    image_quality_note: imageQualityNote = null,
+    urgency_level: urgencyLevel = 'moderate',
+    confidence = 'medium',
+    possible_conditions: possibleConditions = [],
+    visible_symptoms: visibleSymptoms = [],
+    recommended_actions: recommendedActions = [],
+    should_see_vet: shouldSeeVet = true,
+    vet_urgency: vetUrgency = 'routine_checkup',
+    home_care_tips: homeCareTips = [],
+    summary = '',
+  } = analysis
 
   const hasImageQualityIssue = imageQuality !== 'good' && imageQualityNote
 
@@ -120,7 +117,7 @@ function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileB
         <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md bg-[#F5F5F5]">
           <img
             src={imageUrl}
-            alt="Uploaded photo"
+            alt="Photo that could not be identified as a dog"
             className="w-full h-48 object-contain"
           />
         </div>
@@ -137,9 +134,9 @@ function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileB
             Oops! This doesn't look like a dog
           </h3>
           <p className="text-sm text-[#6B6B6B] mb-4">
-            {detectedSubject !== 'unknown' && detectedSubject !== 'dog' ? (
+            {detectedSubject !== 'unknown' && detectedSubject !== 'dog' && (
               <>This appears to be a <span className="font-semibold text-[#F4A261]">{detectedSubject}</span>. </>
-            ) : null}
+            )}
             Pawsy is designed specifically for dog health analysis. Please upload a photo of your pup!
           </p>
 
@@ -175,7 +172,7 @@ function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileB
       <div className="relative rounded-2xl overflow-hidden border-2 border-[#E8E8E8] shadow-md bg-[#F5F5F5]">
         <img
           src={imageUrl}
-          alt="Analyzed photo"
+          alt="Photo analyzed for health concerns"
           className="w-full h-48 object-contain"
         />
         <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-full ${urgencyConfig.bg} ${urgencyConfig.border} border flex items-center gap-1.5`}>
@@ -328,11 +325,10 @@ function AnalysisResult({ analysis, imageUrl, photo, bodyArea, onReset, profileB
               </h3>
               <span className="text-xs text-[#9E9E9E]">({homeCareTips.length})</span>
             </div>
-            {showHomeCare ? (
-              <ChevronUp className="w-4 h-4 text-[#9E9E9E]" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-[#9E9E9E]" />
-            )}
+            {showHomeCare
+              ? <ChevronUp className="w-4 h-4 text-[#9E9E9E]" />
+              : <ChevronDown className="w-4 h-4 text-[#9E9E9E]" />
+            }
           </button>
           <AnimatePresence>
             {showHomeCare && (

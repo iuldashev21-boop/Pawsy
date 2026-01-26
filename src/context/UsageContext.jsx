@@ -1,36 +1,35 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from './AuthContext'
+import { usePremium } from '../hooks/usePremium'
 import { USAGE_LIMITS } from '../constants/usage'
 
 const UsageContext = createContext(null)
 
-// Alias for internal use
-const LIMITS = USAGE_LIMITS
-
-// Get today's date as YYYY-MM-DD in local timezone
-const getTodayDate = () => {
-  const now = new Date()
-  return now.toISOString().split('T')[0]
+function getTodayDate() {
+  return new Date().toISOString().split('T')[0]
 }
 
-// Default usage state
-const getDefaultUsage = () => ({
-  chatsUsedToday: 0,
-  photosUsedToday: 0,
-  emergencyChatsUsed: 0,
-  emergencyPhotosUsed: 0,
-  lastResetDate: getTodayDate(),
-  firstDayDate: getTodayDate(),
-})
+function getDefaultUsage() {
+  const today = getTodayDate()
+  return {
+    chatsUsedToday: 0,
+    photosUsedToday: 0,
+    emergencyChatsUsed: 0,
+    emergencyPhotosUsed: 0,
+    lastResetDate: today,
+    firstDayDate: today,
+  }
+}
 
 export function UsageProvider({ children }) {
   const { user, getUserStorageKey } = useAuth()
+  const { isPremium } = usePremium()
   const [usage, setUsage] = useState(getDefaultUsage())
   const [loading, setLoading] = useState(true)
 
-  // Load usage from localStorage
   useEffect(() => {
     if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: reset state when user logs out
       setUsage(getDefaultUsage())
       setLoading(false)
       return
@@ -38,35 +37,25 @@ export function UsageProvider({ children }) {
 
     const storageKey = getUserStorageKey('usage')
     const stored = localStorage.getItem(storageKey)
+    const parsed = stored ? JSON.parse(stored) : null
+    const today = getTodayDate()
 
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      const today = getTodayDate()
-
-      // Check if we need to reset (new day)
-      if (parsed.lastResetDate !== today) {
-        // Reset daily usage but keep firstDayDate
-        const resetUsage = {
-          ...getDefaultUsage(),
-          firstDayDate: parsed.firstDayDate,
-          lastResetDate: today,
-        }
-        localStorage.setItem(storageKey, JSON.stringify(resetUsage))
-        setUsage(resetUsage)
-      } else {
-        setUsage(parsed)
-      }
+    let resolved
+    if (parsed && parsed.lastResetDate === today) {
+      resolved = parsed
     } else {
-      // First time user - set first day date
-      const newUsage = getDefaultUsage()
-      localStorage.setItem(storageKey, JSON.stringify(newUsage))
-      setUsage(newUsage)
+      resolved = {
+        ...getDefaultUsage(),
+        firstDayDate: parsed?.firstDayDate || today,
+        lastResetDate: today,
+      }
+      localStorage.setItem(storageKey, JSON.stringify(resolved))
     }
 
+    setUsage(resolved)
     setLoading(false)
   }, [user, getUserStorageKey])
 
-  // Save usage to localStorage whenever it changes
   const saveUsage = useCallback((newUsage) => {
     if (!user) return
     const storageKey = getUserStorageKey('usage')
@@ -74,90 +63,46 @@ export function UsageProvider({ children }) {
     setUsage(newUsage)
   }, [user, getUserStorageKey])
 
-  // Check if it's the user's first day
   const isFirstDay = usage.firstDayDate === getTodayDate()
 
-  // Calculate limits based on first day bonus
-  const effectiveLimits = {
-    dailyChats: isFirstDay ? LIMITS.firstDayChats : LIMITS.dailyChats,
-    dailyPhotos: isFirstDay ? LIMITS.firstDayPhotos : LIMITS.dailyPhotos,
-    emergencyChats: LIMITS.emergencyChats,
-    emergencyPhotos: LIMITS.emergencyPhotos,
-  }
+  const effectiveLimits = useMemo(() => ({
+    dailyChats: isFirstDay ? USAGE_LIMITS.firstDayChats : USAGE_LIMITS.dailyChats,
+    dailyPhotos: isFirstDay ? USAGE_LIMITS.firstDayPhotos : USAGE_LIMITS.dailyPhotos,
+    emergencyChats: USAGE_LIMITS.emergencyChats,
+    emergencyPhotos: USAGE_LIMITS.emergencyPhotos,
+  }), [isFirstDay])
 
-  // Computed values
   const chatsRemaining = effectiveLimits.dailyChats - usage.chatsUsedToday
   const photosRemaining = effectiveLimits.dailyPhotos - usage.photosUsedToday
-  const emergencyChatsRemaining = LIMITS.emergencyChats - usage.emergencyChatsUsed
-  const emergencyPhotosRemaining = LIMITS.emergencyPhotos - usage.emergencyPhotosUsed
+  const emergencyChatsRemaining = effectiveLimits.emergencyChats - usage.emergencyChatsUsed
+  const emergencyPhotosRemaining = effectiveLimits.emergencyPhotos - usage.emergencyPhotosUsed
 
-  // Can use regular (non-emergency)
-  const canChat = chatsRemaining > 0
-  const canPhoto = photosRemaining > 0
-
-  // Can use emergency
+  const canChat = isPremium || chatsRemaining > 0
+  const canPhoto = isPremium || photosRemaining > 0
   const canEmergencyChat = emergencyChatsRemaining > 0
   const canEmergencyPhoto = emergencyPhotosRemaining > 0
 
-  // Actions
-  const useChat = useCallback(() => {
-    if (!canChat) return false
-
-    const newUsage = {
-      ...usage,
-      chatsUsedToday: usage.chatsUsedToday + 1,
-    }
-    saveUsage(newUsage)
+  const tryIncrement = useCallback((allowed, field) => {
+    if (!allowed) return false
+    saveUsage({ ...usage, [field]: usage[field] + 1 })
     return true
-  }, [usage, canChat, saveUsage])
+  }, [usage, saveUsage])
 
-  const usePhoto = useCallback(() => {
-    if (!canPhoto) return false
+  const useChat = useCallback(() => tryIncrement(canChat, 'chatsUsedToday'), [canChat, tryIncrement])
+  const usePhoto = useCallback(() => tryIncrement(canPhoto, 'photosUsedToday'), [canPhoto, tryIncrement])
+  const useEmergencyChat = useCallback(() => tryIncrement(canEmergencyChat, 'emergencyChatsUsed'), [canEmergencyChat, tryIncrement])
+  const useEmergencyPhoto = useCallback(() => tryIncrement(canEmergencyPhoto, 'emergencyPhotosUsed'), [canEmergencyPhoto, tryIncrement])
 
-    const newUsage = {
-      ...usage,
-      photosUsedToday: usage.photosUsedToday + 1,
-    }
-    saveUsage(newUsage)
-    return true
-  }, [usage, canPhoto, saveUsage])
-
-  const useEmergencyChat = useCallback(() => {
-    if (!canEmergencyChat) return false
-
-    const newUsage = {
-      ...usage,
-      emergencyChatsUsed: usage.emergencyChatsUsed + 1,
-    }
-    saveUsage(newUsage)
-    return true
-  }, [usage, canEmergencyChat, saveUsage])
-
-  const useEmergencyPhoto = useCallback(() => {
-    if (!canEmergencyPhoto) return false
-
-    const newUsage = {
-      ...usage,
-      emergencyPhotosUsed: usage.emergencyPhotosUsed + 1,
-    }
-    saveUsage(newUsage)
-    return true
-  }, [usage, canEmergencyPhoto, saveUsage])
-
-  // For debugging/testing - reset usage
   const resetUsage = useCallback(() => {
-    const newUsage = getDefaultUsage()
-    saveUsage(newUsage)
+    saveUsage(getDefaultUsage())
   }, [saveUsage])
 
-  const value = {
-    // State
+  const value = useMemo(() => ({
     usage,
     limits: effectiveLimits,
     isFirstDay,
+    isPremium,
     loading,
-
-    // Computed
     chatsRemaining,
     photosRemaining,
     emergencyChatsRemaining,
@@ -166,14 +111,17 @@ export function UsageProvider({ children }) {
     canPhoto,
     canEmergencyChat,
     canEmergencyPhoto,
-
-    // Actions
     useChat,
     usePhoto,
     useEmergencyChat,
     useEmergencyPhoto,
-    resetUsage, // For testing
-  }
+    resetUsage,
+  }), [
+    usage, effectiveLimits, isFirstDay, isPremium, loading,
+    chatsRemaining, photosRemaining, emergencyChatsRemaining, emergencyPhotosRemaining,
+    canChat, canPhoto, canEmergencyChat, canEmergencyPhoto,
+    useChat, usePhoto, useEmergencyChat, useEmergencyPhoto, resetUsage
+  ])
 
   return (
     <UsageContext.Provider value={value}>
@@ -182,6 +130,7 @@ export function UsageProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Standard React Context pattern
 export function useUsage() {
   const context = useContext(UsageContext)
   if (!context) {

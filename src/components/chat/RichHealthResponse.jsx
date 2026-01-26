@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle, AlertTriangle, AlertCircle, AlertOctagon,
-  Eye, Search, Home, Stethoscope, ChevronDown, ChevronUp,
+  Eye, Search, Home, Stethoscope, ChevronDown,
   Camera, MapPin, HelpCircle
 } from 'lucide-react'
 
@@ -111,20 +111,22 @@ function ActionChip({ icon: Icon, label, onClick, variant = 'default' }) {
   )
 }
 
+function getField(metadata, key, fallback) {
+  return metadata?.[key] ?? metadata?.photo_analysis?.[key] ?? fallback
+}
+
 function RichHealthResponse({ metadata, onAction }) {
-  // Extract data from metadata
-  const urgencyLevel = metadata?.urgency_level || metadata?.photo_analysis?.urgency_level || 'moderate'
-  const visibleSymptoms = metadata?.visible_symptoms || metadata?.photo_analysis?.visible_symptoms || []
-  const possibleConditions = metadata?.possible_conditions || metadata?.photo_analysis?.possible_conditions || []
-  const homeCareTips = metadata?.home_care_tips || metadata?.photo_analysis?.home_care_tips || []
-  const recommendedActions = metadata?.recommended_actions || metadata?.photo_analysis?.recommended_actions || []
-  const shouldSeeVet = metadata?.should_see_vet ?? metadata?.photo_analysis?.should_see_vet ?? false
+  const urgencyLevel = getField(metadata, 'urgency_level', 'moderate')
+  const visibleSymptoms = getField(metadata, 'visible_symptoms', [])
+  const possibleConditions = getField(metadata, 'possible_conditions', [])
+  const homeCareTips = getField(metadata, 'home_care_tips', [])
+  const recommendedActions = getField(metadata, 'recommended_actions', [])
+  const shouldSeeVet = getField(metadata, 'should_see_vet', false)
   const emergencySteps = metadata?.emergency_steps || []
 
   const config = urgencyConfig[urgencyLevel] || urgencyConfig.moderate
   const UrgencyIcon = config.icon
 
-  // Check if we have any structured data to display
   const hasStructuredData = visibleSymptoms.length > 0 ||
                            possibleConditions.length > 0 ||
                            homeCareTips.length > 0 ||
@@ -191,7 +193,7 @@ function RichHealthResponse({ metadata, onAction }) {
           title="Home Care Tips"
           items={homeCareTips}
           iconColor="text-[#4DB6AC]"
-          collapsible={true}
+          collapsible
           defaultOpen={false}
         />
       </div>

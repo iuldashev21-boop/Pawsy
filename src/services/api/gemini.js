@@ -8,22 +8,48 @@ import {
   getMockErrorResponse
 } from '../dev/mockResponses'
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY
 
-// Model selection
 const PRIMARY_MODEL = 'gemini-2.0-flash'
 const FALLBACK_MODEL = 'gemini-1.5-flash'
 
-// Generation config optimized for Gemini 3
 const generationConfig = {
-  temperature: 1.0,  // Keep at 1.0 for Gemini 3 models
+  temperature: 1.0,
   maxOutputTokens: 2048,
   topP: 0.95,
   topK: 40,
+}
+
+const API_TIMEOUT_MS = 30000 // 30 seconds
+
+function withTimeout(promise, ms = API_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('API request timed out. Please try again.')), ms)
+    ),
+  ])
+}
+
+const MAX_RETRIES = 2
+
+function isRateLimitError(error) {
+  return error?.status === 429 || error?.message?.includes('quota') || error?.message?.includes('429')
+}
+
+async function withRetry(fn, retries = MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (isRateLimitError(error) && attempt < retries) {
+        const delay = 1000 * Math.pow(2, attempt) // 1s, 2s
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+      throw error
+    }
+  }
 }
 
 let genAI = null
@@ -35,11 +61,6 @@ function getGenAI() {
   return genAI
 }
 
-// ============================================================================
-// Structured Output Schemas
-// ============================================================================
-
-// Structured Output Schemas - Used with native JSON mode for reliable parsing
 const photoAnalysisSchema = {
   type: "object",
   properties: {
@@ -177,10 +198,6 @@ const chatResponseSchema = {
   },
   required: ["response", "concerns_detected", "suggested_action", "urgency_level", "should_see_vet"]
 }
-
-// ============================================================================
-// System Prompts
-// ============================================================================
 
 function buildChatSystemPrompt(dog, photoContext = null) {
   const age = dog.dateOfBirth ? calculateAge(dog.dateOfBirth) : 'Unknown'
@@ -571,486 +588,260 @@ function calculateAge(dateOfBirth) {
   return `${years} ${years === 1 ? 'year' : 'years'} old`
 }
 
-// ============================================================================
-// Error Handling
-// ============================================================================
-
-function handleGeminiError(error, response) {
-  // Check for safety blocks
-  if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
-    return {
-      error: true,
-      errorType: 'safety_block',
-      message: "I couldn't analyze this content due to safety guidelines. Please try a different photo or rephrase your question."
-    }
-  }
-
-  // Check for rate limits
-  if (error?.status === 429 || error?.message?.includes('quota')) {
-    return {
-      error: true,
-      errorType: 'rate_limit',
-      message: "I'm receiving too many requests right now. Please wait a moment and try again."
-    }
-  }
-
-  // Check for invalid API key
-  if (error?.status === 401 || error?.status === 403) {
-    return {
-      error: true,
-      errorType: 'auth_error',
-      message: "There's an issue with the API configuration. Please check your API key."
-    }
-  }
-
-  // Generic error
-  return {
-    error: true,
-    errorType: 'unknown',
-    message: "Something went wrong. Please try again."
-  }
+const ERROR_MESSAGES = {
+  safety_block: "I couldn't analyze this content due to safety guidelines. Please try a different photo or rephrase your question.",
+  timeout: "The request took too long. Please try again.",
+  rate_limit: "I'm receiving too many requests right now. Please wait a moment and try again.",
+  auth_error: "There's an issue with the API configuration. Please check your API key.",
+  unknown: "Something went wrong. Please try again."
 }
 
-// ============================================================================
-// Response Parsing Helper
-// ============================================================================
+function buildError(errorType) {
+  return { error: true, errorType, message: ERROR_MESSAGES[errorType] }
+}
 
-/**
- * Parse Gemini response - handles markdown code blocks and extracts JSON
- */
-function parseGeminiChatResponse(text) {
-  // Remove markdown code block wrapper if present
+function handleGeminiError(error, response) {
+  if (response?.candidates?.[0]?.finishReason === 'SAFETY') return buildError('safety_block')
+  if (error?.message?.includes('timed out')) return buildError('timeout')
+  if (error?.status === 429 || error?.message?.includes('quota')) return buildError('rate_limit')
+  if (error?.status === 401 || error?.status === 403) return buildError('auth_error')
+  return buildError('unknown')
+}
+
+function cleanJsonText(text) {
   let cleaned = text.trim()
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim()
 
-  // Handle various markdown code fence formats
-  cleaned = cleaned.replace(/^```json\s*/i, '')
-  cleaned = cleaned.replace(/^```\s*/i, '')
-  cleaned = cleaned.replace(/\s*```$/i, '')
-  cleaned = cleaned.trim()
-
-  // Try to extract JSON if it's embedded in other text
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
-  if (jsonMatch) {
-    cleaned = jsonMatch[0]
+  return jsonMatch ? jsonMatch[0] : cleaned
+}
+
+function ensureArray(val) {
+  return Array.isArray(val) ? val : []
+}
+
+function ensureString(val, fallback = '') {
+  return typeof val === 'string' ? val : fallback
+}
+
+function ensureBool(val, fallback = false) {
+  return typeof val === 'boolean' ? val : fallback
+}
+
+function ensureStringOrNull(val) {
+  return typeof val === 'string' ? val : null
+}
+
+function parseGeminiChatResponse(text) {
+  const defaults = {
+    message: text,
+    follow_up_questions: [],
+    quick_replies: [],
+    concerns_detected: false,
+    suggested_action: 'continue_chat',
+    urgency_level: 'low',
+    symptoms_mentioned: [],
+    possible_conditions: [],
+    recommended_actions: [],
+    home_care_tips: [],
+    should_see_vet: false,
+    emergency_steps: []
   }
 
   try {
-    const parsed = JSON.parse(cleaned)
+    const parsed = JSON.parse(cleanJsonText(text))
     return {
       success: true,
-      message: parsed.response || parsed.message || cleaned,
-      follow_up_questions: parsed.follow_up_questions || [],
-      quick_replies: parsed.quick_replies || [],
-      concerns_detected: parsed.concerns_detected ?? false,
-      suggested_action: parsed.suggested_action || 'continue_chat',
-      // New structured health fields
-      urgency_level: parsed.urgency_level || 'low',
-      symptoms_mentioned: parsed.symptoms_mentioned || [],
-      possible_conditions: parsed.possible_conditions || [],
-      recommended_actions: parsed.recommended_actions || [],
-      home_care_tips: parsed.home_care_tips || [],
-      should_see_vet: parsed.should_see_vet ?? false,
-      emergency_steps: parsed.emergency_steps || []
+      message: ensureString(parsed.response || parsed.message, text),
+      follow_up_questions: ensureArray(parsed.follow_up_questions),
+      quick_replies: ensureArray(parsed.quick_replies),
+      concerns_detected: ensureBool(parsed.concerns_detected, false),
+      suggested_action: ensureString(parsed.suggested_action, 'continue_chat'),
+      urgency_level: ensureString(parsed.urgency_level, 'low'),
+      symptoms_mentioned: ensureArray(parsed.symptoms_mentioned),
+      possible_conditions: ensureArray(parsed.possible_conditions),
+      recommended_actions: ensureArray(parsed.recommended_actions),
+      home_care_tips: ensureArray(parsed.home_care_tips),
+      should_see_vet: ensureBool(parsed.should_see_vet, false),
+      emergency_steps: ensureArray(parsed.emergency_steps)
     }
   } catch {
-    // If parsing fails, return as plain message
-    return {
-      success: false,
-      message: text,
-      follow_up_questions: [],
-      quick_replies: [],
-      concerns_detected: false,
-      suggested_action: 'continue_chat',
-      urgency_level: 'low',
-      symptoms_mentioned: [],
-      possible_conditions: [],
-      recommended_actions: [],
-      home_care_tips: [],
-      should_see_vet: false,
-      emergency_steps: []
-    }
+    return { success: false, ...defaults }
   }
 }
 
-// ============================================================================
-// Main Service
-// ============================================================================
+function parsePhotoAnalysisResponse(text, fallbackSummary = '') {
+  const defaults = {
+    error: false,
+    is_dog: true,
+    detected_subject: 'dog',
+    detected_breed: null,
+    breed_matches_profile: true,
+    image_quality: 'good',
+    image_quality_note: null,
+    urgency_level: 'moderate',
+    confidence: 'medium',
+    possible_conditions: [],
+    visible_symptoms: [],
+    recommended_actions: ['Consult with a veterinarian for proper diagnosis'],
+    should_see_vet: true,
+    vet_urgency: 'within_week',
+    home_care_tips: [],
+    summary: fallbackSummary || 'Assessment complete.'
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      is_dog: ensureBool(parsed.is_dog, true),
+      detected_subject: ensureString(parsed.detected_subject, 'dog'),
+      detected_breed: ensureStringOrNull(parsed.detected_breed),
+      breed_matches_profile: ensureBool(parsed.breed_matches_profile, true),
+      image_quality: ensureString(parsed.image_quality, 'good'),
+      image_quality_note: ensureStringOrNull(parsed.image_quality_note),
+      urgency_level: ensureString(parsed.urgency_level, 'moderate'),
+      confidence: ensureString(parsed.confidence, 'medium'),
+      possible_conditions: ensureArray(parsed.possible_conditions),
+      visible_symptoms: ensureArray(parsed.visible_symptoms),
+      recommended_actions: ensureArray(parsed.recommended_actions).length > 0 ? parsed.recommended_actions : defaults.recommended_actions,
+      should_see_vet: ensureBool(parsed.should_see_vet, true),
+      vet_urgency: ensureString(parsed.vet_urgency, 'within_week'),
+      home_care_tips: ensureArray(parsed.home_care_tips),
+      summary: ensureString(parsed.summary, defaults.summary)
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function buildChatHistory(history) {
+  const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
+  const firstUserIndex = validHistory.findIndex(msg => msg.role === 'user')
+  if (firstUserIndex === -1) return []
+
+  return validHistory.slice(firstUserIndex).map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }],
+  }))
+}
+
+function formatChatResponse(parsed) {
+  const { success: _S, ...fields } = parsed
+  return { error: false, ...fields }
+}
+
+const MOCK_ERROR_PREFIXES = ['api_', 'safety_', 'auth_', 'network_']
+
+function isErrorScenario(scenario) {
+  return MOCK_ERROR_PREFIXES.some(prefix => scenario.startsWith(prefix))
+}
+
+async function handleMockMode(getResponse) {
+  const scenario = getMockScenario()
+  await new Promise(resolve => setTimeout(resolve, getMockDelay()))
+  if (isErrorScenario(scenario)) return getMockErrorResponse(scenario)
+  return getResponse(scenario)
+}
 
 export const geminiService = {
   isConfigured() {
     return !!apiKey
   },
 
-  /**
-   * Chat with Pawsy - returns structured response
-   * @param {Object} dog - Dog profile object
-   * @param {string} userMessage - User's message
-   * @param {Array} history - Previous messages in conversation
-   * @param {Object} photoContext - Optional photo analysis context (detected_breed, etc.)
-   * @returns {Object} Structured chat response
-   */
   async chat(dog, userMessage, history = [], photoContext = null) {
-    // Check for mock mode (dev only)
-    if (isMockModeEnabled()) {
-      const scenario = getMockScenario()
-      const delay = getMockDelay()
-      await new Promise(resolve => setTimeout(resolve, delay))
-
-      // Check if it's an error scenario
-      if (scenario.startsWith('api_') || scenario.startsWith('safety_') || scenario.startsWith('auth_') || scenario.startsWith('network_')) {
-        return getMockErrorResponse(scenario)
-      }
-      return getMockChatResponse(scenario)
-    }
+    if (isMockModeEnabled()) return handleMockMode(getMockChatResponse)
 
     const ai = getGenAI()
     if (!ai) {
       throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
     }
 
-    try {
-      const systemPrompt = buildChatSystemPrompt(dog, photoContext)
+    return this._executeChat(ai, PRIMARY_MODEL, dog, userMessage, history, photoContext)
+  },
 
-      // Use native JSON mode with schema for reliable structured output
+  async _executeChat(ai, modelName, dog, userMessage, history, photoContext) {
+    try {
       const model = ai.getGenerativeModel({
-        model: PRIMARY_MODEL,
+        model: modelName,
         generationConfig: {
           ...generationConfig,
           responseMimeType: "application/json",
           responseSchema: chatResponseSchema,
         },
-        systemInstruction: systemPrompt,
+        systemInstruction: buildChatSystemPrompt(dog, photoContext),
       })
 
-      // Build chat history
-      const chatHistory = []
-
-      // Add conversation history (skip welcome messages)
-      const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
-      let startIndex = 0
-      if (validHistory.length > 0 && validHistory[0].role === 'assistant') {
-        startIndex = 1
-      }
-
-      for (let i = startIndex; i < validHistory.length; i++) {
-        const msg = validHistory[i]
-        chatHistory.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
-        })
-      }
-
-      const chat = model.startChat({ history: chatHistory })
-
-      const result = await chat.sendMessage(userMessage)
+      const chat = model.startChat({ history: buildChatHistory(history) })
+      const result = await withRetry(() => withTimeout(chat.sendMessage(userMessage)))
       const response = result.response
-      const text = response.text()
 
-      // Check for safety blocks
       if (response.candidates?.[0]?.finishReason === 'SAFETY') {
         return handleGeminiError(null, response)
       }
 
-      // Parse the response using helper
-      const parsed = parseGeminiChatResponse(text)
-      return {
-        error: false,
-        message: parsed.message,
-        follow_up_questions: parsed.follow_up_questions,
-        quick_replies: parsed.quick_replies,
-        concerns_detected: parsed.concerns_detected,
-        suggested_action: parsed.suggested_action,
-        // Structured health data
-        urgency_level: parsed.urgency_level,
-        symptoms_mentioned: parsed.symptoms_mentioned,
-        possible_conditions: parsed.possible_conditions,
-        recommended_actions: parsed.recommended_actions,
-        home_care_tips: parsed.home_care_tips,
-        should_see_vet: parsed.should_see_vet,
-        emergency_steps: parsed.emergency_steps
-      }
-
+      return formatChatResponse(parseGeminiChatResponse(response.text()))
     } catch (error) {
-      if (import.meta.env.DEV) console.error('Gemini Chat Error:', error)
+      if (import.meta.env.DEV) console.error(`Gemini Chat Error (${modelName}):`, error)
 
-      // Try fallback model
-      if (error.message?.includes('not found') || error.message?.includes('404')) {
-        return this.chatWithFallback(dog, userMessage, history, photoContext)
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeChat(ai, FALLBACK_MODEL, dog, userMessage, history, photoContext)
       }
 
       return handleGeminiError(error, null)
     }
   },
 
-  /**
-   * Fallback chat using older model
-   */
-  async chatWithFallback(dog, userMessage, history = [], photoContext = null) {
-    const ai = getGenAI()
-    const systemPrompt = buildChatSystemPrompt(dog, photoContext)
-
-    try {
-      // Use native JSON mode with schema for reliable structured output
-      const model = ai.getGenerativeModel({
-        model: FALLBACK_MODEL,
-        generationConfig: {
-          ...generationConfig,
-          responseMimeType: "application/json",
-          responseSchema: chatResponseSchema,
-        },
-        systemInstruction: systemPrompt,
-      })
-
-      const chatHistory = []
-      const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
-      let startIndex = validHistory.length > 0 && validHistory[0].role === 'assistant' ? 1 : 0
-
-      for (let i = startIndex; i < validHistory.length; i++) {
-        const msg = validHistory[i]
-        chatHistory.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
-        })
-      }
-
-      const chat = model.startChat({ history: chatHistory })
-
-      const result = await chat.sendMessage(userMessage)
-      const text = result.response.text()
-
-      // Parse the response using helper
-      const parsed = parseGeminiChatResponse(text)
-      return {
-        error: false,
-        message: parsed.message,
-        follow_up_questions: parsed.follow_up_questions,
-        quick_replies: parsed.quick_replies,
-        concerns_detected: parsed.concerns_detected,
-        suggested_action: parsed.suggested_action,
-        urgency_level: parsed.urgency_level,
-        symptoms_mentioned: parsed.symptoms_mentioned,
-        possible_conditions: parsed.possible_conditions,
-        recommended_actions: parsed.recommended_actions,
-        home_care_tips: parsed.home_care_tips,
-        should_see_vet: parsed.should_see_vet,
-        emergency_steps: parsed.emergency_steps
-      }
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Fallback chat also failed:', error)
-      return handleGeminiError(error, null)
-    }
-  },
-
-  /**
-   * Analyze a photo for health concerns - returns structured response
-   * @param {string} imageBase64 - Base64 encoded image data
-   * @param {string} mimeType - Image MIME type (e.g., 'image/jpeg')
-   * @param {Object} dog - Dog profile object
-   * @param {string} bodyArea - Body area being analyzed
-   * @param {string} description - Owner's description of the concern
-   * @returns {Object} Structured photo analysis response
-   */
   async analyzePhoto(imageBase64, mimeType, dog, bodyArea = '', description = '') {
-    // Check for mock mode (dev only)
-    if (isMockModeEnabled()) {
-      const scenario = getMockScenario()
-      const delay = getMockDelay()
-      await new Promise(resolve => setTimeout(resolve, delay))
-
-      // Check if it's an error scenario
-      if (scenario.startsWith('api_') || scenario.startsWith('safety_') || scenario.startsWith('auth_') || scenario.startsWith('network_')) {
-        return getMockErrorResponse(scenario)
-      }
-      return getMockPhotoResponse(scenario)
-    }
+    if (isMockModeEnabled()) return handleMockMode(getMockPhotoResponse)
 
     const ai = getGenAI()
     if (!ai) {
       throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
     }
 
-    try {
-      const systemPrompt = buildPhotoAnalysisSystemPrompt(dog, bodyArea, description)
-
-      // Use native JSON mode with schema for reliable structured output
-      const model = ai.getGenerativeModel({
-        model: PRIMARY_MODEL,
-        generationConfig: {
-          ...generationConfig,
-          responseMimeType: "application/json",
-          responseSchema: photoAnalysisSchema,
-        },
-        systemInstruction: systemPrompt,
-      })
-
-      // IMPORTANT: Image FIRST, then text prompt (per Google's best practices)
-      const prompt = `Analyze this image for health concerns. Follow the instructions in the system prompt.`
-
-      const result = await model.generateContent([
-        { inlineData: { mimeType, data: imageBase64 } },  // IMAGE FIRST
-        { text: prompt }  // TEXT AFTER
-      ])
-
-      const response = result.response
-      const text = response.text()
-
-      // Check for safety blocks
-      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
-        return handleGeminiError(null, response)
-      }
-
-      // Parse JSON response - strip markdown code blocks first
-      try {
-        // Remove markdown code block wrapper if present (```json ... ``` or ``` ... ```)
-        let cleanedText = text
-          .replace(/```json\s*/gi, '')  // Remove ```json anywhere
-          .replace(/```\s*/g, '')       // Remove ``` anywhere
-          .trim()
-
-        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0])
-          return {
-            error: false,
-            // Dog validation fields
-            is_dog: parsed.is_dog ?? true,
-            detected_subject: parsed.detected_subject || 'dog',
-            // Breed verification fields
-            detected_breed: parsed.detected_breed || null,
-            breed_matches_profile: parsed.breed_matches_profile ?? true,
-            // Image quality fields
-            image_quality: parsed.image_quality || 'good',
-            image_quality_note: parsed.image_quality_note || null,
-            // Ensure required fields have defaults
-            urgency_level: parsed.urgency_level || 'moderate',
-            confidence: parsed.confidence || 'medium',
-            possible_conditions: parsed.possible_conditions || [],
-            visible_symptoms: parsed.visible_symptoms || [],
-            recommended_actions: parsed.recommended_actions || ['Monitor the area for changes', 'Consult a veterinarian if symptoms persist'],
-            should_see_vet: parsed.should_see_vet ?? true,
-            vet_urgency: parsed.vet_urgency || 'within_week',
-            home_care_tips: parsed.home_care_tips || [],
-            summary: parsed.summary || 'Assessment complete. Please review the details below.'
-          }
-        }
-      } catch (e) {
-        if (import.meta.env.DEV) console.warn('Failed to parse structured photo response:', e.message)
-      }
-
-      // Fallback: create basic structure from raw text
-      return {
-        error: false,
-        is_dog: true,
-        detected_subject: 'dog',
-        detected_breed: null,
-        breed_matches_profile: true,
-        image_quality: 'good',
-        image_quality_note: null,
-        urgency_level: 'moderate',
-        confidence: 'medium',
-        possible_conditions: [],
-        visible_symptoms: [],
-        recommended_actions: ['Consult with a veterinarian for proper diagnosis'],
-        should_see_vet: true,
-        vet_urgency: 'within_week',
-        home_care_tips: [],
-        summary: text.slice(0, 200) + (text.length > 200 ? '...' : '')
-      }
-
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Gemini Photo Analysis Error:', error)
-
-      // Try fallback model
-      if (error.message?.includes('not found') || error.message?.includes('404')) {
-        return this.analyzePhotoWithFallback(imageBase64, mimeType, dog, bodyArea, description)
-      }
-
-      return handleGeminiError(error, null)
-    }
+    return this._executePhotoAnalysis(ai, PRIMARY_MODEL, imageBase64, mimeType, dog, bodyArea, description)
   },
 
-  /**
-   * Fallback photo analysis using older model
-   */
-  async analyzePhotoWithFallback(imageBase64, mimeType, dog, bodyArea, description) {
-    const ai = getGenAI()
-    const systemPrompt = buildPhotoAnalysisSystemPrompt(dog, bodyArea, description)
-
+  async _executePhotoAnalysis(ai, modelName, imageBase64, mimeType, dog, bodyArea, description) {
     try {
-      // Use native JSON mode with schema for reliable structured output
       const model = ai.getGenerativeModel({
-        model: FALLBACK_MODEL,
+        model: modelName,
         generationConfig: {
           ...generationConfig,
           responseMimeType: "application/json",
           responseSchema: photoAnalysisSchema,
         },
-        systemInstruction: systemPrompt,
+        systemInstruction: buildPhotoAnalysisSystemPrompt(dog, bodyArea, description),
       })
 
-      const result = await model.generateContent([
+      const result = await withRetry(() => withTimeout(model.generateContent([
         { inlineData: { mimeType, data: imageBase64 } },
         { text: 'Analyze this image for health concerns. Follow the instructions in the system prompt.' }
-      ])
+      ])))
 
-      const text = result.response.text()
+      const response = result.response
 
-      // With native JSON mode, response should be valid JSON
-      try {
-        const parsed = JSON.parse(text)
-        return {
-          error: false,
-          is_dog: parsed.is_dog ?? true,
-          detected_subject: parsed.detected_subject || 'dog',
-          detected_breed: parsed.detected_breed || null,
-          breed_matches_profile: parsed.breed_matches_profile ?? true,
-          image_quality: parsed.image_quality || 'good',
-          image_quality_note: parsed.image_quality_note || null,
-          urgency_level: parsed.urgency_level || 'moderate',
-          confidence: parsed.confidence || 'medium',
-          possible_conditions: parsed.possible_conditions || [],
-          visible_symptoms: parsed.visible_symptoms || [],
-          recommended_actions: parsed.recommended_actions || ['Consult with a veterinarian'],
-          should_see_vet: parsed.should_see_vet ?? true,
-          vet_urgency: parsed.vet_urgency || 'within_week',
-          home_care_tips: parsed.home_care_tips || [],
-          summary: parsed.summary || 'Assessment complete.'
-        }
-      } catch {
-        // Fallback if JSON parsing fails
-        return {
-          error: false,
-          is_dog: true,
-          detected_subject: 'dog',
-          detected_breed: null,
-          breed_matches_profile: true,
-          image_quality: 'good',
-          image_quality_note: null,
-          urgency_level: 'moderate',
-          confidence: 'medium',
-          possible_conditions: [],
-          visible_symptoms: [],
-          recommended_actions: ['Consult with a veterinarian for proper diagnosis'],
-          should_see_vet: true,
-          vet_urgency: 'within_week',
-          home_care_tips: [],
-          summary: text.slice(0, 300) + (text.length > 300 ? '...' : '')
-        }
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
       }
+
+      const text = response.text()
+      const truncatedSummary = text.slice(0, 200) + (text.length > 200 ? '...' : '')
+      return parsePhotoAnalysisResponse(text, truncatedSummary)
     } catch (error) {
-      if (import.meta.env.DEV) console.error('Fallback photo analysis also failed:', error)
+      if (import.meta.env.DEV) console.error(`Gemini Photo Analysis Error (${modelName}):`, error)
+
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executePhotoAnalysis(ai, FALLBACK_MODEL, imageBase64, mimeType, dog, bodyArea, description)
+      }
+
       return handleGeminiError(error, null)
     }
   },
 
-  /**
-   * Stream chat responses for real-time display
-   * @param {Object} dog - Dog profile object
-   * @param {string} userMessage - User's message
-   * @param {Array} history - Previous messages
-   * @param {Function} onChunk - Callback for each text chunk
-   * @returns {Object} Final structured response
-   */
   async streamChat(dog, userMessage, history = [], onChunk) {
     const ai = getGenAI()
     if (!ai) {
@@ -1058,37 +849,20 @@ export const geminiService = {
     }
 
     try {
-      const systemPrompt = buildChatSystemPrompt(dog)
-
       const model = ai.getGenerativeModel({
         model: PRIMARY_MODEL,
         generationConfig,
-        systemInstruction: systemPrompt,
+        systemInstruction: buildChatSystemPrompt(dog),
       })
 
-      const chatHistory = []
-      const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
-      let startIndex = validHistory.length > 0 && validHistory[0].role === 'assistant' ? 1 : 0
-
-      for (let i = startIndex; i < validHistory.length; i++) {
-        const msg = validHistory[i]
-        chatHistory.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
-        })
-      }
-
-      const chat = model.startChat({ history: chatHistory })
+      const chat = model.startChat({ history: buildChatHistory(history) })
       const result = await chat.sendMessageStream(userMessage)
 
       let fullText = ''
-
       for await (const chunk of result.stream) {
         const chunkText = chunk.text()
         fullText += chunkText
-        if (onChunk) {
-          onChunk(chunkText, fullText)
-        }
+        onChunk?.(chunkText, fullText)
       }
 
       return {
@@ -1098,7 +872,6 @@ export const geminiService = {
         concerns_detected: false,
         suggested_action: 'continue_chat'
       }
-
     } catch (error) {
       if (import.meta.env.DEV) console.error('Gemini Stream Error:', error)
       return handleGeminiError(error, null)

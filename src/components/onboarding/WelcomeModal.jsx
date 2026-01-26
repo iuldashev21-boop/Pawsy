@@ -1,10 +1,59 @@
+import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, Camera, AlertTriangle } from 'lucide-react'
 import PawsyMascot from '../mascot/PawsyMascot'
 import PremiumIcon from '../common/PremiumIcon'
 
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+const FEATURES = [
+  { icon: MessageCircle, color: '#7EC8C8', text: 'Ask me anything about dog health' },
+  { icon: Camera, color: '#F4A261', text: 'Send photos for visual health checks' },
+  { icon: AlertTriangle, color: '#EF5350', text: 'Get emergency guidance 24/7' },
+]
+
 function WelcomeModal({ isOpen, onClose, dogName }) {
+  const dialogRef = useRef(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll(FOCUSABLE_SELECTOR)
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    const timer = setTimeout(() => {
+      const focusable = dialogRef.current?.querySelectorAll(FOCUSABLE_SELECTOR)
+      focusable?.[0]?.focus()
+    }, 100)
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      clearTimeout(timer)
+    }
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
+
+  const displayName = dogName || 'your pup'
 
   return (
     <AnimatePresence>
@@ -14,8 +63,12 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
         onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-modal-title"
       >
         <motion.div
+          ref={dialogRef}
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -23,10 +76,8 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl overflow-hidden"
         >
-          {/* Decorative top gradient */}
           <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#FFF5ED] to-transparent -z-10" />
 
-          {/* Mascot */}
           <div className="flex justify-center mb-4">
             <motion.div
               initial={{ scale: 0, rotate: -10 }}
@@ -37,8 +88,8 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
             </motion.div>
           </div>
 
-          {/* Title */}
           <motion.h2
+            id="welcome-modal-title"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -54,7 +105,7 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
             transition={{ delay: 0.4 }}
             className="text-center text-[#6B6B6B] mb-2"
           >
-            Your AI-powered pet health assistant, here to help keep {dogName || 'your pup'} healthy and happy.
+            Your AI-powered pet health assistant, here to help keep {displayName} healthy and happy.
           </motion.p>
 
           <motion.p
@@ -66,31 +117,17 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
             Trusted by 10,000+ pet parents
           </motion.p>
 
-          {/* Features */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
             className="space-y-3 mb-6"
           >
-            <FeatureItem
-              icon={MessageCircle}
-              color="#7EC8C8"
-              text="Ask me anything about dog health"
-            />
-            <FeatureItem
-              icon={Camera}
-              color="#F4A261"
-              text="Send photos for visual health checks"
-            />
-            <FeatureItem
-              icon={AlertTriangle}
-              color="#EF5350"
-              text="Get emergency guidance 24/7"
-            />
+            {FEATURES.map(({ icon, color, text }) => (
+              <FeatureItem key={text} icon={icon} color={color} text={text} />
+            ))}
           </motion.div>
 
-          {/* CTA Button */}
           <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -104,7 +141,6 @@ function WelcomeModal({ isOpen, onClose, dogName }) {
             Meet Your AI Vet Assistant
           </motion.button>
 
-          {/* Subtle tip */}
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

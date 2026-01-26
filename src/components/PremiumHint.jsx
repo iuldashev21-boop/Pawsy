@@ -3,17 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronRight } from 'lucide-react'
 import PremiumIcon, { PremiumBadge } from './common/PremiumIcon'
 
-/**
- * PremiumHint - Soft upsell component for Premium features
- *
- * Usage:
- * <PremiumHint
- *   message="Save this conversation for later"
- *   feature="Chat history"
- *   dismissable={true}
- *   variant="inline" | "banner" | "card"
- * />
- */
+const ENTER_ANIMATION = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+}
 
 const VARIANTS = {
   inline: {
@@ -50,9 +44,7 @@ function PremiumHint({
     return (
       <AnimatePresence>
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          {...ENTER_ANIMATION}
           className={`${styles.container} ${className}`}
         >
           {dismissable && (
@@ -96,9 +88,7 @@ function PremiumHint({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
+        {...ENTER_ANIMATION}
         className={`${styles.container} ${className}`}
       >
         <PremiumIcon size={styles.iconSize} className="flex-shrink-0" />

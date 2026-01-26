@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 
 /**
  * SkeletonLoader - Animated loading placeholder components
@@ -23,14 +23,16 @@ const shimmer = {
 }
 
 function SkeletonBase({ className, children }) {
+  const prefersReducedMotion = useReducedMotion()
+
   return (
     <div className={`relative overflow-hidden bg-[#E8E8E8]/60 ${className}`}>
-      <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-        initial={shimmer.initial}
-        animate={shimmer.animate}
-        transition={shimmer.transition}
-      />
+      {!prefersReducedMotion && (
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+          {...shimmer}
+        />
+      )}
       {children}
     </div>
   )
@@ -150,20 +152,15 @@ function UsageStats({ className = '' }) {
         <SkeletonBase className="h-3 rounded-md w-20" />
       </div>
       <div className="space-y-3">
-        <div>
-          <div className="flex justify-between mb-1">
-            <SkeletonBase className="h-3 rounded-md w-16" />
-            <SkeletonBase className="h-3 rounded-md w-8" />
+        {['w-16', 'w-20'].map((labelWidth, i) => (
+          <div key={i}>
+            <div className="flex justify-between mb-1">
+              <SkeletonBase className={`h-3 rounded-md ${labelWidth}`} />
+              <SkeletonBase className="h-3 rounded-md w-8" />
+            </div>
+            <SkeletonBase className="h-2 rounded-full w-full" />
           </div>
-          <SkeletonBase className="h-2 rounded-full w-full" />
-        </div>
-        <div>
-          <div className="flex justify-between mb-1">
-            <SkeletonBase className="h-3 rounded-md w-20" />
-            <SkeletonBase className="h-3 rounded-md w-8" />
-          </div>
-          <SkeletonBase className="h-2 rounded-full w-full" />
-        </div>
+        ))}
       </div>
     </div>
   )

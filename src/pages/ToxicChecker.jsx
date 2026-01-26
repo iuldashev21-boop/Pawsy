@@ -4,14 +4,11 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft,
   Search,
-  AlertTriangle,
   CheckCircle,
   AlertCircle,
   XCircle,
   Leaf,
   Apple,
-  Coffee,
-  Pill,
   X,
   ChevronRight,
   MapPin
@@ -162,7 +159,6 @@ const TOXIC_ITEMS = [
 
 const TOXICITY_CONFIG = {
   toxic: {
-    color: 'red',
     icon: XCircle,
     label: 'Toxic',
     bg: 'bg-red-50',
@@ -171,7 +167,6 @@ const TOXICITY_CONFIG = {
     iconColor: 'text-red-500',
   },
   caution: {
-    color: 'yellow',
     icon: AlertCircle,
     label: 'Use Caution',
     bg: 'bg-yellow-50',
@@ -180,7 +175,6 @@ const TOXICITY_CONFIG = {
     iconColor: 'text-yellow-500',
   },
   safe: {
-    color: 'green',
     icon: CheckCircle,
     label: 'Safe',
     bg: 'bg-green-50',
@@ -189,6 +183,8 @@ const TOXICITY_CONFIG = {
     iconColor: 'text-green-500',
   },
 }
+
+const TOXICITY_ORDER = ['toxic', 'caution', 'safe']
 
 const CATEGORY_FILTERS = [
   { id: 'all', label: 'All', icon: Search },
@@ -212,11 +208,11 @@ function ToxicChecker() {
 
   // Filter items based on search and category
   const filteredItems = useMemo(() => {
-    return TOXIC_ITEMS.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
-      return matchesSearch && matchesCategory
-    })
+    const query = searchQuery.toLowerCase()
+    return TOXIC_ITEMS.filter(item =>
+      item.name.toLowerCase().includes(query) &&
+      (selectedCategory === 'all' || item.category === selectedCategory)
+    )
   }, [searchQuery, selectedCategory])
 
   // Group items by toxicity for display
@@ -311,50 +307,24 @@ function ToxicChecker() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Toxic items */}
-            {groupedItems.toxic.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <XCircle className="w-4 h-4 text-red-500" />
-                  <h3 className="text-sm font-semibold text-red-700">Toxic ({groupedItems.toxic.length})</h3>
+            {TOXICITY_ORDER.map(level => {
+              const items = groupedItems[level]
+              if (items.length === 0) return null
+              const { icon: Icon, iconColor, text, label } = TOXICITY_CONFIG[level]
+              return (
+                <div key={level}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon className={`w-4 h-4 ${iconColor}`} />
+                    <h3 className={`text-sm font-semibold ${text}`}>{label} ({items.length})</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map(item => (
+                      <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {groupedItems.toxic.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Caution items */}
-            {groupedItems.caution.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertCircle className="w-4 h-4 text-yellow-500" />
-                  <h3 className="text-sm font-semibold text-yellow-700">Use Caution ({groupedItems.caution.length})</h3>
-                </div>
-                <div className="space-y-2">
-                  {groupedItems.caution.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Safe items */}
-            {groupedItems.safe.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <h3 className="text-sm font-semibold text-green-700">Safe ({groupedItems.safe.length})</h3>
-                </div>
-                <div className="space-y-2">
-                  {groupedItems.safe.map(item => (
-                    <ItemCard key={item.name} item={item} onClick={() => handleSelectItem(item)} />
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })}
           </div>
         )}
 
@@ -467,9 +437,9 @@ function ItemDetailModal({ item, onClose }) {
             <div>
               <h3 className="text-sm font-semibold text-[#3D3D3D] mb-2">Symptoms to Watch For</h3>
               <div className="flex flex-wrap gap-2">
-                {item.symptoms.map((symptom, idx) => (
+                {item.symptoms.map(symptom => (
                   <span
-                    key={idx}
+                    key={symptom}
                     className="px-3 py-1.5 bg-[#FDF8F3] rounded-full text-xs text-[#6B6B6B]"
                   >
                     {symptom}

@@ -2,8 +2,11 @@ import { useState, useRef, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Upload, X, Image } from 'lucide-react'
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
 function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
   const [isDragging, setIsDragging] = useState(false)
+  const [sizeError, setSizeError] = useState(null)
   const fileInputRef = useRef(null)
 
   const handleDragOver = (e) => {
@@ -16,34 +19,35 @@ function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
     setIsDragging(false)
   }
 
-  const handleDrop = (e) => {
-    e.preventDefault()
-    setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file && file.type.startsWith('image/')) {
-      processFile(file)
+  const validateAndProcess = (file) => {
+    setSizeError(null)
+    if (!file.type.startsWith('image/')) return
+    if (file.size > MAX_FILE_SIZE) {
+      setSizeError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`)
+      return
     }
-  }
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      processFile(file)
-    }
-  }
-
-  const processFile = (file) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      const base64 = e.target.result
       onPhotoSelect({
         file,
-        preview: base64,
-        base64Data: base64.split(',')[1],
+        preview: e.target.result,
+        base64Data: e.target.result.split(',')[1],
         mimeType: file.type,
       })
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) validateAndProcess(file)
+  }
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (file) validateAndProcess(file)
   }
 
   if (selectedPhoto) {
@@ -55,7 +59,7 @@ function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
       >
         <img
           src={selectedPhoto.preview}
-          alt="Selected photo"
+          alt="Photo uploaded for health analysis"
           className="w-full h-64 object-cover"
         />
         <motion.button
@@ -134,6 +138,10 @@ function PhotoUploader({ onPhotoSelect, selectedPhoto, onClear }) {
         <p className="text-xs text-[#9E9E9E] mt-4">
           Supports JPG, PNG • Max 10MB
         </p>
+
+        {sizeError && (
+          <p className="text-xs text-[#EF5350] mt-2 font-medium">{sizeError}</p>
+        )}
       </div>
 
       <AnimatePresence>

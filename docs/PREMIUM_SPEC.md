@@ -53,7 +53,6 @@ Premium Pawsy isn't about "more features" — it's about **dramatically better A
 │  • 5 AI chats/day (10 first day)                                │
 │  • 3 photo scans/day (5 first day)                              │
 │  • Basic profile (name, breed, age, weight, allergies)          │
-│  • Symptom checker (unlimited)                                  │
 │  • Toxic food checker (unlimited)                               │
 │  • Emergency vet finder (unlimited)                             │
 │  • First aid guides (unlimited)                                 │

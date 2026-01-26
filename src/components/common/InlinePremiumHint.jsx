@@ -1,24 +1,9 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import PremiumIcon, { PremiumBadge } from './PremiumIcon'
+import { useToast } from '../../context/ToastContext'
 
-/**
- * InlinePremiumHint - Contextual premium upgrade hints
- *
- * Variants:
- * - subtle: Small inline hint with just text
- * - card: Larger card with icon and description
- * - banner: Full-width banner
- *
- * Props:
- * - message: Main hint text
- * - actionText: CTA button text (default: "Learn more")
- * - variant: "subtle" | "card" | "banner" (default: "subtle")
- * - dismissable: Allow user to dismiss (default: true)
- * - onAction: Called when CTA clicked
- * - delay: Animation delay in seconds (default: 0)
- */
 function InlinePremiumHint({
   message,
   actionText = "Learn more",
@@ -28,16 +13,12 @@ function InlinePremiumHint({
   delay = 0,
 }) {
   const [dismissed, setDismissed] = useState(false)
+  const { showToast } = useToast()
 
   if (dismissed) return null
 
-  const handleAction = () => {
-    if (onAction) {
-      onAction()
-    } else {
-      alert('Premium upgrade coming soon! For now, enjoy free features.')
-    }
-  }
+  const handleAction = onAction
+    ?? (() => showToast('Get personalized health intelligence for your dog. Coming soon!', 'premium'))
 
   if (variant === "subtle") {
     return (

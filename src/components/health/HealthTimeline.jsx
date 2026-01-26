@@ -4,19 +4,10 @@ import {
   MessageCircle,
   Camera,
   AlertCircle,
-  CheckCircle,
   Clock,
   ChevronRight,
   X,
-  Share2
 } from 'lucide-react'
-
-/**
- * HealthTimeline - Visual timeline of health events
- *
- * Displays symptoms, photo analyses, and health concerns over time
- * Color-coded by urgency level
- */
 
 const URGENCY_COLORS = {
   low: {
@@ -62,16 +53,27 @@ function formatDate(dateString) {
 }
 
 function formatTime(dateString) {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+function countByUrgency(events) {
+  return Object.entries(
+    events.reduce((acc, e) => {
+      acc[e.urgency] = (acc[e.urgency] || 0) + 1
+      return acc
+    }, {})
+  )
 }
 
 export default function HealthTimeline({ events = [], dogName = 'your dog', onViewAll }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const selectedColors = selectedEvent
+    ? URGENCY_COLORS[selectedEvent.urgency] || URGENCY_COLORS.low
+    : null
 
-  // Sort events by date (most recent first for display, but timeline shows chronologically)
-  const sortedEvents = [...events].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-  const timelineEvents = [...events].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)).slice(-5)
+  const timelineEvents = [...events]
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    .slice(-5)
 
   if (events.length === 0) {
     return (
@@ -93,8 +95,7 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
   }
 
   return (
-    <>
-      <div className="bg-white rounded-xl shadow-sm border border-[#E8E8E8]/50 p-4">
+    <div className="bg-white rounded-xl shadow-sm border border-[#E8E8E8]/50 p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-[#3D3D3D]">Health Timeline</h3>
           {events.length > 5 && (
@@ -115,7 +116,7 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
 
           {/* Timeline nodes */}
           <div className="flex justify-between px-2 overflow-x-auto pb-2 scrollbar-hide">
-            {timelineEvents.map((event, index) => {
+            {timelineEvents.map((event) => {
               const colors = URGENCY_COLORS[event.urgency] || URGENCY_COLORS.low
               const isSelected = selectedEvent?.id === event.id
 
@@ -162,12 +163,12 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className={`mt-4 p-3 rounded-xl ${URGENCY_COLORS[selectedEvent.urgency]?.bg || 'bg-gray-50'} border ${URGENCY_COLORS[selectedEvent.urgency]?.border || 'border-gray-200'}`}>
+              <div className={`mt-4 p-3 rounded-xl ${selectedColors.bg} border ${selectedColors.border}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-medium ${URGENCY_COLORS[selectedEvent.urgency]?.text || 'text-gray-600'}`}>
-                        {URGENCY_COLORS[selectedEvent.urgency]?.label || 'Health Event'}
+                      <span className={`text-xs font-medium ${selectedColors.text}`}>
+                        {selectedColors.label}
                       </span>
                       <span className="text-xs text-gray-500">
                         {formatTime(selectedEvent.timestamp)}
@@ -216,13 +217,7 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
               {events.length} health event{events.length !== 1 ? 's' : ''} tracked
             </span>
             <div className="flex items-center gap-3">
-              {/* Urgency summary */}
-              {Object.entries(
-                events.reduce((acc, e) => {
-                  acc[e.urgency] = (acc[e.urgency] || 0) + 1
-                  return acc
-                }, {})
-              ).map(([urgency, count]) => (
+              {countByUrgency(events).map(([urgency, count]) => (
                 <div key={urgency} className="flex items-center gap-1">
                   <div className={`w-2 h-2 rounded-full ${URGENCY_COLORS[urgency]?.dot || 'bg-gray-400'}`} />
                   <span className="text-[#9E9E9E]">{count}</span>
@@ -231,7 +226,6 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </div>
   )
 }

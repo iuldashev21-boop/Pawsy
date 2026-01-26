@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { generateUUID } from '../utils/uuid'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronDown, Dog, AlertCircle, Camera, Stethoscope, Info
+  ChevronLeft, ChevronDown, Dog, AlertCircle, Camera, Stethoscope, Info, CheckCircle
 } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
 import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
 import { useOnboarding } from '../context/OnboardingContext'
@@ -19,24 +19,66 @@ import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
 import InlinePremiumHint from '../components/common/InlinePremiumHint'
 import ErrorMessage from '../components/common/ErrorMessage'
+import { usePremium } from '../hooks/usePremium'
+import { useToast } from '../context/ToastContext'
 
 // Welcome message for new conversations
+const PREMIUM_TOAST_MESSAGE = 'Premium upgrade coming soon! For now, enjoy free features.'
+
 function getWelcomeMessage(dogName) {
   const name = dogName || 'your dog'
   return `Hi! I'm Pawsy, your AI vet assistant. I'm here to help with any questions about ${name}'s health and wellbeing.\n\nI can help you understand symptoms, provide general care advice, and let you know when it's time to see a vet. You can also share photos if you'd like me to take a look at something.\n\nWhat can I help you with today?`
 }
 
+function createMessage(role, content, extras = {}) {
+  return {
+    id: generateUUID(),
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+    ...extras,
+  }
+}
+
+function getMascotMood(suggestedAction, isTyping) {
+  if (suggestedAction === 'emergency') return 'alert'
+  if (suggestedAction === 'see_vet') return 'concerned'
+  if (isTyping) return 'thinking'
+  return 'happy'
+}
+
+function formatPhotoAnalysisForChat(analysis) {
+  const parts = [analysis.summary || "Here's what I can see in the photo."]
+
+  if (analysis.visible_symptoms?.length > 0) {
+    parts.push(`**What I observe:** ${analysis.visible_symptoms.join(', ')}.`)
+  }
+
+  if (analysis.possible_conditions?.length > 0) {
+    parts.push(`**Possible causes:** This could be ${analysis.possible_conditions.slice(0, 3).join(', ')}.`)
+  }
+
+  if (analysis.recommended_actions?.length > 0) {
+    parts.push(`**Recommendations:**\n${analysis.recommended_actions.map(a => `• ${a}`).join('\n')}`)
+  }
+
+  if (analysis.should_see_vet) {
+    parts.push("I'd recommend consulting with your vet about this.")
+  }
+
+  return parts.join('\n\n')
+}
+
 function Chat() {
-  const { user } = useAuth()
   const { activeDog } = useDog()
   const {
     canChat,
-    canEmergencyChat,
-    useChat,
-    useEmergencyChat,
     chatsRemaining,
+    useChat: consumeChat,
+    useEmergencyChat: consumeEmergencyChat,
     emergencyChatsRemaining,
   } = useUsage()
+  const { isPremium } = usePremium()
   const { completeStep, progress } = useOnboarding()
   const location = useLocation()
 
@@ -49,6 +91,7 @@ function Chat() {
   const [suggestedAction, setSuggestedAction] = useState(null)
   const [emergencySteps, setEmergencySteps] = useState([])
   const [photoContext, setPhotoContext] = useState(null)
+  const { showToast } = useToast()
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [calmMode, setCalmMode] = useState(false)
   const [showSessionBanner, setShowSessionBanner] = useState(true)
@@ -58,8 +101,8 @@ function Chat() {
   const hasInitialized = useRef(false)
   const hasProcessedPhotoContext = useRef(false)
 
-  // Detect emergency state
   const isEmergency = suggestedAction === 'emergency' || emergencySteps.length > 0
+  const userMessageCount = useMemo(() => messages.filter(m => m.role === 'user').length, [messages])
 
   // Memoize dog context to avoid duplicate object creation
   const dogContext = useMemo(() => activeDog ? {
@@ -79,17 +122,13 @@ function Chat() {
     }
   }, [isEmergency, calmMode])
 
-  // Initialize with welcome message
+  // Initialize with welcome message (only on mount, ref guards against re-runs)
   useEffect(() => {
     if (!hasInitialized.current && messages.length === 0) {
       hasInitialized.current = true
-      setMessages([{
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: getWelcomeMessage(activeDog?.name),
-        timestamp: new Date().toISOString(),
-      }])
+      setMessages([createMessage('assistant', getWelcomeMessage(activeDog?.name))])
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentional: only run on mount/activeDog change, ref guards re-runs
   }, [activeDog])
 
   // Handle photo analysis context from PhotoAnalysis page
@@ -115,11 +154,7 @@ function Chat() {
       // Add context message
       const contextMessage = `I just analyzed a photo of your dog's ${analysis.body_area || 'health concern'}. ${analysis.summary}\n\nI'm here to answer any questions you have about this. What would you like to know?`
 
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: contextMessage,
-        timestamp: new Date().toISOString(),
+      setMessages(prev => [...prev, createMessage('assistant', contextMessage, {
         image: photo ? { preview: photo.preview } : null,
         metadata: {
           fromPhotoAnalysis: true,
@@ -131,7 +166,7 @@ function Chat() {
             should_see_vet: analysis.should_see_vet,
           },
         },
-      }])
+      })])
 
       if (analysis.urgency_level === 'emergency') {
         setSuggestedAction('emergency')
@@ -155,9 +190,7 @@ function Chat() {
     setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
   }, [])
 
-  const handleDismissEmergency = useCallback(() => {
-    setCalmMode(false)
-  }, [])
+  const handleDismissEmergency = useCallback(() => setCalmMode(false), [])
 
   const handleSendMessage = useCallback(async (content) => {
     // Prevent duplicate submissions
@@ -173,19 +206,13 @@ function Chat() {
       return
     }
 
-    // Consume usage (regular or emergency)
-    if (isEmergencyMode) {
-      const allowed = useEmergencyChat()
-      if (!allowed) {
-        setShowLimitModal(true)
-        return
-      }
-    } else {
-      const allowed = useChat()
-      if (!allowed) {
-        setShowLimitModal(true)
-        return
-      }
+    const allowed = isEmergencyMode ? consumeEmergencyChat() : consumeChat()
+    if (!allowed) {
+      setShowLimitModal(true)
+      return
+    }
+    if (!isEmergencyMode && chatsRemaining === 2) {
+      showToast('You have 1 chat remaining today.', 'warning')
     }
 
     // Mark first chat step complete
@@ -193,13 +220,7 @@ function Chat() {
       completeStep('firstChat')
     }
 
-    // Add user message
-    const userMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date().toISOString(),
-    }
+    const userMessage = createMessage('user', content)
     setMessages(prev => [...prev, userMessage])
 
     // Check if API is configured
@@ -208,12 +229,9 @@ function Chat() {
       await new Promise(resolve => setTimeout(resolve, 1500))
       setIsTyping(false)
 
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `I'd love to help you with that question! However, the Gemini API isn't configured yet.\n\nTo enable AI responses, add your API key to a .env file:\n\nVITE_GEMINI_API_KEY=your_api_key_here\n\nYou can get a free API key from Google AI Studio.`,
-        timestamp: new Date().toISOString(),
-      }])
+      setMessages(prev => [...prev, createMessage('assistant',
+        `I'd love to help you with that question! However, the Gemini API isn't configured yet.\n\nTo enable AI responses, add your API key to a .env file:\n\nVITE_GEMINI_API_KEY=your_api_key_here\n\nYou can get a free API key from Google AI Studio.`
+      )])
       return
     }
 
@@ -224,21 +242,13 @@ function Chat() {
       const response = await geminiService.chat(dogContext, content, history, photoContext)
 
       if (response.error) {
-        setError(response.message || 'Something went wrong. Please try again.')
-        setMessages(prev => [...prev, {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: response.message || "I'm sorry, I encountered an error. Please try again.",
-          timestamp: new Date().toISOString(),
-        }])
+        const errorMsg = response.message || 'Something went wrong. Please try again.'
+        setError(errorMsg)
+        setMessages(prev => [...prev, createMessage('assistant', errorMsg)])
         return
       }
 
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: response.message,
-        timestamp: new Date().toISOString(),
+      setMessages(prev => [...prev, createMessage('assistant', response.message, {
         metadata: {
           follow_up_questions: response.follow_up_questions || [],
           quick_replies: response.quick_replies || [],
@@ -249,7 +259,7 @@ function Chat() {
           should_see_vet: response.should_see_vet || false,
           emergency_steps: response.emergency_steps || [],
         },
-      }])
+      })])
 
       if (response.suggested_action && response.suggested_action !== 'continue_chat') {
         setSuggestedAction(response.suggested_action)
@@ -265,7 +275,7 @@ function Chat() {
     } finally {
       setIsTyping(false)
     }
-  }, [isTyping, isEmergencyMode, canChat, useEmergencyChat, useChat, progress.firstChat, completeStep, messages, dogContext, photoContext])
+  }, [isTyping, isEmergencyMode, canChat, chatsRemaining, consumeEmergencyChat, consumeChat, progress.firstChat, completeStep, messages, dogContext, photoContext, showToast])
 
   const handleImageUpload = useCallback(async (imageData, userDescription = '') => {
     // Prevent duplicate submissions
@@ -275,28 +285,20 @@ function Chat() {
     setError(null)
     setSuggestedAction(null)
 
-    // Add user message with image
-    setMessages(prev => [...prev, {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userDescription || 'Can you analyze this photo?',
-      timestamp: new Date().toISOString(),
+    setMessages(prev => [...prev, createMessage('user', userDescription || 'Can you analyze this photo?', {
       image: {
         preview: imageData.preview,
         base64Data: imageData.base64Data,
         mimeType: imageData.mimeType,
       },
-    }])
+    })])
 
     if (!geminiService.isConfigured()) {
       await new Promise(resolve => setTimeout(resolve, 2000))
 
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `I can see you've shared a photo! However, the Gemini API isn't configured yet, so I can't analyze it.\n\nTo enable AI photo analysis, add your API key to a .env file.`,
-        timestamp: new Date().toISOString(),
-      }])
+      setMessages(prev => [...prev, createMessage('assistant',
+        `I can see you've shared a photo! However, the Gemini API isn't configured yet, so I can't analyze it.\n\nTo enable AI photo analysis, add your API key to a .env file.`
+      )])
       setIsTyping(false)
       return
     }
@@ -317,17 +319,13 @@ function Chat() {
 
       const formattedResponse = formatPhotoAnalysisForChat(response)
 
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: formattedResponse,
-        timestamp: new Date().toISOString(),
+      setMessages(prev => [...prev, createMessage('assistant', formattedResponse, {
         metadata: {
           photo_analysis: response,
           urgency_level: response.urgency_level,
           should_see_vet: response.should_see_vet,
         },
-      }])
+      })])
 
       if (response.urgency_level === 'emergency' || response.urgency_level === 'urgent') {
         setSuggestedAction('see_vet')
@@ -340,32 +338,6 @@ function Chat() {
       setIsTyping(false)
     }
   }, [isTyping, dogContext])
-
-  const formatPhotoAnalysisForChat = (analysis) => {
-    let message = analysis.summary || "Here's what I can see in the photo."
-
-    if (analysis.visible_symptoms?.length > 0) {
-      message += `\n\n**What I observe:** ${analysis.visible_symptoms.join(', ')}.`
-    }
-
-    if (analysis.possible_conditions?.length > 0) {
-      message += `\n\n**Possible causes:** This could be ${analysis.possible_conditions.slice(0, 3).join(', ')}.`
-    }
-
-    if (analysis.recommended_actions?.length > 0) {
-      message += `\n\n**Recommendations:**\n${analysis.recommended_actions.map(a => `• ${a}`).join('\n')}`
-    }
-
-    if (analysis.should_see_vet) {
-      message += `\n\nI'd recommend consulting with your vet about this.`
-    }
-
-    return message
-  }
-
-  const handleQuickQuestion = useCallback((question) => {
-    handleSendMessage(question)
-  }, [handleSendMessage])
 
   const handleAction = useCallback((action) => {
     if (action === 'find_vet') {
@@ -389,14 +361,7 @@ function Chat() {
               </motion.button>
             </Link>
             <div className="flex items-center gap-2">
-              <PawsyMascot
-                mood={
-                  suggestedAction === 'emergency' ? 'alert' :
-                  suggestedAction === 'see_vet' ? 'concerned' :
-                  isTyping ? 'thinking' : 'happy'
-                }
-                size={36}
-              />
+              <PawsyMascot mood={getMascotMood(suggestedAction, isTyping)} size={36} />
               <div>
                 <h1 className="text-lg font-bold text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
                   Pawsy
@@ -436,7 +401,7 @@ function Chat() {
                   {activeDog.age && activeDog.weight && <span className="text-[#E8E8E8]">•</span>}
                   {activeDog.weight && <span>{activeDog.weight} {activeDog.weightUnit || 'lbs'}</span>}
                 </div>
-                {activeDog.allergies && activeDog.allergies.length > 0 && (
+                {activeDog.allergies?.length > 0 && (
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <span className="text-[10px] text-red-500 font-medium">Allergies:</span>
                     <div className="flex flex-wrap gap-1">
@@ -464,18 +429,36 @@ function Chat() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-gradient-to-r from-[#FFF5ED] to-[#FFE8D6] border-b border-[#F4A261]/20"
+            className={isPremium
+              ? 'bg-gradient-to-r from-[#E8F5E9] to-[#C8E6C9] border-b border-[#81C784]/20'
+              : 'bg-gradient-to-r from-[#FFF5ED] to-[#FFE8D6] border-b border-[#F4A261]/20'
+            }
           >
             <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#F4A261]" />
-                <p className="text-xs text-[#4A4A4A]">
-                  Free chat • Won't be saved after you leave
-                </p>
+                {isPremium ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-[#66BB6A]" />
+                    <p className="text-xs text-[#2E7D32]">
+                      Premium — Conversations saved automatically
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Info className="w-4 h-4 text-[#F4A261]" />
+                    <p className="text-xs text-[#4A4A4A]">
+                      Free chat — Won't be saved after you leave
+                    </p>
+                  </>
+                )}
               </div>
               <button
                 onClick={() => setShowSessionBanner(false)}
-                className="text-xs text-[#F4A261] font-medium hover:text-[#E8924F] transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2 rounded"
+                className={`text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2 rounded ${
+                  isPremium
+                    ? 'text-[#66BB6A] hover:text-[#43A047]'
+                    : 'text-[#F4A261] hover:text-[#E8924F]'
+                }`}
               >
                 Got it
               </button>
@@ -484,13 +467,13 @@ function Chat() {
         )}
       </AnimatePresence>
 
-      {/* Usage Counter */}
-      {!isEmergencyMode && (
+      {/* Usage Counter — hidden for premium users */}
+      {!isEmergencyMode && !isPremium && (
         <div className="max-w-lg mx-auto px-4 py-2">
           <UsageCounter
             type="chat"
             showUpgrade={true}
-            onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+            onUpgrade={() => showToast(PREMIUM_TOAST_MESSAGE, 'premium')}
           />
         </div>
       )}
@@ -522,7 +505,7 @@ function Chat() {
         className="flex-1 overflow-y-auto pb-44 overscroll-none"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
+        <div className="max-w-lg mx-auto px-4 py-4 space-y-4" aria-live="polite" aria-atomic="false">
           {/* Emergency Overlay */}
           <EmergencyOverlay
             isActive={calmMode && isEmergency}
@@ -538,7 +521,7 @@ function Chat() {
               message={message}
               dogPhoto={null}
               isFirstAssistantMessage={index === 0}
-              onQuickQuestion={handleQuickQuestion}
+              onQuickQuestion={handleSendMessage}
               onAction={handleAction}
               showTimestamp={index === 0}
             />
@@ -549,16 +532,16 @@ function Chat() {
             {isTyping && <PawTypingIndicator />}
           </AnimatePresence>
 
-          {/* Premium hint after 2+ user messages */}
+          {/* Premium hint after 2+ user messages — free users only */}
           <AnimatePresence>
-            {showPremiumHint && !isTyping && messages.filter(m => m.role === 'user').length >= 2 && (
+            {!isPremium && showPremiumHint && !isTyping && userMessageCount >= 2 && (
               <InlinePremiumHint
                 variant="card"
-                message={`Premium saves your conversations with ${activeDog?.name || 'your dog'} so you can reference them later.`}
-                actionText="Save this chat"
+                message={`Pawsy Premium remembers ${activeDog?.name || 'your dog'}'s full health history for smarter, personalized advice.`}
+                actionText="Get personalized care"
                 onAction={() => {
                   setShowPremiumHint(false)
-                  alert('Premium upgrade coming soon! For now, enjoy free features.')
+                  showToast(PREMIUM_TOAST_MESSAGE, 'premium')
                 }}
                 dismissable={true}
                 delay={0.5}
@@ -699,7 +682,7 @@ function Chat() {
           setShowLimitModal(false)
           setIsEmergencyMode(true)
         }}
-        onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+        onUpgrade={() => showToast(PREMIUM_TOAST_MESSAGE, 'premium')}
         emergencyRemaining={emergencyChatsRemaining}
       />
     </div>

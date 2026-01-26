@@ -2,19 +2,22 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  Dog, Camera, ArrowRight, ArrowLeft, Check,
+  Camera, ArrowRight, ArrowLeft, Check,
   Calendar, Weight, Heart, AlertCircle, X, Plus, ChevronDown, Search, PawPrint
 } from 'lucide-react'
 import PremiumIcon from '../components/common/PremiumIcon'
+import PawsyIcon from '../components/common/PawsyIcon'
 import { useDog } from '../context/DogContext'
 import { useAuth } from '../context/AuthContext'
 
 const BREEDS = [
-  'Golden Retriever', 'Labrador Retriever', 'German Shepherd', 'Bulldog',
-  'Poodle', 'Beagle', 'Rottweiler', 'Yorkshire Terrier', 'Boxer',
-  'Dachshund', 'Siberian Husky', 'Great Dane', 'Shih Tzu', 'Chihuahua',
-  'Pomeranian', 'Border Collie', 'Australian Shepherd', 'Cocker Spaniel',
-  'Mixed Breed', 'Other'
+  'French Bulldog', 'Labrador Retriever', 'Golden Retriever', 'German Shepherd',
+  'Poodle', 'Dachshund', 'Beagle', 'Rottweiler', 'Bulldog', 'German Shorthaired Pointer',
+  'Yorkshire Terrier', 'Australian Shepherd', 'Cavalier King Charles Spaniel', 'Cane Corso',
+  'Pembroke Welsh Corgi', 'Doberman Pinscher', 'Boxer', 'Miniature Schnauzer',
+  'Bernese Mountain Dog', 'Shih Tzu', 'Siberian Husky', 'Pomeranian', 'Boston Terrier',
+  'Miniature American Shepherd', 'Havanese', 'Great Dane', 'Cocker Spaniel',
+  'Border Collie', 'Mastiff', 'Vizsla', 'Mixed Breed', 'Other'
 ]
 
 const COMMON_ALLERGIES = [
@@ -26,11 +29,40 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
+const PARTICLE_COLORS = ['#F4A261', '#7EC8C8', '#FFD54F', '#81C784', '#FFB380']
+
+const WEIGHT_LIMITS = { kg: 160, lbs: 350 }
+
+const TOTAL_STEPS = 4
+
+const COMPLETION_PAWS = [
+  { className: 'absolute top-10 left-10', iconClass: 'w-12 h-12 text-[#F4A261]', animate: { y: [0, -20, 0], rotate: [0, 10, 0], opacity: [0.2, 0.4, 0.2] }, transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' } },
+  { className: 'absolute bottom-20 right-10', iconClass: 'w-10 h-10 text-[#7EC8C8]', animate: { y: [0, 15, 0], rotate: [0, -10, 0], opacity: [0.2, 0.4, 0.2] }, transition: { duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 } },
+  { className: 'absolute top-1/4 right-20', iconClass: 'w-8 h-8 text-[#FFD54F]', animate: { y: [0, -15, 0], rotate: [0, -5, 0], opacity: [0.15, 0.3, 0.15] }, transition: { duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 } },
+]
+
+const BACKGROUND_PAWS = [
+  { className: 'absolute -top-4 -left-8', iconClass: 'w-32 h-32 text-[#F4A261]', animate: { y: [0, -15, 0], rotate: [0, 5, 0], opacity: [0.06, 0.1, 0.06] }, transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' } },
+  { className: 'absolute top-20 -right-10', iconClass: 'w-40 h-40 text-[#7EC8C8]', animate: { y: [0, 10, 0], rotate: [0, -8, 0], opacity: [0.04, 0.08, 0.04] }, transition: { duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 } },
+  { className: 'absolute bottom-32 -left-12', iconClass: 'w-36 h-36 text-[#7EC8C8]', animate: { y: [0, -10, 0], rotate: [0, -5, 0], opacity: [0.05, 0.09, 0.05] }, transition: { duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 2 } },
+  { className: 'absolute bottom-20 -right-8', iconClass: 'w-28 h-28 text-[#F4A261]', animate: { y: [0, 12, 0], rotate: [0, 10, 0], opacity: [0.04, 0.07, 0.04] }, transition: { duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 } },
+]
+
+function calculateSize(weight, unit) {
+  const weightInLbs = unit === 'kg' ? weight * 2.205 : weight
+  if (weightInLbs < 20) return 'small'
+  if (weightInLbs < 50) return 'medium'
+  if (weightInLbs < 90) return 'large'
+  return 'giant'
+}
+
 // Custom Searchable Dropdown Component
 function BreedDropdown({ value, onChange, breeds }) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const dropdownRef = useRef(null)
+  const listRef = useRef(null)
 
   const filteredBreeds = breeds.filter(breed =>
     breed.toLowerCase().includes(search.toLowerCase())
@@ -51,7 +83,37 @@ function BreedDropdown({ value, onChange, breeds }) {
     onChange(breed)
     setIsOpen(false)
     setSearch('')
+    setHighlightedIndex(-1)
   }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIndex(prev =>
+        prev < filteredBreeds.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIndex(prev =>
+        prev > 0 ? prev - 1 : filteredBreeds.length - 1
+      )
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault()
+      handleSelect(filteredBreeds[highlightedIndex])
+    }
+  }
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const options = listRef.current.querySelectorAll('[role="option"]')
+      options[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -59,6 +121,8 @@ function BreedDropdown({ value, onChange, breeds }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         className={`w-full px-4 py-3.5 bg-white border-2 rounded-xl text-left flex items-center justify-between transition-all duration-200 ${
           isOpen ? 'border-[#F4A261] ring-2 ring-[#F4A261]/20' : 'border-[#E8E8E8] hover:border-[#F4A261]/50'
         }`}
@@ -70,7 +134,7 @@ function BreedDropdown({ value, onChange, breeds }) {
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="w-5 h-5 text-[#9E9E9E]" />
+          <ChevronDown className="w-5 h-5 text-[#9E9E9E]" aria-hidden="true" />
         </motion.div>
       </button>
 
@@ -87,30 +151,38 @@ function BreedDropdown({ value, onChange, breeds }) {
             {/* Search Input */}
             <div className="p-3 border-b border-[#E8E8E8]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9E9E]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9E9E]" aria-hidden="true" />
                 <input
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setHighlightedIndex(-1) }}
+                  onKeyDown={handleKeyDown}
                   placeholder="Search breeds..."
                   className="w-full pl-9 pr-4 py-2.5 bg-[#FDF8F3] border border-[#E8E8E8] rounded-lg text-[#3D3D3D] text-sm placeholder:text-[#9E9E9E] focus:border-[#F4A261] focus:ring-1 focus:ring-[#F4A261]/20 outline-none transition-all"
                   autoFocus
+                  aria-label="Search breeds"
+                  aria-activedescendant={highlightedIndex >= 0 ? `breed-option-${highlightedIndex}` : undefined}
                 />
               </div>
             </div>
 
             {/* Options List */}
-            <div className="max-h-48 overflow-y-auto">
+            <div ref={listRef} role="listbox" className="max-h-48 overflow-y-auto">
               {filteredBreeds.length > 0 ? (
-                filteredBreeds.map((breed) => (
+                filteredBreeds.map((breed, index) => (
                   <button
                     key={breed}
+                    id={`breed-option-${index}`}
                     type="button"
+                    role="option"
+                    aria-selected={value === breed}
                     onClick={() => handleSelect(breed)}
                     className={`w-full px-4 py-3 text-left text-sm transition-colors ${
-                      value === breed
-                        ? 'bg-[#F4A261]/10 text-[#F4A261] font-medium'
-                        : 'text-[#3D3D3D] hover:bg-[#FDF8F3]'
+                      highlightedIndex === index
+                        ? 'bg-[#F4A261]/15 text-[#F4A261]'
+                        : value === breed
+                          ? 'bg-[#F4A261]/10 text-[#F4A261] font-medium'
+                          : 'text-[#3D3D3D] hover:bg-[#FDF8F3]'
                     }`}
                   >
                     {breed}
@@ -218,12 +290,6 @@ function DatePicker({ value, onChange }) {
   )
 }
 
-const fadeVariants = {
-  initial: { opacity: 0, x: 20 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 },
-}
-
 const staggerContainer = {
   initial: {},
   animate: {
@@ -268,7 +334,38 @@ function AddDogProfile() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const totalSteps = 4
+  // Pre-generate particles for celebration effect (computed once on mount)
+  const [celebrationParticles] = useState(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 0.5,
+      duration: 2 + Math.random() * 2,
+      size: 8 + Math.random() * 16,
+      color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
+      repeatDelay: Math.random() * 2,
+    }))
+  )
+
+  // Warn before leaving if the form has unsaved data
+  useEffect(() => {
+    const hasUnsavedData =
+      !isComplete &&
+      (dogData.name.trim() !== '' ||
+        dogData.breed !== '' ||
+        dogData.weight !== '' ||
+        dogData.photoUrl !== '' ||
+        dogData.allergies.length > 0)
+
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedData) {
+        e.preventDefault()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isComplete, dogData])
 
   const updateDogData = (field, value) => {
     setDogData(prev => ({ ...prev, [field]: value }))
@@ -311,14 +408,17 @@ function AddDogProfile() {
           return dogData.customBreed.trim().length > 0
         }
         return dogData.breed.length > 0
-      case 3: return dogData.weight > 0
+      case 3: {
+        const w = parseFloat(dogData.weight)
+        return w > 0 && w <= WEIGHT_LIMITS[dogData.weightUnit]
+      }
       case 4: return true
       default: return false
     }
   }
 
   const handleNext = () => {
-    if (step < totalSteps) {
+    if (step < TOTAL_STEPS) {
       setStep(step + 1)
     } else {
       handleComplete()
@@ -335,7 +435,7 @@ function AddDogProfile() {
     // Use customBreed if "Other" was selected
     const finalBreed = dogData.breed === 'Other' ? dogData.customBreed.trim() : dogData.breed
 
-    const newDog = addDog({
+    addDog({
       ...dogData,
       breed: finalBreed,
       userId: user?.id,
@@ -350,34 +450,12 @@ function AddDogProfile() {
     setIsComplete(true)
   }
 
-  const calculateSize = (weight, unit) => {
-    const weightInLbs = unit === 'kg' ? weight * 2.205 : weight
-    if (weightInLbs < 20) return 'small'
-    if (weightInLbs < 50) return 'medium'
-    if (weightInLbs < 90) return 'large'
-    return 'giant'
-  }
-
-  const handleFinish = () => {
-    navigate('/dashboard')
-  }
-
   // Completion screen with wow factor
   if (isComplete) {
-    // Generate random particles for celebration effect
-    const particles = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      delay: Math.random() * 0.5,
-      duration: 2 + Math.random() * 2,
-      size: 8 + Math.random() * 16,
-      color: ['#F4A261', '#7EC8C8', '#FFD54F', '#81C784', '#FFB380'][Math.floor(Math.random() * 5)]
-    }))
-
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFE8D6] flex items-center justify-center p-4 relative overflow-hidden">
         {/* Celebration particles */}
-        {particles.map((particle) => (
+        {celebrationParticles.map((particle) => (
           <motion.div
             key={particle.id}
             className="absolute rounded-full"
@@ -400,33 +478,17 @@ function AddDogProfile() {
               delay: particle.delay,
               ease: 'easeOut',
               repeat: Infinity,
-              repeatDelay: Math.random() * 2,
+              repeatDelay: particle.repeatDelay,
             }}
           />
         ))}
 
         {/* Floating paw prints */}
-        <motion.div
-          className="absolute top-10 left-10"
-          animate={{ y: [0, -20, 0], rotate: [0, 10, 0], opacity: [0.2, 0.4, 0.2] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <PawPrint className="w-12 h-12 text-[#F4A261]" />
-        </motion.div>
-        <motion.div
-          className="absolute bottom-20 right-10"
-          animate={{ y: [0, 15, 0], rotate: [0, -10, 0], opacity: [0.2, 0.4, 0.2] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-        >
-          <PawPrint className="w-10 h-10 text-[#7EC8C8]" />
-        </motion.div>
-        <motion.div
-          className="absolute top-1/4 right-20"
-          animate={{ y: [0, -15, 0], rotate: [0, -5, 0], opacity: [0.15, 0.3, 0.15] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-        >
-          <PawPrint className="w-8 h-8 text-[#FFD54F]" />
-        </motion.div>
+        {COMPLETION_PAWS.map((paw, i) => (
+          <motion.div key={i} className={paw.className} animate={paw.animate} transition={paw.transition}>
+            <PawPrint className={paw.iconClass} />
+          </motion.div>
+        ))}
 
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -446,7 +508,7 @@ function AddDogProfile() {
                 <img src={dogData.photoUrl} alt={dogData.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <Dog className="w-20 h-20 text-[#F4A261]" />
+                  <PawsyIcon size={100} />
                 </div>
               )}
             </div>
@@ -508,7 +570,7 @@ function AddDogProfile() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1 }}
-            onClick={handleFinish}
+            onClick={() => navigate('/dashboard')}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="px-8 py-4 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-lg text-lg flex items-center justify-center gap-2 mx-auto"
@@ -525,57 +587,11 @@ function AddDogProfile() {
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] via-[#FDF8F3] to-[#FFE8D6]/30 flex flex-col relative overflow-hidden">
       {/* Decorative floating elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Top left paw */}
-        <motion.div
-          animate={{
-            y: [0, -15, 0],
-            rotate: [0, 5, 0],
-            opacity: [0.06, 0.1, 0.06]
-          }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-4 -left-8"
-        >
-          <PawPrint className="w-32 h-32 text-[#F4A261]" />
-        </motion.div>
-
-        {/* Top right paw */}
-        <motion.div
-          animate={{
-            y: [0, 10, 0],
-            rotate: [0, -8, 0],
-            opacity: [0.04, 0.08, 0.04]
-          }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-          className="absolute top-20 -right-10"
-        >
-          <PawPrint className="w-40 h-40 text-[#7EC8C8]" />
-        </motion.div>
-
-        {/* Bottom left paw */}
-        <motion.div
-          animate={{
-            y: [0, -10, 0],
-            rotate: [0, -5, 0],
-            opacity: [0.05, 0.09, 0.05]
-          }}
-          transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-          className="absolute bottom-32 -left-12"
-        >
-          <PawPrint className="w-36 h-36 text-[#7EC8C8]" />
-        </motion.div>
-
-        {/* Bottom right paw */}
-        <motion.div
-          animate={{
-            y: [0, 12, 0],
-            rotate: [0, 10, 0],
-            opacity: [0.04, 0.07, 0.04]
-          }}
-          transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-          className="absolute bottom-20 -right-8"
-        >
-          <PawPrint className="w-28 h-28 text-[#F4A261]" />
-        </motion.div>
+        {BACKGROUND_PAWS.map((paw, i) => (
+          <motion.div key={i} animate={paw.animate} transition={paw.transition} className={paw.className}>
+            <PawPrint className={paw.iconClass} />
+          </motion.div>
+        ))}
 
         {/* Subtle gradient orbs */}
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-[#F4A261]/5 rounded-full blur-3xl" />
@@ -585,9 +601,7 @@ function AddDogProfile() {
       {/* Header */}
       <header className="relative z-10 p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center shadow-md">
-            <Dog className="w-5 h-5 text-white" />
-          </div>
+          <PawsyIcon size={40} className="shadow-md rounded-full" />
           <span className="text-xl font-bold text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
             Pawsy
           </span>
@@ -612,12 +626,12 @@ function AddDogProfile() {
 
           {/* Animated progress bar */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-[#9E9E9E] mr-1">{step}/4</span>
+            <span className="text-xs font-medium text-[#9E9E9E] mr-1">{step}/{TOTAL_STEPS}</span>
             <div className="w-24 h-2 bg-[#E8E8E8] rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-[#F4A261] to-[#E8924F] rounded-full"
                 initial={{ width: '0%' }}
-                animate={{ width: `${(step / 4) * 100}%` }}
+                animate={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               />
             </div>
@@ -660,7 +674,7 @@ function AddDogProfile() {
                     className="relative w-32 h-32 rounded-full bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] border-4 border-dashed border-[#F4A261]/50 flex items-center justify-center overflow-hidden group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
                   >
                     {dogData.photoUrl ? (
-                      <img src={dogData.photoUrl} alt="Dog" className="w-full h-full object-cover" />
+                      <img src={dogData.photoUrl} alt={`${dogData.name || 'Dog'} profile photo`} className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center">
                         <Camera className="w-8 h-8 text-[#F4A261] mx-auto mb-1" />
@@ -814,7 +828,14 @@ function AddDogProfile() {
                     <input
                       type="number"
                       value={dogData.weight}
-                      onChange={(e) => updateDogData('weight', e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val !== '' && parseFloat(val) < 0) return
+                        updateDogData('weight', val)
+                      }}
+                      min="1"
+                      max={WEIGHT_LIMITS[dogData.weightUnit]}
+                      step="0.1"
                       className="w-full pl-12 pr-4 py-4 bg-white border-2 border-[#E8E8E8] rounded-xl text-[#3D3D3D] text-lg placeholder:text-[#9E9E9E] focus:border-[#F4A261] focus:ring-2 focus:ring-[#F4A261]/20 transition-all duration-200 outline-none"
                       placeholder="Enter weight..."
                     />
@@ -838,6 +859,17 @@ function AddDogProfile() {
                     ))}
                   </div>
                 </motion.div>
+
+                {/* Weight limit error */}
+                {dogData.weight !== '' && parseFloat(dogData.weight) > WEIGHT_LIMITS[dogData.weightUnit] && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-[#EF5350] text-center"
+                  >
+                    Weight must be under {WEIGHT_LIMITS[dogData.weightUnit]} {dogData.weightUnit}
+                  </motion.p>
+                )}
 
                 {/* Size preview */}
                 {dogData.weight && (
@@ -902,11 +934,14 @@ function AddDogProfile() {
                 </motion.div>
 
                 {/* Custom allergies display */}
-                {dogData.allergies.filter(a => !COMMON_ALLERGIES.includes(a)).length > 0 && (
+                {(() => {
+                  const customAllergies = dogData.allergies.filter(a => !COMMON_ALLERGIES.includes(a))
+                  if (customAllergies.length === 0) return null
+                  return (
                   <motion.div variants={staggerItem}>
                     <label className="block text-sm font-medium text-[#3D3D3D] mb-3">Custom Allergies</label>
                     <div className="flex flex-wrap gap-2">
-                      {dogData.allergies.filter(a => !COMMON_ALLERGIES.includes(a)).map((allergy) => (
+                      {customAllergies.map((allergy) => (
                         <motion.span
                           key={allergy}
                           initial={{ scale: 0 }}
@@ -926,7 +961,8 @@ function AddDogProfile() {
                       ))}
                     </div>
                   </motion.div>
-                )}
+                  )
+                })()}
 
                 {/* Custom allergy input */}
                 <motion.div variants={staggerItem} className="flex gap-2">
@@ -990,7 +1026,7 @@ function AddDogProfile() {
             whileTap={{ scale: canProceed() ? 0.98 : 1 }}
             className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
           >
-            {step === totalSteps ? (
+            {step === TOTAL_STEPS ? (
               <>
                 Complete
                 <Check className="w-5 h-5" />

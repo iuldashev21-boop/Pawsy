@@ -1,12 +1,3 @@
-/**
- * Mock API responses for development and testing
- * Use with DevPanel to test different scenarios without hitting real API
- */
-
-// ============================================================================
-// Chat Response Scenarios
-// ============================================================================
-
 export const CHAT_SCENARIOS = {
   HAPPY_PATH: {
     id: 'happy_path',
@@ -179,10 +170,6 @@ export const CHAT_SCENARIOS = {
   }
 }
 
-// ============================================================================
-// Photo Analysis Scenarios
-// ============================================================================
-
 export const PHOTO_SCENARIOS = {
   HEALTHY: {
     id: 'healthy',
@@ -354,10 +341,6 @@ export const PHOTO_SCENARIOS = {
   }
 }
 
-// ============================================================================
-// Error Scenarios
-// ============================================================================
-
 export const ERROR_SCENARIOS = {
   API_ERROR: {
     id: 'api_error',
@@ -400,59 +383,36 @@ export const ERROR_SCENARIOS = {
   }
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
+function findScenarioResponse(scenarios, scenarioId, fallbackKey) {
+  const match = Object.values(scenarios).find(s => s.id === scenarioId)
+  return match?.response || scenarios[fallbackKey].response
+}
 
-/**
- * Get mock response based on scenario ID
- */
 export function getMockChatResponse(scenarioId) {
-  const scenario = Object.values(CHAT_SCENARIOS).find(s => s.id === scenarioId)
-  return scenario?.response || CHAT_SCENARIOS.HAPPY_PATH.response
+  return findScenarioResponse(CHAT_SCENARIOS, scenarioId, 'HAPPY_PATH')
 }
 
-/**
- * Get mock photo analysis response based on scenario ID
- */
 export function getMockPhotoResponse(scenarioId) {
-  const scenario = Object.values(PHOTO_SCENARIOS).find(s => s.id === scenarioId)
-  return scenario?.response || PHOTO_SCENARIOS.HEALTHY.response
+  return findScenarioResponse(PHOTO_SCENARIOS, scenarioId, 'HEALTHY')
 }
 
-/**
- * Get mock error response based on scenario ID
- */
 export function getMockErrorResponse(scenarioId) {
-  const scenario = Object.values(ERROR_SCENARIOS).find(s => s.id === scenarioId)
-  return scenario?.response || ERROR_SCENARIOS.API_ERROR.response
+  return findScenarioResponse(ERROR_SCENARIOS, scenarioId, 'API_ERROR')
 }
 
-/**
- * Check if mock mode is enabled
- */
 export function isMockModeEnabled() {
   return localStorage.getItem('pawsy_dev_mock_mode') === 'true'
 }
 
-/**
- * Get current mock scenario
- */
 export function getMockScenario() {
   return localStorage.getItem('pawsy_dev_mock_scenario') || 'happy_path'
 }
 
-/**
- * Get mock delay in ms
- */
 export function getMockDelay() {
   const delay = localStorage.getItem('pawsy_dev_mock_delay')
   return delay ? parseInt(delay, 10) : 500
 }
 
-/**
- * Set mock mode settings
- */
 export function setMockMode(enabled, scenario = 'happy_path', delay = 500) {
   localStorage.setItem('pawsy_dev_mock_mode', enabled ? 'true' : 'false')
   localStorage.setItem('pawsy_dev_mock_scenario', scenario)

@@ -1,72 +1,79 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
+import { generateUUID } from '../utils/uuid'
 
 const AuthContext = createContext(null)
 
-// Helper to get all registered users
+const USERS_KEY = 'pawsy_users'
+const CURRENT_USER_KEY = 'pawsy_current_user'
+
 const getStoredUsers = () => {
-  const stored = localStorage.getItem('pawsy_users')
+  const stored = localStorage.getItem(USERS_KEY)
   return stored ? JSON.parse(stored) : {}
 }
 
-// Helper to save users registry
 const saveUsersRegistry = (users) => {
-  localStorage.setItem('pawsy_users', JSON.stringify(users))
+  localStorage.setItem(USERS_KEY, JSON.stringify(users))
+}
+
+const persistCurrentUser = (userData) => {
+  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData))
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('pawsy_current_user')
+    const stored = localStorage.getItem(CURRENT_USER_KEY)
     return stored ? JSON.parse(stored) : null
   })
 
-  const signup = useCallback((email, name) => {
+  const setCurrentUser = useCallback((userData) => {
+    persistCurrentUser(userData)
+    setUser(userData)
+    return userData
+  }, [])
+
+  const createUser = (email, name) => ({
+    id: generateUUID(),
+    email,
+    name,
+    createdAt: new Date().toISOString(),
+  })
+
+  const signup = useCallback((email, name, autoLogin = false) => {
     const users = getStoredUsers()
 
-    // Check if email already exists
     if (users[email]) {
+      if (autoLogin) return setCurrentUser(users[email])
       throw new Error('Email already registered')
     }
 
-    const newUser = {
-      id: crypto.randomUUID(),
-      email,
-      name,
-      createdAt: new Date().toISOString(),
-    }
-
-    // Add to users registry (keyed by email for easy lookup)
+    const newUser = createUser(email, name)
     users[email] = newUser
     saveUsersRegistry(users)
+    return setCurrentUser(newUser)
+  }, [setCurrentUser])
 
-    // Set as current user
-    localStorage.setItem('pawsy_current_user', JSON.stringify(newUser))
-    setUser(newUser)
-
-    return newUser
-  }, [])
-
-  const login = useCallback((email) => {
+  const login = useCallback((email, autoCreate = false) => {
     const users = getStoredUsers()
-    const foundUser = users[email]
+    let foundUser = users[email]
 
-    if (!foundUser) {
-      throw new Error('User not found')
+    if (!foundUser && autoCreate) {
+      const provider = email.split('@')[1]?.split('.')[0] || 'User'
+      const name = provider.charAt(0).toUpperCase() + provider.slice(1) + ' User'
+      foundUser = createUser(email, name)
+      users[email] = foundUser
+      saveUsersRegistry(users)
     }
 
-    // Set as current user
-    localStorage.setItem('pawsy_current_user', JSON.stringify(foundUser))
-    setUser(foundUser)
+    if (!foundUser) throw new Error('User not found')
 
-    return foundUser
-  }, [])
+    return setCurrentUser(foundUser)
+  }, [setCurrentUser])
 
   const logout = useCallback(() => {
-    // Only clear the current session, NOT the user's data
-    localStorage.removeItem('pawsy_current_user')
+    localStorage.removeItem(CURRENT_USER_KEY)
     setUser(null)
   }, [])
 
-  // Helper to get storage key with user prefix
   const getUserStorageKey = useCallback((key) => {
     if (!user) return null
     return `pawsy_${user.id}_${key}`
@@ -88,6 +95,7 @@ export function AuthProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Standard React Context pattern
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

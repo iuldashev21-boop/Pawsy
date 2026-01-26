@@ -7,7 +7,7 @@ function ScanAnimation({ imageUrl }) {
       {/* Image */}
       <img
         src={imageUrl}
-        alt="Analyzing"
+        alt="Photo being analyzed for health concerns"
         className="w-full h-64 object-cover"
       />
 

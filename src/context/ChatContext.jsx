@@ -1,12 +1,18 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
+import { generateUUID } from '../utils/uuid'
 
 const ChatContext = createContext(null)
+
+const STORAGE_KEY_SESSIONS = 'chat_sessions'
+const STORAGE_KEY_HEALTH_EVENTS = 'health_events'
+const STORAGE_KEY_USER = 'pawsy_current_user'
+const TITLE_MAX_LENGTH = 50
 
 const initialState = {
   sessions: [],
   activeSessionId: null,
   loading: false,
-  healthEvents: [], // Timeline of health events (symptoms, photo analyses, concerns)
+  healthEvents: [],
 }
 
 function chatReducer(state, action) {
@@ -49,9 +55,8 @@ function chatReducer(state, action) {
                 ...session,
                 messages: [...session.messages, message],
                 updatedAt: new Date().toISOString(),
-                // Auto-generate title from first user message
                 title: session.messages.length === 0 && message.role === 'user'
-                  ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
+                  ? message.content.slice(0, TITLE_MAX_LENGTH) + (message.content.length > TITLE_MAX_LENGTH ? '...' : '')
                   : session.title,
               }
             : session
@@ -77,17 +82,10 @@ function chatReducer(state, action) {
       }
 
     case 'CLEAR_ALL_SESSIONS':
-      return {
-        ...state,
-        sessions: [],
-        activeSessionId: null,
-      }
+      return { ...state, sessions: [], activeSessionId: null }
 
     case 'CLEAR_ALL_HEALTH_EVENTS':
-      return {
-        ...state,
-        healthEvents: [],
-      }
+      return { ...state, healthEvents: [] }
 
     case 'RESET':
       return initialState
@@ -97,29 +95,35 @@ function chatReducer(state, action) {
   }
 }
 
-// Helper to get current user ID from localStorage
 const getCurrentUserId = () => {
-  const stored = localStorage.getItem('pawsy_current_user')
-  if (stored) {
-    try {
-      return JSON.parse(stored).id
-    } catch {
-      return null
-    }
+  const stored = localStorage.getItem(STORAGE_KEY_USER)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored).id
+  } catch {
+    return null
   }
-  return null
 }
 
-// Get user-prefixed storage key
 const getStorageKey = (userId, key) => {
   if (!userId) return null
   return `pawsy_${userId}_${key}`
 }
 
+const safeParse = (storageKey) => {
+  const raw = localStorage.getItem(storageKey)
+  if (!raw) return []
+  try {
+    return JSON.parse(raw)
+  } catch {
+    localStorage.removeItem(storageKey)
+    return []
+  }
+}
+
 export function ChatProvider({ children }) {
   const [state, dispatch] = useReducer(chatReducer, initialState)
 
-  // Load sessions and health events for current user
   const loadSessionsForUser = useCallback(() => {
     const userId = getCurrentUserId()
     if (!userId) {
@@ -127,99 +131,56 @@ export function ChatProvider({ children }) {
       return
     }
 
-    const sessionsKey = getStorageKey(userId, 'chat_sessions')
-    const healthEventsKey = getStorageKey(userId, 'health_events')
-
-    const storedSessions = localStorage.getItem(sessionsKey)
-    const storedHealthEvents = localStorage.getItem(healthEventsKey)
-
-    // Parse with error handling to prevent crashes from corrupted data
-    let sessions = []
-    let healthEvents = []
-
-    if (storedSessions) {
-      try {
-        sessions = JSON.parse(storedSessions)
-      } catch {
-        // Corrupted data - reset to empty
-        localStorage.removeItem(sessionsKey)
-      }
-    }
-
-    if (storedHealthEvents) {
-      try {
-        healthEvents = JSON.parse(storedHealthEvents)
-      } catch {
-        // Corrupted data - reset to empty
-        localStorage.removeItem(healthEventsKey)
-      }
-    }
+    const sessions = safeParse(getStorageKey(userId, STORAGE_KEY_SESSIONS))
+    const healthEvents = safeParse(getStorageKey(userId, STORAGE_KEY_HEALTH_EVENTS))
 
     dispatch({ type: 'SET_SESSIONS', payload: sessions })
     dispatch({ type: 'SET_HEALTH_EVENTS', payload: healthEvents })
   }, [])
 
-  // Initial load
   useEffect(() => {
     loadSessionsForUser()
   }, [loadSessionsForUser])
 
-  // Listen for storage events (for cross-tab sync and user changes)
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'pawsy_current_user') {
+      if (e.key === STORAGE_KEY_USER) {
         loadSessionsForUser()
       }
     }
-
     window.addEventListener('storage', handleStorageChange)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-    }
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [loadSessionsForUser])
 
-  // Persist sessions to localStorage (strip large image data to avoid bloating storage)
   useEffect(() => {
     const userId = getCurrentUserId()
     if (!userId) return
-
-    const sessionsKey = getStorageKey(userId, 'chat_sessions')
 
     const sessionsForStorage = state.sessions.map(session => ({
       ...session,
-      messages: session.messages.map(msg => {
-        if (msg.image) {
-          // Keep flag that image existed, but don't store the data
-          return {
-            ...msg,
-            image: { hadImage: true },
-          }
-        }
-        return msg
-      }),
+      messages: session.messages.map(msg =>
+        msg.image ? { ...msg, image: { hadImage: true } } : msg
+      ),
     }))
-    localStorage.setItem(sessionsKey, JSON.stringify(sessionsForStorage))
+    localStorage.setItem(getStorageKey(userId, STORAGE_KEY_SESSIONS), JSON.stringify(sessionsForStorage))
   }, [state.sessions])
 
-  // Persist health events to localStorage
   useEffect(() => {
     const userId = getCurrentUserId()
     if (!userId) return
-
-    const healthEventsKey = getStorageKey(userId, 'health_events')
-    localStorage.setItem(healthEventsKey, JSON.stringify(state.healthEvents))
+    localStorage.setItem(getStorageKey(userId, STORAGE_KEY_HEALTH_EVENTS), JSON.stringify(state.healthEvents))
   }, [state.healthEvents])
 
   const createSession = (dogId, dogContext) => {
+    const now = new Date().toISOString()
     const newSession = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       dogId,
       title: 'New conversation',
       messages: [],
       dogContextSnapshot: dogContext,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
     dispatch({ type: 'CREATE_SESSION', payload: newSession })
     return newSession
@@ -228,7 +189,7 @@ export function ChatProvider({ children }) {
   const addMessage = (sessionId, message) => {
     const newMessage = {
       ...message,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       timestamp: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_MESSAGE', payload: { sessionId, message: newMessage } })
@@ -259,10 +220,9 @@ export function ChatProvider({ children }) {
     return state.sessions.find(s => s.id === state.activeSessionId) || null
   }
 
-  // Health Events for Timeline
   const addHealthEvent = (dogId, event) => {
     const newEvent = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       dogId,
       timestamp: new Date().toISOString(),
       ...event,
@@ -279,11 +239,6 @@ export function ChatProvider({ children }) {
     dispatch({ type: 'CLEAR_HEALTH_EVENTS_FOR_DOG', payload: dogId })
   }
 
-  // Expose reload for after login/signup
-  const reloadForCurrentUser = useCallback(() => {
-    loadSessionsForUser()
-  }, [loadSessionsForUser])
-
   const activeSession = getActiveSession()
 
   const value = useMemo(() => ({
@@ -299,12 +254,12 @@ export function ChatProvider({ children }) {
     deleteSession,
     clearAllSessions,
     getSessionsForDog,
-    reloadForCurrentUser,
-    // Health Timeline
+    reloadForCurrentUser: loadSessionsForUser,
     addHealthEvent,
     getHealthEventsForDog,
     clearHealthEventsForDog,
-  }), [state.sessions, state.activeSessionId, activeSession, state.loading, state.healthEvents, reloadForCurrentUser])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Functions are stable, only state values need to be dependencies
+  }), [state.sessions, state.activeSessionId, activeSession, state.loading, state.healthEvents, loadSessionsForUser])
 
   return (
     <ChatContext.Provider value={value}>
@@ -313,6 +268,7 @@ export function ChatProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Standard React Context pattern
 export function useChat() {
   const context = useContext(ChatContext)
   if (!context) {

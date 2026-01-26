@@ -1,39 +1,39 @@
 import { motion } from 'framer-motion'
 import { Heart, AlertTriangle, Activity } from 'lucide-react'
 
-// Health status: 'good' | 'attention' | 'unknown'
-function HealthOrb({ status = 'good', dogName, compact = false }) {
-  const statusConfig = {
-    good: {
-      gradient: 'from-[#A5D6A7] via-[#81C784] to-[#66BB6A]',
-      glow: 'bg-[#81C784]',
-      shadow: 'rgba(129, 199, 132, 0.4)',
-      shadowBright: 'rgba(129, 199, 132, 0.6)',
-      icon: Heart,
-      label: 'Feeling Great',
-      sublabel: 'No concerns reported',
-    },
-    attention: {
-      gradient: 'from-[#FFF176] via-[#FFD54F] to-[#FFCA28]',
-      glow: 'bg-[#FFD54F]',
-      shadow: 'rgba(255, 213, 79, 0.4)',
-      shadowBright: 'rgba(255, 213, 79, 0.6)',
-      icon: AlertTriangle,
-      label: 'Needs Attention',
-      sublabel: 'Check recent symptoms',
-    },
-    unknown: {
-      gradient: 'from-[#E0E0E0] via-[#BDBDBD] to-[#9E9E9E]',
-      glow: 'bg-[#BDBDBD]',
-      shadow: 'rgba(189, 189, 189, 0.4)',
-      shadowBright: 'rgba(189, 189, 189, 0.5)',
-      icon: Activity,
-      label: 'Getting Started',
-      sublabel: 'Chat with Pawsy to update',
-    },
-  }
+const STATUS_CONFIG = {
+  good: {
+    gradient: 'from-[#A5D6A7] via-[#81C784] to-[#66BB6A]',
+    glow: 'bg-[#81C784]',
+    shadow: 'rgba(129, 199, 132, 0.4)',
+    shadowBright: 'rgba(129, 199, 132, 0.6)',
+    icon: Heart,
+    label: 'Feeling Great',
+    sublabel: 'No concerns reported',
+  },
+  attention: {
+    gradient: 'from-[#FFF176] via-[#FFD54F] to-[#FFCA28]',
+    glow: 'bg-[#FFD54F]',
+    shadow: 'rgba(255, 213, 79, 0.4)',
+    shadowBright: 'rgba(255, 213, 79, 0.6)',
+    icon: AlertTriangle,
+    label: 'Needs Attention',
+    sublabel: 'Check recent symptoms',
+  },
+  unknown: {
+    gradient: 'from-[#E0E0E0] via-[#BDBDBD] to-[#9E9E9E]',
+    glow: 'bg-[#BDBDBD]',
+    shadow: 'rgba(189, 189, 189, 0.4)',
+    shadowBright: 'rgba(189, 189, 189, 0.5)',
+    icon: Activity,
+    label: 'Getting Started',
+    sublabel: 'Chat with Pawsy to update',
+  },
+}
 
-  const config = statusConfig[status]
+// Health status: 'good' | 'attention' | 'unknown'
+function HealthOrb({ status = 'good', compact = false }) {
+  const config = STATUS_CONFIG[status]
   const Icon = config.icon
 
   // Use compact mode only when status is unknown

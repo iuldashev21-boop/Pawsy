@@ -2,11 +2,15 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Camera, X } from 'lucide-react'
 
-function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything…" }) {
+function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy anything..." }) {
   const [message, setMessage] = useState('')
   const [selectedImage, setSelectedImage] = useState(null)
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+
+  const trimmed = message.trim()
+  const hasContent = !!(trimmed || selectedImage)
+  const canSend = hasContent && !disabled
 
   // Auto-resize textarea
   useEffect(() => {
@@ -18,15 +22,14 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if ((message.trim() || selectedImage) && !disabled) {
-      if (selectedImage && onImageUpload) {
-        onImageUpload(selectedImage, message.trim())
-      } else if (message.trim()) {
-        onSend(message.trim())
-      }
-      setMessage('')
-      setSelectedImage(null)
+    if (!canSend) return
+    if (selectedImage && onImageUpload) {
+      onImageUpload(selectedImage, trimmed)
+    } else if (trimmed) {
+      onSend(trimmed)
     }
+    setMessage('')
+    setSelectedImage(null)
   }
 
   const handleKeyDown = (e) => {
@@ -36,20 +39,15 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
     }
   }
 
-  const handleImageClick = () => {
-    fileInputRef.current?.click()
-  }
-
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        const base64 = reader.result.split(',')[1]
         setSelectedImage({
           file,
           preview: reader.result,
-          base64Data: base64,
+          base64Data: reader.result.split(',')[1],
           mimeType: file.type,
           name: file.name,
         })
@@ -59,15 +57,10 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
     e.target.value = ''
   }
 
-  const handleRemoveImage = () => {
-    setSelectedImage(null)
-  }
-
   return (
     <form onSubmit={handleSubmit} className="relative">
       <div className={`bg-gradient-to-br from-[#FFF9F5] to-[#FFF5ED] rounded-2xl border-2 border-[#F4A261]/20 focus-within:border-[#F4A261]/40 focus-within:shadow-[0_0_0_3px_rgba(244,162,97,0.1)] transition-all shadow-sm ${selectedImage ? 'p-3' : 'p-2'}`}>
 
-        {/* Integrated image preview - inside the input container */}
         <AnimatePresence>
           {selectedImage && (
             <motion.div
@@ -80,13 +73,13 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
                 <div className="relative flex-shrink-0">
                   <img
                     src={selectedImage.preview}
-                    alt="Selected"
+                    alt="Photo attached to message"
                     className="h-16 w-16 object-cover rounded-lg border border-[#E8E8E8]"
                   />
                   <motion.button
                     type="button"
                     whileTap={{ scale: 0.9 }}
-                    onClick={handleRemoveImage}
+                    onClick={() => setSelectedImage(null)}
                     className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#6B6B6B] text-white rounded-full flex items-center justify-center shadow-sm hover:bg-[#3D3D3D] transition-colors"
                     aria-label="Remove image"
                   >
@@ -108,7 +101,7 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={selectedImage ? "Describe what you'd like me to look at (optional)…" : placeholder}
+            placeholder={selectedImage ? "Describe what you'd like me to look at (optional)..." : placeholder}
             disabled={disabled}
             rows={1}
             autoComplete="off"
@@ -117,7 +110,6 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
           />
 
           <div className="flex items-center gap-1">
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -127,11 +119,10 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
               className="hidden"
             />
 
-            {/* Image upload button */}
             <motion.button
               type="button"
               whileTap={{ scale: 0.95 }}
-              onClick={handleImageClick}
+              onClick={() => fileInputRef.current?.click()}
               className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${
                 selectedImage
                   ? 'text-[#7EC8C8] bg-[#7EC8C8]/10'
@@ -143,13 +134,12 @@ function ChatInput({ onSend, onImageUpload, disabled, placeholder = "Ask Pawsy a
               <Camera className="w-5 h-5" />
             </motion.button>
 
-            {/* Send button */}
             <motion.button
               type="submit"
               whileTap={{ scale: 0.95 }}
-              disabled={(!message.trim() && !selectedImage) || disabled}
+              disabled={!canSend}
               className={`p-2 rounded-xl transition-all ${
-                (message.trim() || selectedImage) && !disabled
+                canSend
                   ? 'bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white shadow-md hover:shadow-lg'
                   : 'bg-[#FFE8D6] text-[#D4793A]/40'
               }`}

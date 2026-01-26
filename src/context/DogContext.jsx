@@ -1,11 +1,16 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
+import { generateUUID } from '../utils/uuid'
 
 const DogContext = createContext(null)
+
+const STORAGE_KEY_DOGS = 'dogs'
+const STORAGE_KEY_ACTIVE_DOG = 'active_dog'
+const STORAGE_KEY_USER = 'pawsy_current_user'
 
 const initialState = {
   dogs: [],
   activeDogId: null,
-  loading: true, // Start as loading until we've checked localStorage
+  loading: true,
 }
 
 function dogReducer(state, action) {
@@ -42,93 +47,67 @@ function dogReducer(state, action) {
   }
 }
 
-// Helper to get current user ID from localStorage
 const getCurrentUserId = () => {
-  const stored = localStorage.getItem('pawsy_current_user')
-  if (stored) {
-    try {
-      return JSON.parse(stored).id
-    } catch {
-      return null
-    }
+  const stored = localStorage.getItem(STORAGE_KEY_USER)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored).id
+  } catch {
+    return null
   }
-  return null
 }
 
-// Get user-prefixed storage key
 const getStorageKey = (userId, key) => {
   if (!userId) return null
   return `pawsy_${userId}_${key}`
 }
 
+const safeParse = (storageKey) => {
+  const raw = localStorage.getItem(storageKey)
+  if (!raw) return []
+  try {
+    return JSON.parse(raw)
+  } catch {
+    localStorage.removeItem(storageKey)
+    return []
+  }
+}
+
 export function DogProvider({ children }) {
   const [state, dispatch] = useReducer(dogReducer, initialState)
 
-  // Load dogs for current user when component mounts or user changes
   const loadDogsForUser = useCallback(() => {
     const userId = getCurrentUserId()
-
     if (!userId) {
-      dispatch({ type: 'RESET' }) // RESET now sets loading: false
+      dispatch({ type: 'RESET' })
       return
     }
 
-    const dogsKey = getStorageKey(userId, 'dogs')
-    const activeDogKey = getStorageKey(userId, 'active_dog')
-
-    const storedDogs = localStorage.getItem(dogsKey)
-    const storedActiveDog = localStorage.getItem(activeDogKey)
-
-    // Parse with error handling to prevent crashes from corrupted data
-    let dogs = []
-    if (storedDogs) {
-      try {
-        dogs = JSON.parse(storedDogs)
-      } catch {
-        // Corrupted data - reset to empty
-        localStorage.removeItem(dogsKey)
-      }
-    }
+    const dogs = safeParse(getStorageKey(userId, STORAGE_KEY_DOGS))
+    const storedActiveDog = localStorage.getItem(getStorageKey(userId, STORAGE_KEY_ACTIVE_DOG))
 
     dispatch({
       type: 'SET_DOGS',
-      payload: {
-        dogs,
-        activeDogId: storedActiveDog || null,
-      }
+      payload: { dogs, activeDogId: storedActiveDog || null }
     })
     dispatch({ type: 'SET_LOADING', payload: false })
   }, [])
 
-  // Initial load
   useEffect(() => {
     loadDogsForUser()
   }, [loadDogsForUser])
 
-  // Listen for storage events (for cross-tab sync and user changes)
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'pawsy_current_user') {
+      if (e.key === STORAGE_KEY_USER) {
         loadDogsForUser()
       }
     }
 
-    // Also check for user changes on window focus (same tab logout/login)
     const handleFocus = () => {
-      const currentUserId = getCurrentUserId()
-      const currentDogsKey = currentUserId ? getStorageKey(currentUserId, 'dogs') : null
-      const storedDogs = currentDogsKey ? localStorage.getItem(currentDogsKey) : null
-
-      let currentDogs = []
-      if (storedDogs) {
-        try {
-          currentDogs = JSON.parse(storedDogs)
-        } catch {
-          // Corrupted data - will be handled by loadDogsForUser
-        }
-      }
-
-      // If user changed or dogs don't match, reload
+      const userId = getCurrentUserId()
+      if (!userId) return
+      const currentDogs = safeParse(getStorageKey(userId, STORAGE_KEY_DOGS))
       if (currentDogs.length !== state.dogs.length) {
         loadDogsForUser()
       }
@@ -143,13 +122,12 @@ export function DogProvider({ children }) {
     }
   }, [loadDogsForUser, state.dogs.length])
 
-  // Persist to localStorage on changes (only if we have a user)
   useEffect(() => {
     const userId = getCurrentUserId()
     if (!userId) return
 
-    const dogsKey = getStorageKey(userId, 'dogs')
-    const activeDogKey = getStorageKey(userId, 'active_dog')
+    const dogsKey = getStorageKey(userId, STORAGE_KEY_DOGS)
+    const activeDogKey = getStorageKey(userId, STORAGE_KEY_ACTIVE_DOG)
 
     localStorage.setItem(dogsKey, JSON.stringify(state.dogs))
     if (state.activeDogId) {
@@ -166,12 +144,13 @@ export function DogProvider({ children }) {
       return null
     }
 
+    const now = new Date().toISOString()
     const newDog = {
       ...dogData,
-      id: crypto.randomUUID(),
-      userId: userId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      id: generateUUID(),
+      userId,
+      createdAt: now,
+      updatedAt: now,
     }
     dispatch({ type: 'ADD_DOG', payload: newDog })
     return newDog
@@ -196,11 +175,6 @@ export function DogProvider({ children }) {
     return state.dogs.find(dog => dog.id === state.activeDogId) || state.dogs[0] || null
   }
 
-  // Expose loadDogsForUser so it can be called after login/signup
-  const reloadForCurrentUser = useCallback(() => {
-    loadDogsForUser()
-  }, [loadDogsForUser])
-
   const activeDog = getActiveDog()
 
   const value = useMemo(() => ({
@@ -212,8 +186,8 @@ export function DogProvider({ children }) {
     updateDog,
     deleteDog,
     setActiveDog,
-    reloadForCurrentUser,
-  }), [state.dogs, state.activeDogId, activeDog, state.loading, reloadForCurrentUser])
+    reloadForCurrentUser: loadDogsForUser,
+  }), [state.dogs, state.activeDogId, activeDog, state.loading, loadDogsForUser])
 
   return (
     <DogContext.Provider value={value}>
@@ -222,6 +196,7 @@ export function DogProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Standard React Context pattern
 export function useDog() {
   const context = useContext(DogContext)
   if (!context) {

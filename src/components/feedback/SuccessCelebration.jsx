@@ -1,27 +1,32 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// Simple sparkle/confetti celebration that appears briefly
+const PARTICLE_COLORS = ['#F4A261', '#7EC8C8', '#81C784', '#FFB74D', '#E8924F']
+const PARTICLE_COUNT = 20
+const ANIMATION_DURATION = 1500
+
 function SuccessCelebration({ show, onComplete }) {
   const [particles, setParticles] = useState([])
 
   useEffect(() => {
     if (show) {
-      // Generate particles
-      const newParticles = Array.from({ length: 20 }, (_, i) => ({
+      const newParticles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
         id: i,
         x: Math.random() * 100,
         delay: Math.random() * 0.3,
-        color: ['#F4A261', '#7EC8C8', '#81C784', '#FFB74D', '#E8924F'][Math.floor(Math.random() * 5)],
+        color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
         size: 4 + Math.random() * 6,
+        animateY: 20 + Math.random() * 30,
+        animateXOffset: (Math.random() - 0.5) * 20,
+        rotate: Math.random() * 360,
       }))
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: generate particles when show prop changes
       setParticles(newParticles)
 
-      // Clear after animation
       const timer = setTimeout(() => {
         setParticles([])
         onComplete?.()
-      }, 1500)
+      }, ANIMATION_DURATION)
 
       return () => clearTimeout(timer)
     }
@@ -43,10 +48,10 @@ function SuccessCelebration({ show, onComplete }) {
             }}
             animate={{
               opacity: [1, 1, 0],
-              y: ['50vh', `${20 + Math.random() * 30}vh`],
-              x: `${particle.x + (Math.random() - 0.5) * 20}vw`,
+              y: ['50vh', `${particle.animateY}vh`],
+              x: `${particle.x + particle.animateXOffset}vw`,
               scale: [0, 1, 0.5],
-              rotate: Math.random() * 360,
+              rotate: particle.rotate,
             }}
             transition={{
               duration: 1.2,
@@ -66,13 +71,14 @@ function SuccessCelebration({ show, onComplete }) {
   )
 }
 
-// Simpler toast-style celebration message
+const TOAST_DURATION = 3000
+
 function SuccessToast({ message, show, onClose }) {
   useEffect(() => {
     if (show) {
       const timer = setTimeout(() => {
         onClose?.()
-      }, 3000)
+      }, TOAST_DURATION)
       return () => clearTimeout(timer)
     }
   }, [show, onClose])

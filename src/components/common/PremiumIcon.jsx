@@ -1,12 +1,17 @@
+import { useId } from 'react'
+
 /**
- * PremiumIcon - Custom premium/crown icon for Pawsy
+ * PremiumIcon - Paw-in-shield icon for Pawsy premium features
  *
- * A distinctive crown design with paw accent that replaces the generic Sparkles icon.
+ * A distinctive shield with paw print and gold star accent.
  * Supports gradient fills and multiple sizes.
  */
 
 function PremiumIcon({ size = 20, className = '', gradient = true }) {
-  const id = `premium-gradient-${Math.random().toString(36).substr(2, 9)}`
+  const id = useId()
+  const fill = gradient ? `url(#${id})` : 'currentColor'
+  const accent = gradient ? '#FFF8E7' : 'currentColor'
+  const accentOpacity = gradient ? 1 : 0.3
 
   return (
     <svg
@@ -27,40 +32,34 @@ function PremiumIcon({ size = 20, className = '', gradient = true }) {
         </defs>
       )}
 
-      {/* Crown base */}
+      {/* Shield */}
       <path
-        d="M4 17L3 8L7.5 11L12 5L16.5 11L21 8L20 17H4Z"
-        fill={gradient ? `url(#${id})` : 'currentColor'}
+        d="M12 2.5C8 2.5 4 4.5 4 7.5V13C4 17 8 21.5 12 21.5C16 21.5 20 17 20 13V7.5C20 4.5 16 2.5 12 2.5Z"
+        fill={fill}
         stroke={gradient ? '#E8924F' : 'currentColor'}
-        strokeWidth="0.5"
+        strokeWidth="0.75"
         strokeLinejoin="round"
       />
 
-      {/* Crown base bar */}
-      <rect
-        x="4"
-        y="17"
-        width="16"
-        height="3"
-        rx="1"
-        fill={gradient ? `url(#${id})` : 'currentColor'}
-        stroke={gradient ? '#E8924F' : 'currentColor'}
-        strokeWidth="0.5"
-      />
-
-      {/* Center jewel (paw pad shape) */}
+      {/* Paw - main pad */}
       <ellipse
         cx="12"
-        cy="13"
-        rx="2"
-        ry="1.5"
-        fill={gradient ? '#FFF8E7' : 'currentColor'}
-        opacity={gradient ? 1 : 0.3}
+        cy="14"
+        rx="3"
+        ry="2.2"
+        fill={accent}
+        opacity={accentOpacity}
       />
 
-      {/* Small sparkle accent */}
+      {/* Paw - toe pads */}
+      <circle cx="8" cy="10.2" r="1.4" fill={accent} opacity={accentOpacity} />
+      <circle cx="10.1" cy="8.2" r="1.3" fill={accent} opacity={accentOpacity} />
+      <circle cx="13.9" cy="8.2" r="1.3" fill={accent} opacity={accentOpacity} />
+      <circle cx="16" cy="10.2" r="1.4" fill={accent} opacity={accentOpacity} />
+
+      {/* Star accent at top-right */}
       <path
-        d="M19 3L19.5 4.5L21 5L19.5 5.5L19 7L18.5 5.5L17 5L18.5 4.5L19 3Z"
+        d="M19.5 2L20 3.2L21.2 3.5L20 3.8L19.5 5L19 3.8L17.8 3.5L19 3.2Z"
         fill={gradient ? '#FFD54F' : 'currentColor'}
       />
     </svg>

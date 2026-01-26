@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Dog, MessageCircle, Camera, Heart, Shield, ChevronRight, Star, ChevronDown, Users, Clock, CreditCard, Lock, CheckCircle, ArrowRight } from 'lucide-react'
+import { MessageCircle, Camera, Heart, Shield, ChevronRight, Star, ChevronDown, Users, Clock, CreditCard, Lock, CheckCircle, ArrowRight, Dog } from 'lucide-react'
 import PremiumIcon from '../components/common/PremiumIcon'
+import PawsyIcon from '../components/common/PawsyIcon'
+
+const nunitoFont = { fontFamily: 'Nunito, sans-serif' }
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -15,16 +18,42 @@ const staggerContainer = {
   },
 }
 
-const floatAnimation = {
-  animate: {
-    y: [0, -10, 0],
-    transition: {
-      duration: 3,
-      repeat: Infinity,
-      ease: 'easeInOut',
-    },
-  },
+const buttonTap = {
+  whileHover: { scale: 1.02 },
+  whileTap: { scale: 0.98 },
 }
+
+const sectionReveal = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true },
+  transition: { duration: 0.6 },
+}
+
+const stats = [
+  { icon: Users, color: 'text-[#F4A261]', value: '10,000+', label: 'Dogs helped' },
+  { icon: Star, color: 'text-[#FFD54F] fill-[#FFD54F]', value: '4.8', label: 'App rating' },
+  { icon: Clock, color: 'text-[#7EC8C8]', value: '24/7', label: 'Available' },
+]
+
+const trustBadges = [
+  { icon: Shield, bgColor: 'bg-[#81C784]/20', iconColor: 'text-[#81C784]', title: 'Vet-Informed AI', subtitle: 'Trained on veterinary knowledge' },
+  { icon: Lock, bgColor: 'bg-[#7EC8C8]/20', iconColor: 'text-[#7EC8C8]', title: 'Privacy First', subtitle: 'Your data stays on your device' },
+  { icon: CreditCard, bgColor: 'bg-[#F4A261]/20', iconColor: 'text-[#F4A261]', title: 'No Card Required', subtitle: 'Start free, upgrade anytime' },
+  { icon: Heart, bgColor: 'bg-[#EF5350]/20', iconColor: 'text-[#EF5350]', title: 'Made for Pet Parents', subtitle: 'By dog lovers, for dog lovers' },
+]
+
+const steps = [
+  { icon: Dog, gradient: 'from-[#F4A261] to-[#E8924F]', color: 'text-[#F4A261]', borderColor: 'border-[#F4A261]', title: 'Add Your Dog', description: 'Create a profile with breed, age, weight, and any health conditions' },
+  { icon: MessageCircle, gradient: 'from-[#7EC8C8] to-[#5FB3B3]', color: 'text-[#7EC8C8]', borderColor: 'border-[#7EC8C8]', title: 'Ask Pawsy', description: 'Describe symptoms, share photos, or ask any health question' },
+  { icon: CheckCircle, gradient: 'from-[#81C784] to-[#66BB6A]', color: 'text-[#81C784]', borderColor: 'border-[#81C784]', title: 'Get Personalized Advice', description: "Receive guidance tailored to your dog's unique health profile" },
+]
+
+const features = [
+  { icon: Dog, gradient: 'from-[#F4A261] to-[#E8924F]', borderColor: 'border-[#F4A261]/10', title: 'Dog Profile', description: "Store your dog's complete health history — breed, age, weight, allergies, and medications — all in one place." },
+  { icon: MessageCircle, gradient: 'from-[#7EC8C8] to-[#5FB3B3]', borderColor: 'border-[#7EC8C8]/20', title: 'AI Vet Chat', description: "Describe symptoms and get personalized advice that considers your dog's unique health profile and history." },
+  { icon: Camera, gradient: 'from-[#81C784] to-[#66BB6A]', borderColor: 'border-[#81C784]/20', title: 'Photo Analysis', description: "Snap a photo of a rash, wound, or anything unusual. Our AI analyzes it with your dog's health context." },
+]
 
 const testimonials = [
   {
@@ -54,11 +83,11 @@ const faqs = [
   },
   {
     q: "What's included in the free version?",
-    a: "3 AI chats per day, 3 photo scans per day, unlimited access to symptom checker, toxic food database, emergency guides, and vet finder."
+    a: "3 AI chats per day, 3 photo scans per day, toxic food checker, emergency guides, and vet finder."
   },
   {
     q: "What does Premium add?",
-    a: "Unlimited chats and scans, saved conversation history, detailed health tracking, breed-specific alerts, and priority support."
+    a: "Unlimited chats and scans, AI that remembers your dog's full health history, personalized breed + age alerts, extended health profiles, and vet visit reports."
   },
   {
     q: "Is my data private?",
@@ -70,6 +99,22 @@ const faqs = [
   }
 ]
 
+function SectionHeading({ title, subtitle, className = "mb-16", subtitleClassName = "" }) {
+  return (
+    <motion.div {...sectionReveal} className={`text-center ${className}`}>
+      <h2
+        className="text-3xl md:text-4xl font-bold text-[#3D3D3D] mb-4"
+        style={nunitoFont}
+      >
+        {title}
+      </h2>
+      <p className={`text-[#6B6B6B] text-lg ${subtitleClassName}`}>
+        {subtitle}
+      </p>
+    </motion.div>
+  )
+}
+
 function Landing() {
   const featuresRef = useRef(null)
   const [openFaq, setOpenFaq] = useState(null)
@@ -79,8 +124,8 @@ function Landing() {
     featuresRef.current?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' })
   }
 
-  // Motion-safe float animation
-  const floatAnimationSafe = prefersReducedMotion ? {} : floatAnimation.animate
+  const motionSafe = (animation) => prefersReducedMotion ? {} : animation
+
   return (
     <div className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
@@ -92,10 +137,8 @@ function Landing() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center shadow-md">
-              <Dog className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            <PawsyIcon size={40} className="shadow-md rounded-full" />
+            <span className="text-2xl font-bold text-[#3D3D3D]" style={nunitoFont}>
               Pawsy
             </span>
           </motion.div>
@@ -108,8 +151,7 @@ function Landing() {
           >
             <Link to="/login">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                {...buttonTap}
                 className="px-5 py-2.5 text-[#3D3D3D] font-medium hover:text-[#F4A261] transition-colors"
               >
                 Sign In
@@ -117,8 +159,7 @@ function Landing() {
             </Link>
             <Link to="/signup">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                {...buttonTap}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-shadow"
               >
                 Get Started
@@ -152,7 +193,7 @@ function Landing() {
                 variants={fadeInUp}
                 transition={{ duration: 0.6 }}
                 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#3D3D3D] leading-tight mb-6"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+                style={nunitoFont}
               >
                 Peace of mind for{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F4A261] to-[#E8924F]">
@@ -186,8 +227,7 @@ function Landing() {
                 </Link>
 
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  {...buttonTap}
                   onClick={scrollToFeatures}
                   className="px-8 py-4 bg-white text-[#3D3D3D] font-semibold rounded-xl border-2 border-[#E8E8E8] hover:border-[#F4A261] transition-colors text-lg"
                 >
@@ -224,7 +264,7 @@ function Landing() {
 
               {/* Main card */}
               <motion.div
-                animate={floatAnimationSafe}
+                animate={motionSafe({ y: [0, -10, 0], transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' } })}
                 className="relative bg-white rounded-3xl p-8 shadow-xl border border-[#F4A261]/10"
               >
                 {/* Dog avatar */}
@@ -247,16 +287,16 @@ function Landing() {
 
                 {/* Floating elements - respect reduced motion */}
                 <motion.div
-                  animate={prefersReducedMotion ? {} : { y: [0, -5, 0], rotate: [0, 5, 0] }}
-                  transition={prefersReducedMotion ? {} : { duration: 2, repeat: Infinity }}
+                  animate={motionSafe({ y: [0, -5, 0], rotate: [0, 5, 0] })}
+                  transition={motionSafe({ duration: 2, repeat: Infinity })}
                   className="absolute -top-4 -right-4 w-12 h-12 bg-[#81C784] rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <Heart className="w-6 h-6 text-white" />
                 </motion.div>
 
                 <motion.div
-                  animate={prefersReducedMotion ? {} : { y: [0, 5, 0], rotate: [0, -5, 0] }}
-                  transition={prefersReducedMotion ? {} : { duration: 2.5, repeat: Infinity, delay: 0.5 }}
+                  animate={motionSafe({ y: [0, 5, 0], rotate: [0, -5, 0] })}
+                  transition={motionSafe({ duration: 2.5, repeat: Infinity, delay: 0.5 })}
                   className="absolute -bottom-4 -left-4 w-12 h-12 bg-[#FFD54F] rounded-xl flex items-center justify-center shadow-lg"
                 >
                   <PremiumIcon size={24} gradient={false} />
@@ -271,46 +311,22 @@ function Landing() {
       <section className="py-8 bg-white/50 border-y border-[#E8E8E8]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-wrap justify-center gap-8 md:gap-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center"
-            >
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Users className="w-5 h-5 text-[#F4A261]" />
-                <span className="text-2xl font-bold text-[#3D3D3D]">10,000+</span>
-              </div>
-              <p className="text-sm text-[#6B6B6B]">Dogs helped</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-center"
-            >
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Star className="w-5 h-5 text-[#FFD54F] fill-[#FFD54F]" />
-                <span className="text-2xl font-bold text-[#3D3D3D]">4.8</span>
-              </div>
-              <p className="text-sm text-[#6B6B6B]">App rating</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="text-center"
-            >
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Clock className="w-5 h-5 text-[#7EC8C8]" />
-                <span className="text-2xl font-bold text-[#3D3D3D]">24/7</span>
-              </div>
-              <p className="text-sm text-[#6B6B6B]">Available</p>
-            </motion.div>
+            {stats.map((stat, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                  <span className="text-2xl font-bold text-[#3D3D3D]">{stat.value}</span>
+                </div>
+                <p className="text-sm text-[#6B6B6B]">{stat.label}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -318,102 +334,42 @@ function Landing() {
       {/* How It Works Section */}
       <section className="py-20 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#3D3D3D] mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}
-            >
-              Get started in 3 simple steps
-            </h2>
-            <p className="text-[#6B6B6B] text-lg max-w-2xl mx-auto">
-              From sign up to personalized advice in under 2 minutes
-            </p>
-          </motion.div>
+          <SectionHeading
+            title="Get started in 3 simple steps"
+            subtitle="From sign up to personalized advice in under 2 minutes"
+            subtitleClassName="max-w-2xl mx-auto"
+          />
 
           <div className="grid md:grid-cols-3 gap-8 relative">
             {/* Connecting line (desktop only) */}
             <div className="hidden md:block absolute top-16 left-1/4 right-1/4 h-0.5 bg-gradient-to-r from-[#F4A261] via-[#7EC8C8] to-[#81C784]" />
 
-            {/* Step 1 */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-center relative"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-[#F4A261] to-[#E8924F] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg relative z-10">
-                <Dog className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#F4A261] font-bold text-sm border-2 border-[#F4A261] shadow-sm">
-                1
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-2 mt-2"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+            {steps.map((step, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: (idx + 1) * 0.1 }}
+                className="text-center relative"
               >
-                Add Your Dog
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Create a profile with breed, age, weight, and any health conditions
-              </p>
-            </motion.div>
-
-            {/* Step 2 */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-center relative"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg relative z-10">
-                <MessageCircle className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#7EC8C8] font-bold text-sm border-2 border-[#7EC8C8] shadow-sm">
-                2
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-2 mt-2"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
-              >
-                Ask Pawsy
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Describe symptoms, share photos, or ask any health question
-              </p>
-            </motion.div>
-
-            {/* Step 3 */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="text-center relative"
-            >
-              <div className="w-16 h-16 bg-gradient-to-br from-[#81C784] to-[#66BB6A] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg relative z-10">
-                <CheckCircle className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#81C784] font-bold text-sm border-2 border-[#81C784] shadow-sm">
-                3
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-2 mt-2"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
-              >
-                Get Personalized Advice
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Receive guidance tailored to your dog's unique health profile
-              </p>
-            </motion.div>
+                <div className={`w-16 h-16 bg-gradient-to-br ${step.gradient} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg relative z-10`}>
+                  <step.icon className="w-8 h-8 text-white" />
+                </div>
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 w-8 h-8 bg-white rounded-full flex items-center justify-center ${step.color} font-bold text-sm border-2 ${step.borderColor} shadow-sm`}>
+                  {idx + 1}
+                </div>
+                <h3
+                  className="text-xl font-bold text-[#3D3D3D] mb-2 mt-2"
+                  style={nunitoFont}
+                >
+                  {step.title}
+                </h3>
+                <p className="text-[#6B6B6B]">
+                  {step.description}
+                </p>
+              </motion.div>
+            ))}
           </div>
 
           {/* CTA */}
@@ -426,8 +382,7 @@ function Landing() {
           >
             <Link to="/signup">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                {...buttonTap}
                 className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-lg text-lg"
               >
                 Get Started Free
@@ -442,61 +397,22 @@ function Landing() {
       <section className="py-12 px-4 bg-[#FDF8F3]">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0 }}
-              className="flex flex-col items-center text-center p-4"
-            >
-              <div className="w-12 h-12 bg-[#81C784]/20 rounded-full flex items-center justify-center mb-3">
-                <Shield className="w-6 h-6 text-[#81C784]" />
-              </div>
-              <p className="font-semibold text-[#3D3D3D] text-sm">Vet-Informed AI</p>
-              <p className="text-xs text-[#6B6B6B] mt-1">Trained on veterinary knowledge</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="flex flex-col items-center text-center p-4"
-            >
-              <div className="w-12 h-12 bg-[#7EC8C8]/20 rounded-full flex items-center justify-center mb-3">
-                <Lock className="w-6 h-6 text-[#7EC8C8]" />
-              </div>
-              <p className="font-semibold text-[#3D3D3D] text-sm">Privacy First</p>
-              <p className="text-xs text-[#6B6B6B] mt-1">Your data stays on your device</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-col items-center text-center p-4"
-            >
-              <div className="w-12 h-12 bg-[#F4A261]/20 rounded-full flex items-center justify-center mb-3">
-                <CreditCard className="w-6 h-6 text-[#F4A261]" />
-              </div>
-              <p className="font-semibold text-[#3D3D3D] text-sm">No Card Required</p>
-              <p className="text-xs text-[#6B6B6B] mt-1">Start free, upgrade anytime</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col items-center text-center p-4"
-            >
-              <div className="w-12 h-12 bg-[#EF5350]/20 rounded-full flex items-center justify-center mb-3">
-                <Heart className="w-6 h-6 text-[#EF5350]" />
-              </div>
-              <p className="font-semibold text-[#3D3D3D] text-sm">Made for Pet Parents</p>
-              <p className="text-xs text-[#6B6B6B] mt-1">By dog lovers, for dog lovers</p>
-            </motion.div>
+            {trustBadges.map((badge, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="flex flex-col items-center text-center p-4"
+              >
+                <div className={`w-12 h-12 ${badge.bgColor} rounded-full flex items-center justify-center mb-3`}>
+                  <badge.icon className={`w-6 h-6 ${badge.iconColor}`} />
+                </div>
+                <p className="font-semibold text-[#3D3D3D] text-sm">{badge.title}</p>
+                <p className="text-xs text-[#6B6B6B] mt-1">{badge.subtitle}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -504,93 +420,37 @@ function Landing() {
       {/* Features Section */}
       <section ref={featuresRef} className="py-20 px-4 bg-white scroll-mt-20">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#3D3D3D] mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}
-            >
-              Everything your pup needs
-            </h2>
-            <p className="text-[#6B6B6B] text-lg max-w-2xl mx-auto">
-              Three powerful features designed for anxious pet parents who want the best for their furry friends.
-            </p>
-          </motion.div>
+          <SectionHeading
+            title="Everything your pup needs"
+            subtitle="Three powerful features designed for anxious pet parents who want the best for their furry friends."
+            subtitleClassName="max-w-2xl mx-auto"
+          />
 
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Feature 1: Dog Profile */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              whileHover={{ y: -5 }}
-              className="bg-[#FDF8F3] rounded-2xl p-8 border border-[#F4A261]/10"
-            >
-              <div className="w-14 h-14 bg-gradient-to-br from-[#F4A261] to-[#E8924F] rounded-xl flex items-center justify-center mb-6 shadow-md">
-                <Dog className="w-7 h-7 text-white" />
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-3"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
+            {features.map((feature, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: (idx + 1) * 0.1 }}
+                whileHover={{ y: -5 }}
+                className={`bg-[#FDF8F3] rounded-2xl p-8 border ${feature.borderColor}`}
               >
-                Dog Profile
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Store your dog's complete health history — breed, age, weight, allergies, and medications — all in one place.
-              </p>
-            </motion.div>
-
-            {/* Feature 2: AI Chat */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              whileHover={{ y: -5 }}
-              className="bg-[#FDF8F3] rounded-2xl p-8 border border-[#7EC8C8]/20"
-            >
-              <div className="w-14 h-14 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] rounded-xl flex items-center justify-center mb-6 shadow-md">
-                <MessageCircle className="w-7 h-7 text-white" />
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-3"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
-              >
-                AI Vet Chat
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Describe symptoms and get personalized advice that considers your dog's unique health profile and history.
-              </p>
-            </motion.div>
-
-            {/* Feature 3: Photo Analysis */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              whileHover={{ y: -5 }}
-              className="bg-[#FDF8F3] rounded-2xl p-8 border border-[#81C784]/20"
-            >
-              <div className="w-14 h-14 bg-gradient-to-br from-[#81C784] to-[#66BB6A] rounded-xl flex items-center justify-center mb-6 shadow-md">
-                <Camera className="w-7 h-7 text-white" />
-              </div>
-              <h3
-                className="text-xl font-bold text-[#3D3D3D] mb-3"
-                style={{ fontFamily: 'Nunito, sans-serif' }}
-              >
-                Photo Analysis
-              </h3>
-              <p className="text-[#6B6B6B]">
-                Snap a photo of a rash, wound, or anything unusual. Our AI analyzes it with your dog's health context.
-              </p>
-            </motion.div>
+                <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-xl flex items-center justify-center mb-6 shadow-md`}>
+                  <feature.icon className="w-7 h-7 text-white" />
+                </div>
+                <h3
+                  className="text-xl font-bold text-[#3D3D3D] mb-3"
+                  style={nunitoFont}
+                >
+                  {feature.title}
+                </h3>
+                <p className="text-[#6B6B6B]">
+                  {feature.description}
+                </p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -598,23 +458,11 @@ function Landing() {
       {/* Testimonials Section */}
       <section className="py-20 px-4 bg-[#FDF8F3]">
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#3D3D3D] mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}
-            >
-              Loved by pet parents
-            </h2>
-            <p className="text-[#6B6B6B] text-lg">
-              See what dog owners are saying about Pawsy
-            </p>
-          </motion.div>
+          <SectionHeading
+            title="Loved by pet parents"
+            subtitle="See what dog owners are saying about Pawsy"
+            className="mb-12"
+          />
 
           <div className="grid md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, idx) => (
@@ -671,13 +519,14 @@ function Landing() {
             <motion.div
               animate={{ rotate: [0, -10, 10, -10, 0] }}
               transition={{ duration: 0.5, delay: 1 }}
+              className="mx-auto mb-6 w-16"
             >
-              <Dog className="w-16 h-16 text-white/90 mx-auto mb-6" />
+              <PawsyIcon size={64} />
             </motion.div>
 
             <h2
               className="text-3xl md:text-4xl font-bold text-white mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}
+              style={nunitoFont}
             >
               Ready to worry less?
             </h2>
@@ -701,23 +550,11 @@ function Landing() {
       {/* FAQ Section */}
       <section className="py-20 px-4 bg-white">
         <div className="max-w-3xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2
-              className="text-3xl md:text-4xl font-bold text-[#3D3D3D] mb-4"
-              style={{ fontFamily: 'Nunito, sans-serif' }}
-            >
-              Common questions
-            </h2>
-            <p className="text-[#6B6B6B] text-lg">
-              Everything you need to know about Pawsy
-            </p>
-          </motion.div>
+          <SectionHeading
+            title="Common questions"
+            subtitle="Everything you need to know about Pawsy"
+            className="mb-12"
+          />
 
           <div className="space-y-3" role="list">
             {faqs.map((faq, idx) => (
@@ -775,10 +612,8 @@ function Landing() {
       <footer className="py-10 px-4 border-t border-[#E8E8E8]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center">
-              <Dog className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            <PawsyIcon size={32} className="rounded-full" />
+            <span className="text-lg font-bold text-[#3D3D3D]" style={nunitoFont}>
               Pawsy
             </span>
           </div>

@@ -27,3 +27,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# AI tool configs
+.agents/
+.cursor/
+.gemini/
+.claude/skills/

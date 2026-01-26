@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Wrench, X, Minimize2, Maximize2, Database, Zap, Settings,
-  User, Dog, MessageSquare, Camera, Trash2, Plus, Eye, EyeOff,
-  ChevronDown, CheckCircle, AlertCircle, Rocket
+  User, Dog, MessageSquare, Trash2, Plus, Eye,
+  CheckCircle, AlertCircle, Rocket, Crown
 } from 'lucide-react'
+import { generateUUID } from '../../utils/uuid'
 import { useAuth } from '../../context/AuthContext'
 import { useDog } from '../../context/DogContext'
 import { useChat } from '../../context/ChatContext'
-import { useNavigate } from 'react-router-dom'
+import { usePremium } from '../../hooks/usePremium'
 import {
   CHAT_SCENARIOS,
   PHOTO_SCENARIOS,
@@ -37,7 +38,7 @@ function DevPanel() {
   const { user, isAuthenticated } = useAuth()
   const { dogs, activeDog } = useDog()
   const { activeSession, sessions } = useChat()
-  const navigate = useNavigate()
+  const { isPremium, togglePremium } = usePremium()
 
   // Keyboard shortcut to toggle panel
   useEffect(() => {
@@ -67,44 +68,37 @@ function DevPanel() {
     setMockMode(mockEnabled, mockScenario, delay)
   }
 
-  // Get all scenarios based on type
-  const getScenarios = () => {
-    switch (scenarioType) {
-      case 'chat':
-        return CHAT_SCENARIOS
-      case 'photo':
-        return PHOTO_SCENARIOS
-      case 'error':
-        return ERROR_SCENARIOS
-      default:
-        return CHAT_SCENARIOS
-    }
-  }
+  const scenariosByType = { chat: CHAT_SCENARIOS, photo: PHOTO_SCENARIOS, error: ERROR_SCENARIOS }
+  const activeScenarios = scenariosByType[scenarioType] || CHAT_SCENARIOS
 
-  // Quick actions
+  const getPawsyKeys = () => Object.keys(localStorage).filter(k => k.startsWith('pawsy_'))
+
+  const THREE_YEARS_MS = 3 * 365 * 24 * 60 * 60 * 1000
+
+  const createSampleDog = (id, userId) => ({
+    id,
+    userId,
+    name: 'Max',
+    breed: 'Golden Retriever',
+    dateOfBirth: new Date(Date.now() - THREE_YEARS_MS).toISOString(),
+    weight: 65,
+    weightUnit: 'lbs',
+    allergies: ['Chicken'],
+    photoUrl: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  })
+
   const clearAllData = () => {
     if (confirm('Clear all Pawsy data? This cannot be undone.')) {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('pawsy_'))
+      const keys = getPawsyKeys()
       keys.forEach(k => localStorage.removeItem(k))
       window.location.reload()
     }
   }
 
   const addSampleDog = () => {
-    const sampleDog = {
-      id: `sample-${Date.now()}`,
-      userId: user?.id,
-      name: 'Max',
-      breed: 'Golden Retriever',
-      dateOfBirth: new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 3 years ago
-      weight: 65,
-      weightUnit: 'lbs',
-      allergies: ['Chicken'],
-      photoUrl: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-
+    const sampleDog = createSampleDog(`sample-${Date.now()}`, user?.id)
     const storageKey = `pawsy_${user?.id}_dogs`
     const existing = JSON.parse(localStorage.getItem(storageKey) || '[]')
     existing.push(sampleDog)
@@ -114,7 +108,7 @@ function DevPanel() {
   }
 
   const viewLocalStorage = () => {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('pawsy_'))
+    const keys = getPawsyKeys()
     const data = {}
     keys.forEach(k => {
       try {
@@ -132,39 +126,23 @@ function DevPanel() {
   // Quick setup - skip onboarding with test data
   const quickSetup = () => {
     // Clear any existing data first to avoid conflicts
-    const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('pawsy_'))
+    const keysToRemove = getPawsyKeys()
     keysToRemove.forEach(k => localStorage.removeItem(k))
 
     // Create test user
     const testUser = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       email: 'test@pawsy.dev',
       name: 'Test Developer',
       createdAt: new Date().toISOString()
     }
 
-    // Add to users registry
-    const users = {}
-    users[testUser.email] = testUser
-    localStorage.setItem('pawsy_users', JSON.stringify(users))
+    localStorage.setItem('pawsy_users', JSON.stringify({ [testUser.email]: testUser }))
 
     // Set as current user
     localStorage.setItem('pawsy_current_user', JSON.stringify(testUser))
 
-    // Create sample dog
-    const sampleDog = {
-      id: crypto.randomUUID(),
-      userId: testUser.id,
-      name: 'Max',
-      breed: 'Golden Retriever',
-      dateOfBirth: new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-      weight: 65,
-      weightUnit: 'lbs',
-      allergies: ['Chicken'],
-      photoUrl: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
+    const sampleDog = createSampleDog(generateUUID(), testUser.id)
 
     const dogsKey = `pawsy_${testUser.id}_dogs`
     const activeDogKey = `pawsy_${testUser.id}_active_dog`
@@ -206,6 +184,11 @@ function DevPanel() {
         <div className="flex items-center gap-2">
           <Wrench className="w-4 h-4" />
           <span className="text-sm font-semibold">Dev Tools</span>
+          {isPremium && (
+            <span className="px-1.5 py-0.5 text-[10px] bg-amber-400 text-black rounded font-bold">
+              PREMIUM
+            </span>
+          )}
           {mockEnabled && (
             <span className="px-1.5 py-0.5 text-[10px] bg-yellow-500 text-black rounded font-bold">
               MOCK
@@ -264,7 +247,7 @@ function DevPanel() {
                     <User className="w-3.5 h-3.5" />
                     AUTH
                   </div>
-                  <div className="text-sm">
+                  <div className="text-sm space-y-1">
                     {isAuthenticated ? (
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-3.5 h-3.5 text-green-400" />
@@ -276,6 +259,12 @@ function DevPanel() {
                         <span className="text-yellow-300">Not logged in</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-3.5 h-3.5 text-amber-400" />
+                      <span className={isPremium ? 'text-amber-300' : 'text-gray-500'}>
+                        {isPremium ? 'Premium active' : 'Free tier'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -327,7 +316,7 @@ function DevPanel() {
                     STORAGE
                   </div>
                   <div className="text-sm text-gray-300">
-                    {Object.keys(localStorage).filter(k => k.startsWith('pawsy_')).length} keys
+                    {getPawsyKeys().length} keys
                   </div>
                 </div>
               </div>
@@ -382,7 +371,7 @@ function DevPanel() {
                         onChange={(e) => handleScenarioChange(e.target.value)}
                         className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-sm text-white focus:border-purple-400 focus:outline-none"
                       >
-                        {Object.values(getScenarios()).map(scenario => (
+                        {Object.values(activeScenarios).map(scenario => (
                           <option key={scenario.id} value={scenario.id}>
                             {scenario.label}
                           </option>
@@ -414,9 +403,10 @@ function DevPanel() {
                     <div className="bg-gray-800/50 rounded-lg p-2.5">
                       <div className="text-xs text-gray-400 mb-1">Preview</div>
                       <div className="text-xs text-gray-300 font-mono overflow-x-auto">
-                        {JSON.stringify(getScenarios()[Object.keys(getScenarios()).find(
-                          k => getScenarios()[k].id === mockScenario
-                        )]?.response || {}, null, 2).slice(0, 200)}...
+                        {JSON.stringify(
+                          Object.values(activeScenarios).find(s => s.id === mockScenario)?.response || {},
+                          null, 2
+                        ).slice(0, 200)}...
                       </div>
                     </div>
                   </>
@@ -445,6 +435,19 @@ function DevPanel() {
                 >
                   <Plus className="w-4 h-4" />
                   Add Sample Dog
+                </button>
+
+                <button
+                  onClick={togglePremium}
+                  disabled={!isAuthenticated}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-white text-sm rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed ${
+                    isPremium
+                      ? 'bg-amber-600 hover:bg-amber-500'
+                      : 'bg-purple-600 hover:bg-purple-500'
+                  }`}
+                >
+                  <Crown className="w-4 h-4" />
+                  {isPremium ? 'Disable Premium' : 'Enable Premium'}
                 </button>
 
                 <button

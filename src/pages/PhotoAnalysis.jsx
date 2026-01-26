@@ -15,6 +15,7 @@ import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
 import InlinePremiumHint from '../components/common/InlinePremiumHint'
 import ErrorMessage from '../components/common/ErrorMessage'
+import { useToast } from '../context/ToastContext'
 
 const BODY_AREAS = [
   { id: 'skin', label: 'Skin/Coat' },
@@ -26,14 +27,45 @@ const BODY_AREAS = [
   { id: 'other', label: 'Other' },
 ]
 
+function buildDemoResult(activeDog, bodyAreaLabel) {
+  return {
+    is_dog: true,
+    detected_subject: 'dog',
+    detected_breed: activeDog?.breed || 'Mixed breed',
+    breed_matches_profile: true,
+    image_quality: 'good',
+    image_quality_note: null,
+    urgency_level: 'low',
+    confidence: 'medium',
+    possible_conditions: ['Minor irritation', 'Allergic reaction', 'Dry skin'],
+    visible_symptoms: ['Slight redness', 'Minor swelling'],
+    recommended_actions: [
+      'Keep the area clean and dry',
+      'Monitor for any changes over the next 24-48 hours',
+      'Avoid letting your dog scratch or lick the area',
+      'Consider a vet visit if symptoms persist or worsen',
+    ],
+    should_see_vet: false,
+    vet_urgency: 'not_required',
+    home_care_tips: [
+      'Apply a cold compress if there is swelling',
+      'Use an e-collar if your dog keeps licking the area',
+    ],
+    summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${bodyAreaLabel.toLowerCase()}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, this appears to be a minor issue that can likely be monitored at home.`,
+  }
+}
+
+function getAreaLabel(selectedArea) {
+  return BODY_AREAS.find(a => a.id === selectedArea)?.label || selectedArea
+}
+
 function PhotoAnalysis() {
   const { activeDog, dogs, loading: dogsLoading } = useDog()
   const {
     canPhoto,
-    canEmergencyPhoto,
-    usePhoto,
-    useEmergencyPhoto,
     photosRemaining,
+    usePhoto: consumePhoto,
+    useEmergencyPhoto: consumeEmergencyPhoto,
     emergencyPhotosRemaining,
   } = useUsage()
   const { completeStep, progress } = useOnboarding()
@@ -46,10 +78,14 @@ function PhotoAnalysis() {
   const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState(null)
   const [showLimitModal, setShowLimitModal] = useState(false)
+  const { showToast } = useToast()
   const [isEmergencyMode, setIsEmergencyMode] = useState(false)
 
-  // Wait for dogs to load before checking
-  if (dogsLoading) {
+  const selectedAreaLabel = getAreaLabel(selectedArea)
+
+  const handleUpgrade = () => showToast('Premium upgrade coming soon! For now, enjoy free features.', 'premium')
+
+  if (dogsLoading || !activeDog) {
     return (
       <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
         <div className="text-center">
@@ -60,7 +96,6 @@ function PhotoAnalysis() {
     )
   }
 
-  // Redirect if no dogs (only after loading complete)
   if (dogs.length === 0) {
     navigate('/add-dog')
     return null
@@ -69,87 +104,48 @@ function PhotoAnalysis() {
   const handleAnalyze = async () => {
     if (!photo || !selectedArea) return
 
-    // Check usage limits
     if (!isEmergencyMode && !canPhoto) {
       setShowLimitModal(true)
       return
     }
 
-    // Consume usage (regular or emergency)
-    if (isEmergencyMode) {
-      const allowed = useEmergencyPhoto()
-      if (!allowed) {
-        setShowLimitModal(true)
-        return
-      }
-    } else {
-      const allowed = usePhoto()
-      if (!allowed) {
-        setShowLimitModal(true)
-        return
-      }
+    const allowed = isEmergencyMode ? consumeEmergencyPhoto() : consumePhoto()
+    if (!allowed) {
+      setShowLimitModal(true)
+      return
+    }
+
+    if (!isEmergencyMode && photosRemaining === 2) {
+      showToast('You have 1 photo analysis remaining today.', 'warning')
     }
 
     setIsAnalyzing(true)
     setError(null)
 
     try {
-      // Get the body area label for the prompt
-      const bodyAreaLabel = BODY_AREAS.find(a => a.id === selectedArea)?.label || selectedArea
+      let result
 
       if (!geminiService.isConfigured()) {
-        // Demo mode - return structured response matching new schema
         await new Promise(resolve => setTimeout(resolve, 3000))
-        const demoResult = {
-          is_dog: true,
-          detected_subject: 'dog',
-          detected_breed: activeDog?.breed || 'Mixed breed',
-          breed_matches_profile: true,
-          image_quality: 'good',
-          image_quality_note: null,
-          urgency_level: 'low',
-          confidence: 'medium',
-          possible_conditions: ['Minor irritation', 'Allergic reaction', 'Dry skin'],
-          visible_symptoms: ['Slight redness', 'Minor swelling'],
-          recommended_actions: [
-            'Keep the area clean and dry',
-            'Monitor for any changes over the next 24-48 hours',
-            'Avoid letting your dog scratch or lick the area',
-            'Consider a vet visit if symptoms persist or worsen',
-          ],
-          should_see_vet: false,
-          vet_urgency: 'not_required',
-          home_care_tips: [
-            'Apply a cold compress if there is swelling',
-            'Use an e-collar if your dog keeps licking the area',
-          ],
-          summary: `Based on the photo of ${activeDog?.name || 'your dog'}'s ${bodyAreaLabel.toLowerCase()}, I can see the area you're concerned about. While I cannot make a definitive diagnosis from a photo alone, this appears to be a minor issue that can likely be monitored at home.`,
+        result = buildDemoResult(activeDog, selectedAreaLabel)
+      } else {
+        const response = await geminiService.analyzePhoto(
+          photo.base64Data,
+          photo.mimeType,
+          activeDog,
+          selectedAreaLabel,
+          description
+        )
+
+        if (response.error) {
+          setError(response.message || 'Failed to analyze photo. Please try again.')
+          return
         }
-        setAnalysis(demoResult)
-        if (!progress.firstPhoto) {
-          completeStep('firstPhoto')
-        }
-        setIsAnalyzing(false)
-        return
+
+        result = response
       }
 
-      // Use the new structured API - service handles prompt building
-      const response = await geminiService.analyzePhoto(
-        photo.base64Data,
-        photo.mimeType,
-        activeDog,
-        bodyAreaLabel,
-        description
-      )
-
-      // Check for error response
-      if (response.error) {
-        setError(response.message || 'Failed to analyze photo. Please try again.')
-        return
-      }
-
-      // Response is already structured - use directly
-      setAnalysis(response)
+      setAnalysis(result)
       if (!progress.firstPhoto) {
         completeStep('firstPhoto')
       }
@@ -167,17 +163,6 @@ function PhotoAnalysis() {
     setDescription('')
     setAnalysis(null)
     setError(null)
-  }
-
-  if (!activeDog) {
-    return (
-      <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
-        <div className="text-center">
-          <Dog className="w-16 h-16 text-[#F4A261] mx-auto mb-4" />
-          <p className="text-[#6B6B6B]">Loading...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -228,7 +213,7 @@ function PhotoAnalysis() {
             <UsageCounter
               type="photo"
               showUpgrade={true}
-              onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+              onUpgrade={handleUpgrade}
             />
           </div>
         )}
@@ -284,7 +269,7 @@ function PhotoAnalysis() {
               analysis={analysis}
               imageUrl={photo?.preview}
               photo={photo}
-              bodyArea={BODY_AREAS.find(a => a.id === selectedArea)?.label || selectedArea}
+              bodyArea={selectedAreaLabel}
               onReset={handleReset}
               profileBreed={activeDog?.breed}
             />
@@ -413,7 +398,7 @@ function PhotoAnalysis() {
           setShowLimitModal(false)
           setIsEmergencyMode(true)
         }}
-        onUpgrade={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
+        onUpgrade={handleUpgrade}
         emergencyRemaining={emergencyPhotosRemaining}
       />
     </div>

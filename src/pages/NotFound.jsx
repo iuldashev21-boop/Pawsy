@@ -26,11 +26,12 @@ function NotFound() {
           Oops! Looks like this page wandered off. Let's get you back home.
         </p>
 
-        <Link to="/dashboard">
-          <button className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-shadow">
-            <Home className="w-5 h-5" />
-            Back to Home
-          </button>
+        <Link
+          to="/dashboard"
+          className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-shadow"
+        >
+          <Home className="w-5 h-5" />
+          Back to Home
         </Link>
       </div>
     </div>

@@ -2,15 +2,18 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronRight, User, Dog, Plus, Trash2,
-  MessageCircle, LogOut, Shield, HelpCircle, Check, X,
-  Edit3, PawPrint, Lock, Heart, Clock, Bell
+  ChevronLeft, User, Dog, Plus, Trash2,
+  MessageCircle, LogOut, Shield, HelpCircle, Check,
+  PawPrint, Lock, Heart, Clock, Bell
 } from 'lucide-react'
 import PremiumIcon from '../components/common/PremiumIcon'
+import PawsyIcon from '../components/common/PawsyIcon'
 import { useAuth } from '../context/AuthContext'
+import { usePremium } from '../hooks/usePremium'
 import { useDog } from '../context/DogContext'
 import { useChat } from '../context/ChatContext'
 import BottomNav from '../components/layout/BottomNav'
+import { useToast } from '../context/ToastContext'
 
 const staggerContainer = {
   initial: {},
@@ -31,19 +34,152 @@ const staggerItem = {
   },
 }
 
+const backdropAnimation = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+}
+
+const panelAnimation = {
+  initial: { scale: 0.95, opacity: 0 },
+  animate: { scale: 1, opacity: 1 },
+  exit: { scale: 0.95, opacity: 0 },
+}
+
+const PREMIUM_FEATURES = [
+  {
+    Icon: Heart,
+    iconColor: 'text-[#F4A261]',
+    title: 'Extended Health Profile',
+    premiumDesc: 'Coming soon — Track conditions, medications, and vet info',
+    freeDesc: (dog) => `Track conditions, medications, vet info for ${dog?.name || 'your dog'}`,
+    hasBorder: true,
+  },
+  {
+    Icon: Clock,
+    iconColor: 'text-[#7EC8C8]',
+    title: 'Health Timeline',
+    premiumDesc: 'Coming soon — Visual history of symptoms, vet visits, and health changes',
+    freeDesc: () => 'Track symptoms, vet visits, and health changes over time',
+    hasBorder: true,
+  },
+  {
+    Icon: Bell,
+    iconColor: 'text-[#81C784]',
+    title: 'Breed & Age Alerts',
+    premiumDesc: (dog) => `Coming soon — Proactive alerts for ${dog?.breed || 'your dog\'s breed'}`,
+    freeDesc: (dog) => `Get alerts for health issues common in ${dog?.breed || 'your dog\'s breed'}`,
+    hasBorder: true,
+  },
+  {
+    Icon: MessageCircle,
+    iconColor: 'text-[#7EC8C8]',
+    title: 'Unlimited Chats & Photos',
+    premiumDesc: 'Unlimited AI chats and photo analysis — active',
+    freeDesc: () => 'No daily limits on AI chats and photo analysis',
+    hasBorder: false,
+  },
+]
+
+const PREMIUM_BENEFITS = [
+  'Unlimited dog profiles',
+  'Unlimited AI chats & photos',
+  'Health timeline & tracking',
+]
+
+const stopPropagation = (e) => e.stopPropagation()
+
+function LockBadge() {
+  return (
+    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
+      <Lock className="w-2.5 h-2.5 text-white" />
+    </div>
+  )
+}
+
+function PremiumFeatureRow({ Icon, iconColor, title, premiumDesc, freeDesc, hasBorder, isPremium, activeDog }) {
+  const description = isPremium
+    ? (typeof premiumDesc === 'function' ? premiumDesc(activeDog) : premiumDesc)
+    : freeDesc(activeDog)
+
+  return (
+    <div className={`p-4 flex items-center gap-3${hasBorder ? ' border-b border-[#F4A261]/10' : ''}`}>
+      <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+        {!isPremium && <LockBadge />}
+      </div>
+      <div className="flex-1">
+        <p className="font-medium text-[#3D3D3D]">{title}</p>
+        <p className="text-xs text-[#6B6B6B]">{description}</p>
+      </div>
+    </div>
+  )
+}
+
+function ConfirmModal({ isOpen, onClose, icon, title, description, cancelLabel = 'Cancel', confirmLabel, confirmContent, confirmClassName, onConfirm, children }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          {...backdropAnimation}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={onClose}
+        >
+          <motion.div
+            {...panelAnimation}
+            onClick={stopPropagation}
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+          >
+            {icon && (
+              <div className="mx-auto mb-4">
+                {icon}
+              </div>
+            )}
+            <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
+              {title}
+            </h3>
+            <p className={`text-sm text-[#6B6B6B] text-center ${children ? 'mb-4' : 'mb-6'}`}>
+              {description}
+            </p>
+            {children}
+            <div className="flex gap-3">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onClose}
+                className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
+              >
+                {cancelLabel}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={onConfirm}
+                className={`flex-1 py-3 rounded-xl text-white font-semibold transition-colors ${confirmClassName}`}
+              >
+                {confirmContent || confirmLabel}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function Settings() {
   const { user, logout } = useAuth()
   const { dogs, activeDog, setActiveDog, deleteDog, reloadForCurrentUser: reloadDogs } = useDog()
   const { sessions, clearAllSessions, reloadForCurrentUser: reloadChats } = useChat()
+  const { isPremium } = usePremium()
   const navigate = useNavigate()
 
+  const { showToast } = useToast()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
 
-  // Free users can only have 1 dog
-  const canAddDog = dogs.length === 0
+  // Premium users can add unlimited dogs, free users limited to 1
+  const canAddDog = isPremium || dogs.length === 0
 
   const handleAddDogClick = () => {
     if (canAddDog) {
@@ -76,25 +212,8 @@ function Settings() {
     setShowClearDataConfirm(false)
   }
 
-  const handleClearAllData = () => {
-    // Only clear current user's data, not all users
-    if (user?.id) {
-      const keysToRemove = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith(`pawsy_${user.id}_`)) {
-          keysToRemove.push(key)
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-    }
-    logout()
-    reloadDogs()
-    reloadChats()
-    navigate('/')
-  }
-
   const totalChats = sessions.length
+  const deleteDogName = dogs.find(d => d.id === showDeleteConfirm)?.name
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
@@ -154,66 +273,58 @@ function Settings() {
               onClick={handleAddDogClick}
               className="flex items-center gap-1 text-sm text-[#F4A261] font-medium"
             >
-              {canAddDog ? (
-                <>
-                  <Plus className="w-4 h-4" />
-                  Add Dog
-                </>
-              ) : (
-                <>
-                  <PremiumIcon size={14} />
-                  Add Dog
-                </>
-              )}
+              {canAddDog ? <Plus className="w-4 h-4" /> : <PremiumIcon size={14} />}
+              Add Dog
             </motion.button>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-[#F4A261]/10 overflow-hidden divide-y divide-[#F4A261]/10">
-            {dogs.map((dog) => (
-              <div
-                key={dog.id}
-                className={`p-4 flex items-center gap-3 ${
-                  dog.id === activeDog?.id ? 'bg-[#F4A261]/5' : ''
-                }`}
-              >
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setActiveDog(dog.id)}
-                  className="flex items-center gap-3 flex-1"
+            {dogs.map((dog) => {
+              const isActive = dog.id === activeDog?.id
+              return (
+                <div
+                  key={dog.id}
+                  className={`p-4 flex items-center gap-3 ${isActive ? 'bg-[#F4A261]/5' : ''}`}
                 >
-                  <div className={`w-12 h-12 rounded-full overflow-hidden border-2 ${
-                    dog.id === activeDog?.id ? 'border-[#F4A261]' : 'border-[#E8E8E8]'
-                  } bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC]`}>
-                    {dog.photoUrl ? (
-                      <img src={dog.photoUrl} alt={dog.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Dog className="w-6 h-6 text-[#F4A261]" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-[#3D3D3D]">{dog.name}</p>
-                      {dog.id === activeDog?.id && (
-                        <span className="text-xs bg-[#F4A261]/20 text-[#E8924F] px-2 py-0.5 rounded-full font-medium">
-                          Active
-                        </span>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setActiveDog(dog.id)}
+                    className="flex items-center gap-3 flex-1"
+                  >
+                    <div className={`w-12 h-12 rounded-full overflow-hidden border-2 ${
+                      isActive ? 'border-[#F4A261]' : 'border-[#E8E8E8]'
+                    } bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC]`}>
+                      {dog.photoUrl ? (
+                        <img src={dog.photoUrl} alt={dog.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Dog className="w-6 h-6 text-[#F4A261]" />
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-[#6B6B6B]">{dog.breed}</p>
-                  </div>
-                </motion.button>
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#3D3D3D]">{dog.name}</p>
+                        {isActive && (
+                          <span className="text-xs bg-[#F4A261]/20 text-[#E8924F] px-2 py-0.5 rounded-full font-medium">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-[#6B6B6B]">{dog.breed}</p>
+                    </div>
+                  </motion.button>
 
-                {/* Delete button */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowDeleteConfirm(dog.id)}
-                  className="p-2 rounded-lg text-[#9E9E9E] hover:text-[#EF5350] hover:bg-[#EF5350]/10 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </motion.button>
-              </div>
-            ))}
+                  {/* Delete button */}
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowDeleteConfirm(dog.id)}
+                    className="p-2 rounded-lg text-[#9E9E9E] hover:text-[#EF5350] hover:bg-[#EF5350]/10 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              )
+            })}
 
             {dogs.length === 0 && (
               <div className="p-8 text-center">
@@ -231,101 +342,54 @@ function Settings() {
           </div>
         </motion.section>
 
-        {/* Premium Features Preview Section */}
+        {/* Premium Features Section */}
         <motion.section variants={staggerItem}>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide flex items-center gap-1.5">
               <PremiumIcon size={14} />
-              Premium Features
+              Personalized Health Intelligence
             </h2>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
-              className="text-sm text-[#F4A261] font-medium"
-            >
-              Unlock all →
-            </motion.button>
-          </div>
-          <div className="bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] rounded-2xl border border-[#E8B855]/30 overflow-hidden">
-            {/* Extended Health Profile */}
-            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
-              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
-                <Heart className="w-5 h-5 text-[#F4A261]" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
-                  <Lock className="w-2.5 h-2.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-[#3D3D3D]">Extended Health Profile</p>
-                <p className="text-xs text-[#6B6B6B]">
-                  Track conditions, medications, vet info for {activeDog?.name || 'your dog'}
-                </p>
-              </div>
-            </div>
-
-            {/* Health Timeline */}
-            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
-              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
-                <Clock className="w-5 h-5 text-[#7EC8C8]" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
-                  <Lock className="w-2.5 h-2.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-[#3D3D3D]">Health Timeline</p>
-                <p className="text-xs text-[#6B6B6B]">
-                  Track symptoms, vet visits, and health changes over time
-                </p>
-              </div>
-            </div>
-
-            {/* Breed Alerts */}
-            <div className="p-4 flex items-center gap-3 border-b border-[#F4A261]/10">
-              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
-                <Bell className="w-5 h-5 text-[#81C784]" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
-                  <Lock className="w-2.5 h-2.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-[#3D3D3D]">Breed & Age Alerts</p>
-                <p className="text-xs text-[#6B6B6B]">
-                  Get alerts for health issues common in {activeDog?.breed || 'your dog\'s breed'}
-                </p>
-              </div>
-            </div>
-
-            {/* Unlimited Usage */}
-            <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center relative">
-                <MessageCircle className="w-5 h-5 text-[#7EC8C8]" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#F4A261] flex items-center justify-center">
-                  <Lock className="w-2.5 h-2.5 text-white" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-[#3D3D3D]">Unlimited Chats & Photos</p>
-                <p className="text-xs text-[#6B6B6B]">
-                  No daily limits on AI chats and photo analysis
-                </p>
-              </div>
-            </div>
-
-            {/* Upgrade CTA */}
-            <div className="p-4 bg-white/40 border-t border-[#F4A261]/10">
+            {!isPremium && (
               <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => alert('Premium upgrade coming soon! For now, enjoy free features.')}
-                className="w-full py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => showToast('Premium upgrade coming soon! For now, enjoy free features.', 'premium')}
+                className="text-sm text-[#F4A261] font-medium"
               >
-                <PremiumIcon size={16} gradient={false} />
-                Upgrade to Premium
+                Unlock all →
               </motion.button>
-              <p className="text-xs text-[#6B6B6B] text-center mt-2">
-                $4.99/month or $39.99/year
-              </p>
-            </div>
+            )}
+          </div>
+          <div className={`rounded-2xl border overflow-hidden ${
+            isPremium
+              ? 'bg-white border-[#81C784]/20'
+              : 'bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] border-[#E8B855]/30'
+          }`}>
+            {PREMIUM_FEATURES.map((feature) => (
+              <PremiumFeatureRow
+                key={feature.title}
+                {...feature}
+                isPremium={isPremium}
+                activeDog={activeDog}
+              />
+            ))}
+
+            {/* Upgrade CTA — only for free users */}
+            {!isPremium && (
+              <div className="p-4 bg-white/40 border-t border-[#F4A261]/10">
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => showToast('Premium upgrade coming soon! For now, enjoy free features.', 'premium')}
+                  className="w-full py-3 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2"
+                >
+                  <PremiumIcon size={16} gradient={false} />
+                  Unlock Personalized Care for {activeDog?.name || 'Your Dog'}
+                </motion.button>
+                <p className="text-xs text-[#6B6B6B] text-center mt-2">
+                  $4.99/month or $39.99/year
+                </p>
+              </div>
+            )}
           </div>
         </motion.section>
 
@@ -424,212 +488,77 @@ function Settings() {
       </motion.main>
 
       {/* Delete Dog Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowDeleteConfirm(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            >
-              <div className="w-12 h-12 rounded-full bg-[#EF5350]/10 flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-6 h-6 text-[#EF5350]" />
-              </div>
-              <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
-                Delete {dogs.find(d => d.id === showDeleteConfirm)?.name}?
-              </h3>
-              <p className="text-sm text-[#6B6B6B] text-center mb-6">
-                This will remove the dog profile and all associated chat history. This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowDeleteConfirm(null)}
-                  className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleDeleteDog(showDeleteConfirm)}
-                  className="flex-1 py-3 rounded-xl bg-[#EF5350] text-white font-semibold hover:bg-[#E53935] transition-colors"
-                >
-                  Delete
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmModal
+        isOpen={!!showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(null)}
+        icon={
+          <div className="w-12 h-12 rounded-full bg-[#EF5350]/10 flex items-center justify-center mx-auto">
+            <Trash2 className="w-6 h-6 text-[#EF5350]" />
+          </div>
+        }
+        title={`Delete ${deleteDogName}?`}
+        description="This will remove the dog profile and all associated chat history. This action cannot be undone."
+        confirmLabel="Delete"
+        confirmClassName="bg-[#EF5350] hover:bg-[#E53935]"
+        onConfirm={() => handleDeleteDog(showDeleteConfirm)}
+      />
 
       {/* Logout Confirmation Modal */}
-      <AnimatePresence>
-        {showLogoutConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowLogoutConfirm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            >
-              <div className="w-12 h-12 rounded-full bg-[#F4A261]/10 flex items-center justify-center mx-auto mb-4">
-                <LogOut className="w-6 h-6 text-[#F4A261]" />
-              </div>
-              <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
-                Log out?
-              </h3>
-              <p className="text-sm text-[#6B6B6B] text-center mb-6">
-                Your data will remain saved on this device. You can log back in anytime.
-              </p>
-              <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleLogout}
-                  className="flex-1 py-3 rounded-xl bg-[#F4A261] text-white font-semibold hover:bg-[#E8924F] transition-colors"
-                >
-                  Log Out
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        icon={
+          <div className="w-12 h-12 rounded-full bg-[#F4A261]/10 flex items-center justify-center mx-auto">
+            <LogOut className="w-6 h-6 text-[#F4A261]" />
+          </div>
+        }
+        title="Log out?"
+        description="Your data will remain saved on this device. You can log back in anytime."
+        confirmLabel="Log Out"
+        confirmClassName="bg-[#F4A261] hover:bg-[#E8924F]"
+        onConfirm={handleLogout}
+      />
 
       {/* Clear Data Confirmation Modal */}
-      <AnimatePresence>
-        {showClearDataConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowClearDataConfirm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            >
-              <div className="w-12 h-12 rounded-full bg-[#EF5350]/10 flex items-center justify-center mx-auto mb-4">
-                <MessageCircle className="w-6 h-6 text-[#EF5350]" />
-              </div>
-              <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
-                Clear chat history?
-              </h3>
-              <p className="text-sm text-[#6B6B6B] text-center mb-6">
-                This will delete all {totalChats} conversation{totalChats !== 1 ? 's' : ''} across all dogs. This cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowClearDataConfirm(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleClearChatHistory}
-                  className="flex-1 py-3 rounded-xl bg-[#EF5350] text-white font-semibold hover:bg-[#E53935] transition-colors"
-                >
-                  Clear All
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmModal
+        isOpen={showClearDataConfirm}
+        onClose={() => setShowClearDataConfirm(false)}
+        icon={
+          <div className="w-12 h-12 rounded-full bg-[#EF5350]/10 flex items-center justify-center mx-auto">
+            <MessageCircle className="w-6 h-6 text-[#EF5350]" />
+          </div>
+        }
+        title="Clear chat history?"
+        description={`This will delete all ${totalChats} conversation${totalChats !== 1 ? 's' : ''} across all dogs. This cannot be undone.`}
+        confirmLabel="Clear All"
+        confirmClassName="bg-[#EF5350] hover:bg-[#E53935]"
+        onConfirm={handleClearChatHistory}
+      />
 
       {/* Premium Upgrade Modal for Adding Dogs */}
-      <AnimatePresence>
-        {showPremiumModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-            onClick={() => setShowPremiumModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            >
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FFE8D6] to-[#F4A261] flex items-center justify-center mx-auto mb-4">
-                <Dog className="w-7 h-7 text-white" />
-              </div>
-              <h3 className="text-lg font-bold text-[#3D3D3D] text-center mb-2">
-                Add More Dogs with Premium
-              </h3>
-              <p className="text-sm text-[#6B6B6B] text-center mb-4">
-                Free accounts are limited to 1 dog profile. Upgrade to Premium to add unlimited dogs and unlock all features!
-              </p>
-
-              <div className="bg-[#FDF8F3] rounded-xl p-3 mb-5">
-                <div className="flex items-center gap-2 text-sm text-[#6B6B6B]">
-                  <Check className="w-4 h-4 text-[#81C784]" />
-                  <span>Unlimited dog profiles</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-[#6B6B6B] mt-1">
-                  <Check className="w-4 h-4 text-[#81C784]" />
-                  <span>Unlimited AI chats & photos</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-[#6B6B6B] mt-1">
-                  <Check className="w-4 h-4 text-[#81C784]" />
-                  <span>Health timeline & tracking</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowPremiumModal(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-[#E8E8E8] text-[#6B6B6B] font-semibold hover:bg-[#FDF8F3] transition-colors"
-                >
-                  Maybe Later
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setShowPremiumModal(false)
-                    alert('Premium upgrade coming soon!')
-                  }}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <PremiumIcon size={16} gradient={false} />
-                  Upgrade
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        icon={<PawsyIcon size={56} className="rounded-full" />}
+        title="Add More Dogs with Premium"
+        description="Free accounts are limited to 1 dog profile. Upgrade to Premium to add unlimited dogs and unlock all features!"
+        cancelLabel="Maybe Later"
+        confirmContent={<><PremiumIcon size={16} gradient={false} /> Upgrade</>}
+        confirmClassName="bg-gradient-to-r from-[#F4A261] to-[#E8924F] flex items-center justify-center gap-1.5"
+        onConfirm={() => {
+          setShowPremiumModal(false)
+          showToast('Premium upgrade coming soon!', 'premium')
+        }}
+      >
+        <div className="bg-[#FDF8F3] rounded-xl p-3 mb-5">
+          {PREMIUM_BENEFITS.map((benefit, i) => (
+            <div key={benefit} className={`flex items-center gap-2 text-sm text-[#6B6B6B]${i > 0 ? ' mt-1' : ''}`}>
+              <Check className="w-4 h-4 text-[#81C784]" />
+              <span>{benefit}</span>
+            </div>
+          ))}
+        </div>
+      </ConfirmModal>
 
       <BottomNav />
     </div>
