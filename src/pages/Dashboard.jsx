@@ -266,7 +266,7 @@ function Dashboard() {
             {/* ═══ Premium Quick Actions Grid ═══ */}
             {isPremium && (
               <motion.div variants={staggerItemSafe} className="mb-4 md:mb-5">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4 pl-24">
                   <Link
                     to="/health-hub"
                     className="flex items-center gap-3.5 p-4 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
