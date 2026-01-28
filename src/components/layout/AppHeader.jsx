@@ -5,8 +5,8 @@ import {
   Sunset,
   Moon,
   Settings,
-  Sparkles,
 } from 'lucide-react'
+import PawsyIcon from '../common/PawsyIcon'
 import { useAuth } from '../../context/AuthContext'
 import { useDog } from '../../context/DogContext'
 import { usePremium } from '../../hooks/usePremium'
@@ -113,7 +113,7 @@ function AppHeader() {
           {/* Premium badge — premium users */}
           {isPremium && (
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, #FFF5ED 0%, #FFE8D6 100%)' }}>
-              <Sparkles className="w-3.5 h-3.5 text-[#E8924F]" aria-hidden="true" />
+              <PawsyIcon size={18} />
               <span className="text-xs font-bold text-[#2D2A26]" style={{ fontFamily: 'Nunito, sans-serif' }}>Premium</span>
               <span className="text-[10px] text-[#6B6B6B] font-medium">&middot; Unlimited</span>
             </div>
