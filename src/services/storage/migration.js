@@ -92,3 +92,15 @@ export function migrateProfile(profile) {
 export function migrateAllProfiles(profiles) {
   return profiles.map(migrateProfile)
 }
+
+/**
+ * Migrate an array of PetFacts, backfilling `pinned: false` on any fact
+ * that is missing the field.
+ *
+ * @param {Array} facts - PetFact objects
+ * @returns {Array} facts with `pinned` guaranteed
+ */
+export function migratePetFacts(facts) {
+  if (!Array.isArray(facts)) return []
+  return facts.map((f) => ({ ...f, pinned: f.pinned ?? false }))
+}

@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ChevronRight,
   MessageCircle,
+  Pin,
 } from 'lucide-react'
 import { useDog } from '../../context/DogContext'
 import LocalStorageService from '../../services/storage/LocalStorageService'
@@ -119,12 +120,20 @@ function HealthSnapshot() {
                         aria-hidden="true"
                       />
                     </div>
-                    <p
-                      className="text-[12px] text-[#3D3D3D] leading-snug"
-                      style={{ fontFamily: 'DM Sans, sans-serif' }}
-                    >
-                      {fact.text}
-                    </p>
+                    <div className="flex items-start gap-1">
+                      {fact.pinned && (
+                        <Pin
+                          className="w-3 h-3 fill-current text-[#F4A261] flex-shrink-0 mt-0.5"
+                          aria-label="Pinned"
+                        />
+                      )}
+                      <p
+                        className="text-[12px] text-[#3D3D3D] leading-snug"
+                        style={{ fontFamily: 'DM Sans, sans-serif' }}
+                      >
+                        {fact.text}
+                      </p>
+                    </div>
                   </div>
                 )
               })}

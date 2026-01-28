@@ -7,6 +7,7 @@ import {
   Filter,
   X,
   ChevronDown,
+  Pin,
 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { usePremium } from '../hooks/usePremium'
@@ -28,6 +29,7 @@ const TYPE_FILTERS = [
   { value: 'vet_visit', label: 'Vet Visits' },
   { value: 'condition', label: 'Conditions' },
   { value: 'weight', label: 'Weight' },
+  { value: 'breed_risk', label: 'Breed Risks' },
 ]
 
 const SEVERITY_FILTERS = [
@@ -60,6 +62,7 @@ function mapToTimelineEvent(fact) {
     urgency: severityToUrgency[fact.severity] || 'low',
     timestamp: fact.occurredAt || fact.createdAt,
     symptoms: fact.tags || [],
+    pinned: fact.pinned || false,
     _raw: fact,
   }
 }
@@ -92,7 +95,7 @@ function HealthTimeline() {
     [allFacts]
   )
 
-  // Apply filters
+  // Apply filters (pinned facts sorted to top)
   const filteredFacts = useMemo(() => {
     let result = allFacts
 
@@ -104,8 +107,16 @@ function HealthTimeline() {
       result = result.filter((f) => f.severity === severityFilter)
     }
 
-    return result
+    // Sort pinned facts to top, preserving order within each group
+    const pinned = result.filter((f) => f.pinned)
+    const unpinned = result.filter((f) => !f.pinned)
+    return [...pinned, ...unpinned]
   }, [allFacts, typeFilter, severityFilter])
+
+  const pinnedCount = useMemo(
+    () => allFacts.filter((f) => f.pinned).length,
+    [allFacts]
+  )
 
   // Enforce free-user limit
   const visibleFacts = useMemo(() => {
@@ -164,6 +175,19 @@ function HealthTimeline() {
     setTypeFilter('all')
     setSeverityFilter('all')
   }, [])
+
+  const handleTogglePin = useCallback(
+    (factId) => {
+      if (!activeDog?.id) return
+      const result = LocalStorageService.togglePinFact(activeDog.id, factId)
+      if (result?.error === 'pin_limit') {
+        // Could show a toast; for now just ignore silently
+        return
+      }
+      setRefreshKey((k) => k + 1)
+    },
+    [activeDog?.id]
+  )
 
   const animationProps = prefersReducedMotion
     ? {}
@@ -339,6 +363,62 @@ function HealthTimeline() {
           dogName={activeDog?.name || 'your dog'}
           onEventSelect={handleEventTap}
         />
+
+        {/* Pinned counter + Fact cards with pin buttons */}
+        {visibleFacts.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3
+                className="text-sm font-semibold text-[#3D3D3D]"
+                style={{ fontFamily: 'Nunito, sans-serif' }}
+              >
+                Health Facts
+              </h3>
+              <span className="text-xs text-[#9E9E9E]">
+                <Pin className="w-3 h-3 inline mr-0.5" aria-hidden="true" />
+                {pinnedCount}/20 pinned
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {visibleFacts.map((fact) => (
+                <div
+                  key={fact.id}
+                  className={`flex items-start gap-2 bg-white rounded-xl p-3 shadow-sm border transition-colors ${
+                    fact.pinned ? 'border-[#F4A261]/30 bg-[#FFF5ED]/30' : 'border-[#E8E8E8]'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      {fact.pinned && (
+                        <Pin className="w-3 h-3 fill-current text-[#F4A261] flex-shrink-0" aria-hidden="true" />
+                      )}
+                      <span className="text-xs font-medium text-[#3D3D3D] truncate">
+                        {fact.fact}
+                      </span>
+                    </div>
+                    {fact.category && (
+                      <span className="text-[10px] text-[#9E9E9E]">
+                        {fact.category.replace('_', ' ')}
+                        {fact.severity ? ` · ${fact.severity}` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleTogglePin(fact.id)}
+                    aria-label={fact.pinned ? 'Unpin fact' : 'Pin fact'}
+                    className="p-1.5 rounded-lg hover:bg-[#F4A261]/10 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+                  >
+                    <Pin
+                      size={16}
+                      className={fact.pinned ? 'fill-current text-[#F4A261]' : 'text-[#9E9E9E]'}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Premium gate for hidden events */}
         {hasHiddenEvents && (

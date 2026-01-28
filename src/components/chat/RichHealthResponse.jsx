@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   CheckCircle, AlertTriangle, AlertCircle, AlertOctagon,
   Eye, Search, Home, Stethoscope, ChevronDown,
-  Camera, MapPin, HelpCircle
+  Camera, MapPin, HelpCircle, Pin, X
 } from 'lucide-react'
 
 // Urgency configuration
@@ -115,7 +115,8 @@ function getField(metadata, key, fallback) {
   return metadata?.[key] ?? metadata?.photo_analysis?.[key] ?? fallback
 }
 
-function RichHealthResponse({ metadata, onAction }) {
+function RichHealthResponse({ metadata, onAction, pinSuggestion, onPinFact }) {
+  const [pinDismissed, setPinDismissed] = useState(false)
   const urgencyLevel = getField(metadata, 'urgency_level', 'moderate')
   const visibleSymptoms = getField(metadata, 'visible_symptoms', [])
   const possibleConditions = getField(metadata, 'possible_conditions', [])
@@ -197,6 +198,34 @@ function RichHealthResponse({ metadata, onAction }) {
           defaultOpen={false}
         />
       </div>
+
+      {/* Pin Suggestion Banner */}
+      {pinSuggestion && !pinDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 p-3 bg-[#FFF5ED] rounded-xl border border-[#F4A261]/20"
+        >
+          <Pin size={16} className="text-[#F4A261] flex-shrink-0" aria-hidden="true" />
+          <span className="text-sm text-[#3D3D3D] flex-1">{pinSuggestion.message}</span>
+          <button
+            onClick={() => {
+              onPinFact?.(pinSuggestion.factId)
+              setPinDismissed(true)
+            }}
+            className="text-xs font-semibold text-[#F4A261] hover:text-[#E8924F] px-2 py-1 rounded-lg hover:bg-[#F4A261]/10 transition-colors"
+          >
+            Remember
+          </button>
+          <button
+            onClick={() => setPinDismissed(true)}
+            aria-label="Dismiss suggestion"
+            className="p-1 rounded-lg hover:bg-[#E8E8E8]/50 text-[#9E9E9E] transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </motion.div>
+      )}
 
       {/* Action Chips */}
       <div className="flex flex-wrap gap-2 pt-1">

@@ -9,6 +9,8 @@ import PremiumIcon from '../components/common/PremiumIcon'
 import PawsyIcon from '../components/common/PawsyIcon'
 import { useDog } from '../context/DogContext'
 import { useAuth } from '../context/AuthContext'
+import LocalStorageService from '../services/storage/LocalStorageService'
+import { getBreedRisks } from '../constants/breedHealthRisks'
 
 const BREEDS = [
   'French Bulldog', 'Labrador Retriever', 'Golden Retriever', 'German Shepherd',
@@ -54,6 +56,28 @@ function calculateSize(weight, unit) {
   if (weightInLbs < 50) return 'medium'
   if (weightInLbs < 90) return 'large'
   return 'giant'
+}
+
+function createBreedRiskFacts(dogId, breedName) {
+  const risks = getBreedRisks(breedName)
+  if (!risks?.length) return
+
+  // Dedup: skip if breed_database facts already exist
+  const existing = LocalStorageService.getPetFacts(dogId)
+  if (existing.some((f) => f.source?.type === 'breed_database')) return
+
+  for (const risk of risks) {
+    LocalStorageService.savePetFact(dogId, {
+      fact: `Breed risk: ${risk.name} (severity: ${risk.severity}). Age range: ${risk.ageRangeYears.min}-${risk.ageRangeYears.max} years.`,
+      category: 'breed_risk',
+      tags: ['breed_risk', risk.name.toLowerCase()],
+      severity: risk.severity,
+      status: 'monitoring',
+      source: { type: 'breed_database' },
+      pinned: true,
+      occurredAt: new Date().toISOString(),
+    })
+  }
 }
 
 // Custom Searchable Dropdown Component
@@ -435,7 +459,7 @@ function AddDogProfile() {
     // Use customBreed if "Other" was selected
     const finalBreed = dogData.breed === 'Other' ? dogData.customBreed.trim() : dogData.breed
 
-    addDog({
+    const newDog = addDog({
       ...dogData,
       breed: finalBreed,
       userId: user?.id,
@@ -447,6 +471,12 @@ function AddDogProfile() {
       dietType: 'dry',
       feedingSchedule: 'twice daily',
     })
+
+    // Auto-pin breed-specific health risks
+    if (newDog?.id) {
+      createBreedRiskFacts(newDog.id, finalBreed)
+    }
+
     setIsComplete(true)
   }
 

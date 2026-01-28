@@ -125,9 +125,9 @@ describe('PhotoGallery', () => {
       <PhotoGallery analyses={analyses} onSelect={onSelect} />
     )
 
-    const badge = screen.getByText('Emergency')
-    expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('bg-red-100')
+    const matches = screen.getAllByText('Emergency')
+    const badge = matches.find((el) => el.className.includes('bg-red-100'))
+    expect(badge).toBeDefined()
     expect(badge.className).toContain('text-red-700')
   })
 
@@ -140,9 +140,9 @@ describe('PhotoGallery', () => {
       <PhotoGallery analyses={analyses} onSelect={onSelect} />
     )
 
-    const badge = screen.getByText('Urgent')
-    expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('bg-orange-100')
+    const matches = screen.getAllByText('Urgent')
+    const badge = matches.find((el) => el.className.includes('bg-orange-100'))
+    expect(badge).toBeDefined()
     expect(badge.className).toContain('text-orange-700')
   })
 
@@ -155,9 +155,9 @@ describe('PhotoGallery', () => {
       <PhotoGallery analyses={analyses} onSelect={onSelect} />
     )
 
-    const badge = screen.getByText('Moderate')
-    expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('bg-yellow-100')
+    const matches = screen.getAllByText('Moderate')
+    const badge = matches.find((el) => el.className.includes('bg-yellow-100'))
+    expect(badge).toBeDefined()
     expect(badge.className).toContain('text-yellow-700')
   })
 
@@ -170,9 +170,9 @@ describe('PhotoGallery', () => {
       <PhotoGallery analyses={analyses} onSelect={onSelect} />
     )
 
-    const badge = screen.getByText('Low')
-    expect(badge).toBeInTheDocument()
-    expect(badge.className).toContain('bg-green-100')
+    const matches = screen.getAllByText('Low')
+    const badge = matches.find((el) => el.className.includes('bg-green-100'))
+    expect(badge).toBeDefined()
     expect(badge.className).toContain('text-green-700')
   })
 

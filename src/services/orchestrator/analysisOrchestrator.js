@@ -43,9 +43,33 @@ function runAlertCheck(dog) {
   }
 }
 
+/**
+ * Save facts and return the saved facts (with generated IDs).
+ */
 function saveFacts(dogId, facts) {
+  const before = LocalStorageService.getPetFacts(dogId)
+  const beforeIds = new Set(before.map((f) => f.id))
+
   for (const fact of facts) {
     LocalStorageService.savePetFact(dogId, fact)
+  }
+
+  const after = LocalStorageService.getPetFacts(dogId)
+  return after.filter((f) => !beforeIds.has(f.id))
+}
+
+/**
+ * Check if any newly saved fact qualifies for a pin suggestion.
+ * Returns a suggestion object for moderate+ severity unpinned facts.
+ */
+function buildPinSuggestion(savedFacts) {
+  const candidate = savedFacts.find(
+    (f) => !f.pinned && ['moderate', 'severe'].includes(f.severity)
+  )
+  if (!candidate) return null
+  return {
+    factId: candidate.id,
+    message: 'This seems important. Want me to always remember this?',
   }
 }
 
@@ -79,8 +103,13 @@ export async function runChatAnalysis(dog, message, history, photoContext, healt
       should_see_vet: result.should_see_vet || false,
     }
     const facts = extractFactsFromMetadata(metadata, dog.id, 'chat', result.messageId || crypto.randomUUID())
-    saveFacts(dog.id, facts)
+    const savedFacts = saveFacts(dog.id, facts)
     runAlertCheck(dog)
+
+    const pinSuggestion = buildPinSuggestion(savedFacts)
+    if (pinSuggestion) {
+      result.pinSuggestion = pinSuggestion
+    }
   }
 
   return result

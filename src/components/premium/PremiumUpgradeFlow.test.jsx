@@ -18,6 +18,9 @@ function renderFlow(props = {}) {
   const defaultProps = {
     isOpen: true,
     onClose: vi.fn(),
+    onPurchase: vi.fn(() => {
+      localStorage.setItem(`pawsy_${TEST_USER.id}_premium_status`, 'true')
+    }),
     dogName: 'Buddy',
     ...props,
   }

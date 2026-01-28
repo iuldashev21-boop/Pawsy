@@ -53,14 +53,14 @@ describe('AppSidebar', () => {
     renderWithProviders(<AppSidebar />, { route: '/dashboard' })
 
     await waitFor(() => {
-      const breedBtn = screen.getByLabelText(/Breed Insights.*Premium/)
-      expect(breedBtn.tagName).toBe('BUTTON')
+      const chatHistoryBtn = screen.getByLabelText(/Chat History.*Premium/)
+      expect(chatHistoryBtn.tagName).toBe('BUTTON')
 
-      const timelineBtn = screen.getByLabelText(/Health Timeline.*Premium/)
-      expect(timelineBtn.tagName).toBe('BUTTON')
+      const photoHistoryBtn = screen.getByLabelText(/Photo History.*Premium/)
+      expect(photoHistoryBtn.tagName).toBe('BUTTON')
 
-      const medsBtn = screen.getByLabelText(/Medications.*Premium/)
-      expect(medsBtn.tagName).toBe('BUTTON')
+      const healthHubBtn = screen.getByLabelText(/Health Hub.*Premium/)
+      expect(healthHubBtn.tagName).toBe('BUTTON')
     })
   })
 
@@ -70,11 +70,11 @@ describe('AppSidebar', () => {
     renderWithProviders(<AppSidebar />, { route: '/dashboard' })
 
     await waitFor(() => {
-      const breedLink = screen.getByRole('link', { name: 'Breed Insights' })
-      expect(breedLink).toHaveAttribute('href', '/breed-info')
+      const chatHistoryLink = screen.getByRole('link', { name: 'Chat History' })
+      expect(chatHistoryLink).toHaveAttribute('href', '/chat-history')
 
-      const timelineLink = screen.getByRole('link', { name: 'Health Timeline' })
-      expect(timelineLink).toHaveAttribute('href', '/health-timeline')
+      const healthHubLink = screen.getByRole('link', { name: 'Health Hub' })
+      expect(healthHubLink).toHaveAttribute('href', '/health-hub')
     })
   })
 
@@ -86,10 +86,10 @@ describe('AppSidebar', () => {
     const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/Breed Insights.*Premium/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Chat History.*Premium/)).toBeInTheDocument()
     })
 
-    await user.click(screen.getByLabelText(/Breed Insights.*Premium/))
+    await user.click(screen.getByLabelText(/Chat History.*Premium/))
 
     expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'pawsy:openFeatureModal' })

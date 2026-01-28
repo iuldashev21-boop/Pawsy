@@ -46,13 +46,13 @@ describe('Dashboard', () => {
     })
   })
 
-  it('renders health section heading for premium users', async () => {
+  it('renders premium quick actions for premium users', async () => {
     seedFullAppState()
     localStorage.setItem(`pawsy_${TEST_USER.id}_premium_status`, 'true')
     renderWithProviders(<Dashboard />, { route: '/dashboard' })
 
     await waitFor(() => {
-      expect(screen.getByText(`${TEST_DOG.name}'s Health`)).toBeInTheDocument()
+      expect(screen.getByText('Health Hub')).toBeInTheDocument()
     })
   })
 })

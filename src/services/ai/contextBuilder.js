@@ -217,6 +217,17 @@ function buildDiagnosticSummarySection(dogId, isPremium) {
   return lines.filter(Boolean).join('\n')
 }
 
+function buildPinnedFactsSection(pinnedFacts) {
+  if (!pinnedFacts || pinnedFacts.length === 0) return ''
+
+  const lines = ['## Persistent Health Memory (always relevant)']
+  for (const fact of pinnedFacts) {
+    const severity = fact.severity ? ` (severity: ${fact.severity})` : ''
+    lines.push(`- ${fact.fact}${severity}`)
+  }
+  return lines.join('\n')
+}
+
 function buildHouseholdSection() {
   // Placeholder for future household context (multi-pet, environment, etc.)
   return ''
@@ -244,18 +255,23 @@ export function buildAIContext({
   conversationTags = [],
   photoContext = null,
 } = {}) {
+  // -- Split pinned vs unpinned facts --------------------------------------
+  const pinnedFacts = petFacts.filter((f) => f.pinned)
+  const unpinnedFacts = petFacts.filter((f) => !f.pinned)
+
   // -- P0: always included ------------------------------------------------
   const basePrompt = buildSystemPrompt(dog)
   const dogProfile = buildDogProfileSection(dog)
   const allergyProtocol = buildAllergySection(dog)
   const medications = isPremium ? buildMedicationsSection(dog) : ''
   const conditions = isPremium ? buildConditionsSection(dog) : ''
+  const pinnedSection = buildPinnedFactsSection(pinnedFacts)
 
-  const p0Sections = [basePrompt, dogProfile, allergyProtocol, medications, conditions]
+  const p0Sections = [basePrompt, dogProfile, allergyProtocol, medications, conditions, pinnedSection]
     .filter(Boolean)
 
   // -- P1 ------------------------------------------------------------------
-  const petFactsSection = buildPetFactsSection(petFacts, conversationTags, isPremium)
+  const petFactsSection = buildPetFactsSection(unpinnedFacts, conversationTags, isPremium)
   const photoSection = buildPhotoContextSection(photoContext)
   const diagnosticSection = buildDiagnosticSummarySection(dog?.id, isPremium)
 
