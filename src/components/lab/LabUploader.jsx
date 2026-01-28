@@ -1,0 +1,163 @@
+import { useState, useRef, memo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { FileSearch, Upload, X, Image } from 'lucide-react'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+function LabUploader({ onFileSelect, selectedFile, onClear }) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [sizeError, setSizeError] = useState(null)
+  const fileInputRef = useRef(null)
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const validateAndProcess = (file) => {
+    setSizeError(null)
+    if (!file.type.startsWith('image/')) return
+    if (file.size > MAX_FILE_SIZE) {
+      setSizeError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 10MB.`)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      onFileSelect({
+        file,
+        preview: e.target.result,
+        base64Data: e.target.result.split(',')[1],
+        mimeType: file.type,
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) validateAndProcess(file)
+  }
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (file) validateAndProcess(file)
+  }
+
+  if (selectedFile) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative rounded-2xl overflow-hidden border-2 border-[#7EC8C8]/30 shadow-lg"
+      >
+        <img
+          src={selectedFile.preview}
+          alt="Lab report uploaded for analysis"
+          className="w-full h-64 object-cover"
+        />
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={onClear}
+          className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:bg-white transition-colors"
+          aria-label="Remove file"
+        >
+          <X className="w-5 h-5 text-[#3D3D3D]" />
+        </motion.button>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`relative rounded-2xl border-2 border-dashed transition-all ${
+        isDragging
+          ? 'border-[#7EC8C8] bg-[#7EC8C8]/10'
+          : 'border-[#E8E8E8] bg-white/50'
+      }`}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      <div className="p-8 text-center">
+        <motion.div
+          animate={isDragging ? { scale: 1.1 } : { scale: 1 }}
+          className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#E0F2F2] to-[#C8E8E8] flex items-center justify-center"
+        >
+          <FileSearch className="w-10 h-10 text-[#5FB3B3]" />
+        </motion.div>
+
+        <h3
+          className="text-lg font-bold text-[#3D3D3D] mb-2"
+          style={{ fontFamily: 'Nunito, sans-serif' }}
+        >
+          Upload Lab Report
+        </h3>
+        <p className="text-sm text-[#6B6B6B] mb-6">
+          Take a photo or upload an image of your dog&apos;s lab results
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-shadow"
+          >
+            <Upload className="w-5 h-5" />
+            Choose Image
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-[#5FB3B3] font-semibold rounded-xl border-2 border-[#7EC8C8]/30 hover:border-[#7EC8C8]/50 transition-colors"
+          >
+            <Image className="w-5 h-5" />
+            Take Photo
+          </motion.button>
+        </div>
+
+        <p className="text-xs text-[#9E9E9E] mt-4">
+          Supports JPG, PNG &bull; Max 10MB
+        </p>
+
+        {sizeError && (
+          <p className="text-xs text-[#EF5350] mt-2 font-medium">{sizeError}</p>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-[#7EC8C8]/20 backdrop-blur-sm rounded-2xl flex items-center justify-center"
+          >
+            <p className="text-lg font-semibold text-[#5FB3B3]">Drop lab report here</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+export default memo(LabUploader)

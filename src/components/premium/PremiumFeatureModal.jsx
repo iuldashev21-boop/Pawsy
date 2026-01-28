@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { X, Check, Clock, AlertTriangle } from 'lucide-react'
+import { X, Check, Clock, AlertTriangle, MessageCircle, Camera, Save, BarChart3 } from 'lucide-react'
 import PremiumIcon from '../common/PremiumIcon'
 import { getFeatureById } from '../../constants/premiumFeatures'
 
@@ -141,7 +141,82 @@ function VetReportPreview() {
   )
 }
 
+function UnlimitedChatPreview() {
+  return (
+    <div className="px-3 py-2 space-y-2">
+      {/* User bubble */}
+      <div className="flex justify-end">
+        <div className="bg-[#F4A261]/15 rounded-xl rounded-br-sm px-3 py-1.5 max-w-[75%]">
+          <p className="text-[10px] text-[#3D3D3D] font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            Buddy&apos;s been scratching a lot
+          </p>
+        </div>
+      </div>
+      {/* Pawsy bubble */}
+      <div className="flex gap-2">
+        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] flex items-center justify-center flex-shrink-0 mt-0.5">
+          <MessageCircle className="w-2.5 h-2.5 text-white" />
+        </div>
+        <div className="bg-[#EFF9FA] rounded-xl rounded-bl-sm px-3 py-1.5 max-w-[75%]">
+          <p className="text-[10px] text-[#3D3D3D] font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            I&apos;ve noted this in Buddy&apos;s health profile. Based on his history...
+          </p>
+        </div>
+      </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-1 border-t border-[#E8DDD0]/40">
+        <div className="flex items-center gap-1 text-[9px] text-[#43A047] font-medium">
+          <Save className="w-2.5 h-2.5" />
+          Saved to health profile
+        </div>
+        <div className="flex items-center gap-1 text-[9px] text-[#8C7B6B]">
+          <BarChart3 className="w-2.5 h-2.5" />
+          12 conversations tracked
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function UnlimitedPhotoPreview() {
+  return (
+    <div className="px-3 py-2 space-y-2">
+      {/* Scan card */}
+      <div className="flex items-center gap-2 bg-[#FFF5ED] rounded-lg p-2">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#E8924F] to-[#D4854A] flex items-center justify-center flex-shrink-0">
+          <Camera className="w-3.5 h-3.5 text-white" />
+        </div>
+        <div>
+          <p className="text-[11px] font-bold text-[#2D2A26]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Skin Analysis Complete
+          </p>
+          <p className="text-[9px] text-[#43A047] font-medium">All clear</p>
+        </div>
+      </div>
+      {/* Finding */}
+      <div className="rounded-lg bg-[#F9F6F2] p-2">
+        <p className="text-[10px] text-[#3D3D3D] font-medium" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+          Mild redness detected — compared with 3 previous scans
+        </p>
+      </div>
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-1 border-t border-[#E8DDD0]/40">
+        <div className="flex items-center gap-1 text-[9px] text-[#43A047] font-medium">
+          <Save className="w-2.5 h-2.5" />
+          Added to health timeline
+        </div>
+        <div className="flex items-center gap-1 text-[9px] text-[#8C7B6B]">
+          <BarChart3 className="w-2.5 h-2.5" />
+          8 scans tracked
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const previewComponents = {
+  unlimitedChat: UnlimitedChatPreview,
+  unlimitedPhoto: UnlimitedPhotoPreview,
   clinicalProfile: ClinicalProfilePreview,
   vetReport: VetReportPreview,
   medicationManager: MedicationPreview,
@@ -290,7 +365,7 @@ function PremiumFeatureModal({ featureId, isOpen, onClose, onUpgrade, dogName, b
                 }}
               >
                 <PremiumIcon size={16} gradient={false} className="text-white" />
-                Unlock with Premium
+                Unlock {feature.label}
               </button>
             </div>
           </motion.div>

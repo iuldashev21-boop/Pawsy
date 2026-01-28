@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Dog, PawPrint, AlertCircle } from 'lucide-react'
@@ -6,10 +6,11 @@ import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
 import { useOnboarding } from '../context/OnboardingContext'
 import { geminiService } from '../services/api/gemini'
+import LocalStorageService from '../services/storage/LocalStorageService'
 import PhotoUploader from '../components/photo/PhotoUploader'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import AnalysisResult from '../components/photo/AnalysisResult'
-import BottomNav from '../components/layout/BottomNav'
+import PhotoGallery from '../components/photo/PhotoGallery'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
@@ -80,6 +81,16 @@ function PhotoAnalysis() {
   const [showLimitModal, setShowLimitModal] = useState(false)
   const { showToast } = useToast()
   const [isEmergencyMode, setIsEmergencyMode] = useState(false)
+  const [pastAnalyses, setPastAnalyses] = useState(() =>
+    activeDog ? LocalStorageService.getPhotoAnalyses(activeDog.id) : []
+  )
+  const [selectedGalleryAnalysis, setSelectedGalleryAnalysis] = useState(null)
+
+  const refreshPastAnalyses = useCallback(() => {
+    if (activeDog) {
+      setPastAnalyses(LocalStorageService.getPhotoAnalyses(activeDog.id))
+    }
+  }, [activeDog])
 
   const selectedAreaLabel = getAreaLabel(selectedArea)
 
@@ -87,7 +98,7 @@ function PhotoAnalysis() {
 
   if (dogsLoading || !activeDog) {
     return (
-      <div className="min-h-screen bg-[#FDF8F3] flex items-center justify-center">
+      <div className="bg-[#FDF8F3] flex items-center justify-center py-20">
         <div className="text-center">
           <Dog className="w-16 h-16 text-[#F4A261] mx-auto mb-4 animate-pulse" />
           <p className="text-[#6B6B6B]">Loading...</p>
@@ -146,6 +157,16 @@ function PhotoAnalysis() {
       }
 
       setAnalysis(result)
+
+      // Persist to localStorage (strips base64 fields automatically)
+      LocalStorageService.savePhotoAnalysis(activeDog.id, {
+        ...result,
+        bodyArea: selectedAreaLabel,
+        body_area: selectedAreaLabel,
+        description,
+      })
+      refreshPastAnalyses()
+
       if (!progress.firstPhoto) {
         completeStep('firstPhoto')
       }
@@ -163,10 +184,16 @@ function PhotoAnalysis() {
     setDescription('')
     setAnalysis(null)
     setError(null)
+    setSelectedGalleryAnalysis(null)
+  }
+
+  const handleGallerySelect = (galleryAnalysis) => {
+    setSelectedGalleryAnalysis(galleryAnalysis)
+    setAnalysis(null)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
+    <div className="bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED]">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -261,6 +288,28 @@ function PhotoAnalysis() {
             <span className="text-xs text-[#6B6B6B]">{activeDog.breed}</span>
           </div>
         </motion.div>
+
+        {/* Show gallery-selected analysis */}
+        {selectedGalleryAnalysis && !analysis && (
+          <div className="space-y-4 mb-6">
+            <AnalysisResult
+              analysis={selectedGalleryAnalysis}
+              imageUrl={null}
+              photo={null}
+              bodyArea={selectedGalleryAnalysis.bodyArea || selectedGalleryAnalysis.body_area}
+              onReset={() => setSelectedGalleryAnalysis(null)}
+              profileBreed={activeDog?.breed}
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSelectedGalleryAnalysis(null)}
+              className="w-full py-3 text-[#F4A261] font-semibold rounded-xl border-2 border-[#F4A261]/30 hover:bg-[#F4A261]/5 transition-colors"
+            >
+              Back to Gallery
+            </motion.button>
+          </div>
+        )}
 
         {/* Show analysis result if complete */}
         {analysis ? (
@@ -385,9 +434,17 @@ function PhotoAnalysis() {
             )}
           </div>
         )}
-      </main>
 
-      <BottomNav />
+        {/* Past Analyses Gallery */}
+        {!selectedGalleryAnalysis && (
+          <div className="mt-8">
+            <PhotoGallery
+              analyses={pastAnalyses}
+              onSelect={handleGallerySelect}
+            />
+          </div>
+        )}
+      </main>
 
       {/* Usage Limit Modal */}
       <UsageLimitModal

@@ -74,6 +74,17 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
+  const updateProfile = useCallback((updates) => {
+    if (!user) return
+    const updated = { ...user, ...updates }
+    setCurrentUser(updated)
+    const users = getStoredUsers()
+    if (users[updated.email]) {
+      users[updated.email] = updated
+      saveUsersRegistry(users)
+    }
+  }, [user, setCurrentUser])
+
   const getUserStorageKey = useCallback((key) => {
     if (!user) return null
     return `pawsy_${user.id}_${key}`
@@ -85,8 +96,9 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    updateProfile,
     getUserStorageKey,
-  }), [user, signup, login, logout, getUserStorageKey])
+  }), [user, signup, login, logout, updateProfile, getUserStorageKey])
 
   return (
     <AuthContext.Provider value={value}>

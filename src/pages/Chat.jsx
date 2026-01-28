@@ -3,22 +3,27 @@ import { generateUUID } from '../utils/uuid'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  ChevronLeft, ChevronDown, Dog, AlertCircle, Camera, Stethoscope, Info, CheckCircle
+  ChevronLeft, ChevronDown, Dog, AlertCircle, Camera, Stethoscope, Info, CheckCircle, History, Plus
 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
+import { useChat as useChatContext } from '../context/ChatContext'
 import { useUsage } from '../context/UsageContext'
 import { useOnboarding } from '../context/OnboardingContext'
+import { extractFactsFromMetadata } from '../services/ai/factExtractor'
+import { storageService } from '../services/storage'
 import { geminiService } from '../services/api/gemini'
+import { useChatSession } from '../hooks/useChatSession'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatInput from '../components/chat/ChatInput'
+import ChatHistory from '../components/chat/ChatHistory'
 import PawTypingIndicator from '../components/chat/PawTypingIndicator'
-import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import EmergencyOverlay from '../components/emergency/EmergencyOverlay'
 import UsageCounter from '../components/usage/UsageCounter'
 import UsageLimitModal from '../components/usage/UsageLimitModal'
 import InlinePremiumHint from '../components/common/InlinePremiumHint'
 import ErrorMessage from '../components/common/ErrorMessage'
+import AIContextIndicator from '../components/chat/AIContextIndicator'
 import { usePremium } from '../hooks/usePremium'
 import { useToast } from '../context/ToastContext'
 
@@ -71,6 +76,7 @@ function formatPhotoAnalysisForChat(analysis) {
 
 function Chat() {
   const { activeDog } = useDog()
+  const { getHealthEventsForDog, deleteSession: deleteChatSession } = useChatContext()
   const {
     canChat,
     chatsRemaining,
@@ -81,6 +87,9 @@ function Chat() {
   const { isPremium } = usePremium()
   const { completeStep, progress } = useOnboarding()
   const location = useLocation()
+
+  // Chat session hook for persistence
+  const chatSession = useChatSession()
 
   // Session-based state (not persisted)
   const [messages, setMessages] = useState([])
@@ -96,23 +105,30 @@ function Chat() {
   const [calmMode, setCalmMode] = useState(false)
   const [showSessionBanner, setShowSessionBanner] = useState(true)
   const [showPremiumHint, setShowPremiumHint] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
   const messagesEndRef = useRef(null)
   const chatContainerRef = useRef(null)
   const hasInitialized = useRef(false)
   const hasProcessedPhotoContext = useRef(false)
+  const hasProcessedInitialMessage = useRef(false)
 
   const isEmergency = suggestedAction === 'emergency' || emergencySteps.length > 0
   const userMessageCount = useMemo(() => messages.filter(m => m.role === 'user').length, [messages])
 
   // Memoize dog context to avoid duplicate object creation
   const dogContext = useMemo(() => activeDog ? {
+    id: activeDog.id,
     name: activeDog.name,
     breed: activeDog.breed || 'unknown',
     age: activeDog.age,
     weight: activeDog.weight,
+    weightUnit: activeDog.weightUnit,
+    dateOfBirth: activeDog.dateOfBirth,
     sex: activeDog.sex,
     allergies: activeDog.allergies || [],
     conditions: activeDog.conditions || [],
+    chronicConditions: activeDog.chronicConditions || [],
+    medications: activeDog.medications || [],
   } : { name: 'your dog', breed: 'unknown' }, [activeDog])
 
   // Auto-activate calm mode when emergency detected
@@ -192,6 +208,32 @@ function Chat() {
 
   const handleDismissEmergency = useCallback(() => setCalmMode(false), [])
 
+  // History handlers
+  const handleLoadSession = useCallback((sessionId) => {
+    chatSession.loadSession(sessionId)
+    // Sync loaded session messages into local state
+    const loaded = chatSession.sessions.find(s => s.id === sessionId)
+    if (loaded) {
+      setMessages(loaded.messages || [])
+      hasInitialized.current = true // prevent welcome message re-add
+    }
+    setShowHistory(false)
+  }, [chatSession])
+
+  const handleDeleteSession = useCallback((sessionId) => {
+    deleteChatSession(sessionId)
+  }, [deleteChatSession])
+
+  const handleNewSession = useCallback(() => {
+    chatSession.createNewSession()
+    hasInitialized.current = false
+    setMessages([])
+    // Re-initialize welcome message
+    setMessages([createMessage('assistant', getWelcomeMessage(activeDog?.name))])
+    hasInitialized.current = true
+    setShowHistory(false)
+  }, [chatSession, activeDog?.name])
+
   const handleSendMessage = useCallback(async (content) => {
     // Prevent duplicate submissions
     if (isTyping) return
@@ -223,6 +265,9 @@ function Chat() {
     const userMessage = createMessage('user', content)
     setMessages(prev => [...prev, userMessage])
 
+    // Also send to chat session hook for persistence (fire-and-forget)
+    chatSession.sendMessage(content)
+
     // Check if API is configured
     if (!geminiService.isConfigured()) {
       setIsTyping(true)
@@ -239,7 +284,8 @@ function Chat() {
     setIsTyping(true)
     try {
       const history = messages.slice(-10)
-      const response = await geminiService.chat(dogContext, content, history, photoContext)
+      const healthEvents = activeDog ? getHealthEventsForDog(activeDog.id) : []
+      const response = await geminiService.chat(dogContext, content, history, photoContext, healthEvents, isPremium)
 
       if (response.error) {
         const errorMsg = response.message || 'Something went wrong. Please try again.'
@@ -269,13 +315,41 @@ function Chat() {
         setEmergencySteps(response.emergency_steps)
       }
 
+      // Extract PetFacts from AI response metadata (Agent C)
+      if (activeDog?.id) {
+        const metadata = {
+          symptoms_mentioned: response.symptoms_mentioned || [],
+          possible_conditions: response.possible_conditions || [],
+          urgency_level: response.urgency_level || 'low',
+          recommended_actions: response.recommended_actions || [],
+          should_see_vet: response.should_see_vet || false,
+        }
+        const facts = extractFactsFromMetadata(metadata, activeDog.id, 'chat', userMessage.id)
+        for (const fact of facts) {
+          storageService.savePetFact(activeDog.id, fact)
+        }
+      }
+
     } catch (err) {
       if (import.meta.env.DEV) console.error('Chat error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setIsTyping(false)
     }
-  }, [isTyping, isEmergencyMode, canChat, chatsRemaining, consumeEmergencyChat, consumeChat, progress.firstChat, completeStep, messages, dogContext, photoContext, showToast])
+  }, [isTyping, isEmergencyMode, canChat, chatsRemaining, consumeEmergencyChat, consumeChat, progress.firstChat, completeStep, messages, dogContext, photoContext, showToast, activeDog, getHealthEventsForDog, isPremium, chatSession])
+
+  // Handle initial message from ChatLauncherWidget navigation
+  useEffect(() => {
+    const state = location.state
+    if (state?.initialMessage && !hasProcessedInitialMessage.current) {
+      hasProcessedInitialMessage.current = true
+      window.history.replaceState({}, document.title)
+      const timer = setTimeout(() => {
+        handleSendMessage(state.initialMessage)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [location.state, handleSendMessage])
 
   const handleImageUpload = useCallback(async (imageData, userDescription = '') => {
     // Prevent duplicate submissions
@@ -331,13 +405,28 @@ function Chat() {
         setSuggestedAction('see_vet')
       }
 
+      // Extract PetFacts from photo analysis (Agent C)
+      if (activeDog?.id) {
+        const photoMetadata = {
+          symptoms_mentioned: response.visible_symptoms || [],
+          possible_conditions: response.possible_conditions || [],
+          urgency_level: response.urgency_level || 'low',
+          recommended_actions: response.recommended_actions || [],
+          should_see_vet: response.should_see_vet || false,
+        }
+        const facts = extractFactsFromMetadata(photoMetadata, activeDog.id, 'photo', generateUUID())
+        for (const fact of facts) {
+          storageService.savePetFact(activeDog.id, fact)
+        }
+      }
+
     } catch (err) {
       if (import.meta.env.DEV) console.error('Photo analysis error:', err)
       setError('Failed to analyze photo. Please try again.')
     } finally {
       setIsTyping(false)
     }
-  }, [isTyping, dogContext])
+  }, [isTyping, dogContext, activeDog])
 
   const handleAction = useCallback((action) => {
     if (action === 'find_vet') {
@@ -346,9 +435,9 @@ function Chat() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
+    <div className="bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] flex flex-col overflow-hidden h-[calc(100vh-57px)] -mb-24 md:h-full md:mb-0">
+      {/* Header — mobile only (desktop uses AppHeader) */}
+      <header className="flex-shrink-0 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30 md:hidden">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/dashboard">
@@ -371,12 +460,63 @@ function Chat() {
             </div>
           </div>
 
+          {/* Header actions */}
+          <div className="flex items-center gap-1">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleNewSession}
+              className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+              aria-label="New conversation"
+              title="New conversation"
+            >
+              <Plus className="w-5 h-5 text-[#6B6B6B]" />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowHistory(true)}
+              className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+              aria-label="Chat history"
+              title="Chat history"
+            >
+              <History className="w-5 h-5 text-[#6B6B6B]" />
+            </motion.button>
+          </div>
         </div>
       </header>
 
-      {/* Dog Profile Card */}
+      {/* Desktop: compact toolbar with chat actions */}
+      <div className="hidden md:flex items-center justify-between flex-shrink-0 bg-[#FDF8F3]/80 border-b border-[#E8E8E8]/30 px-6 py-2">
+        <div className="flex items-center gap-2">
+          <PawsyMascot mood={getMascotMood(suggestedAction, isTyping)} size={28} />
+          <p className="text-sm font-semibold text-[#3D3D3D]" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            Chat with Pawsy
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleNewSession}
+            className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+            aria-label="New conversation"
+            title="New conversation"
+          >
+            <Plus className="w-4.5 h-4.5 text-[#6B6B6B]" />
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowHistory(true)}
+            className="p-2 rounded-xl hover:bg-[#F4A261]/10 transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+            aria-label="Chat history"
+            title="Chat history"
+          >
+            <History className="w-4.5 h-4.5 text-[#6B6B6B]" />
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Dog Profile Card — mobile only (desktop shows in AppHeader) */}
       {activeDog && (
-        <div className="bg-white/80 border-b border-[#E8E8E8]/30">
+        <div className="bg-white/80 border-b border-[#E8E8E8]/30 md:hidden">
           <div className="max-w-lg mx-auto px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#F4A261]/30 bg-gradient-to-br from-[#FFE8D6] to-[#FFD0AC] flex-shrink-0">
@@ -418,6 +558,15 @@ function Chat() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Context Indicator — mobile only, below dog profile card */}
+      {activeDog && (
+        <div className="bg-white/60 border-b border-[#E8E8E8]/20 md:hidden">
+          <div className="max-w-lg mx-auto px-4 py-2">
+            <AIContextIndicator />
           </div>
         </div>
       )}
@@ -502,7 +651,7 @@ function Chat() {
       <main
         ref={chatContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto pb-44 overscroll-none"
+        className="flex-1 overflow-y-auto pb-44 md:pb-28 overscroll-none"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="max-w-lg mx-auto px-4 py-4 space-y-4" aria-live="polite" aria-atomic="false">
@@ -650,7 +799,7 @@ function Chat() {
             exit={{ opacity: 0, scale: 0.8 }}
             whileTap={{ scale: 0.95 }}
             onClick={scrollToBottom}
-            className="fixed bottom-40 right-4 w-10 h-10 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-full shadow-lg z-40 flex items-center justify-center"
+            className="fixed bottom-40 md:bottom-20 right-4 w-10 h-10 bg-gradient-to-br from-[#F4A261] to-[#E8924F] text-white rounded-full shadow-lg z-20 flex items-center justify-center"
             aria-label="Scroll to bottom"
           >
             <ChevronDown className="w-5 h-5" />
@@ -659,7 +808,7 @@ function Chat() {
       </AnimatePresence>
 
       {/* Input */}
-      <div className="fixed bottom-[88px] left-0 right-0 bg-gradient-to-t from-[#FDF8F3] via-[#FDF8F3]/95 to-transparent pt-6 pb-2 px-4 z-30">
+      <div className="fixed bottom-[88px] md:bottom-0 left-0 md:left-[220px] right-0 bg-gradient-to-t from-[#FDF8F3] via-[#FDF8F3]/95 to-transparent pt-6 pb-2 px-4 z-20">
         <div className="max-w-lg mx-auto">
           <ChatInput
             onSend={handleSendMessage}
@@ -669,9 +818,6 @@ function Chat() {
           />
         </div>
       </div>
-
-      {/* Bottom Navigation */}
-      <BottomNav />
 
       {/* Usage Limit Modal */}
       <UsageLimitModal
@@ -685,6 +831,41 @@ function Chat() {
         onUpgrade={() => showToast(PREMIUM_TOAST_MESSAGE, 'premium')}
         emergencyRemaining={emergencyChatsRemaining}
       />
+
+      {/* Chat History Drawer */}
+      <AnimatePresence>
+        {showHistory && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowHistory(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
+              aria-hidden="true"
+            />
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-[#FDF8F3] shadow-2xl z-50 overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Chat history"
+            >
+              <ChatHistory
+                sessions={chatSession.sessions}
+                onLoadSession={handleLoadSession}
+                onDeleteSession={handleDeleteSession}
+                onClose={() => setShowHistory(false)}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

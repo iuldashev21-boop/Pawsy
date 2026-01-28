@@ -28,7 +28,7 @@ function DashboardPremiumCard({ dogName = 'your dog', onUpgrade, dismissed: dism
   return (
     <motion.div
       {...animationProps}
-      className="bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] rounded-xl p-3 border border-[#E8B855]/30 relative shadow-sm"
+      className="bg-gradient-to-br from-[#FFF8E7] via-[#FFE4B5] to-[#FFD699] rounded-2xl p-3 border border-[#E8B855]/30 relative shadow-sm"
       style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)' }}
     >
       {/* Dismiss button - 44x44px touch target */}

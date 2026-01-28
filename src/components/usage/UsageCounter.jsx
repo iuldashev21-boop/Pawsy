@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, Camera } from 'lucide-react'
 import { useUsage } from '../../context/UsageContext'
@@ -22,11 +23,13 @@ function getUsageState(remaining) {
   return 'plenty'
 }
 
-function UsageCounter({ type = 'chat', showUpgrade = true, onUpgrade, className = '' }) {
-  const { chatsRemaining, photosRemaining, isFirstDay } = useUsage()
+function UsageCounter({ type = 'chat', showUpgrade = true, onUpgrade, compact = false, className = '' }) {
+  const { chatsRemaining, photosRemaining, limits, isFirstDay } = useUsage()
+  const [expanded, setExpanded] = useState(false)
 
   const { Icon, label, labelPlural } = TYPE_CONFIG[type]
   const remaining = type === 'chat' ? chatsRemaining : photosRemaining
+  const limit = type === 'chat' ? limits.dailyChats : limits.dailyPhotos
   const state = getUsageState(remaining)
   const currentStyle = STYLES[state]
 
@@ -34,28 +37,57 @@ function UsageCounter({ type = 'chat', showUpgrade = true, onUpgrade, className 
     return null
   }
 
+  const showCompact = compact && !expanded
+
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${currentStyle.bg} ${currentStyle.border} ${className}`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${currentStyle.bg} ${currentStyle.border} ${compact ? 'cursor-pointer select-none' : ''} ${className}`}
+        onClick={compact ? () => setExpanded((v) => !v) : undefined}
+        role={compact ? 'button' : undefined}
+        tabIndex={compact ? 0 : undefined}
+        onKeyDown={compact ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v) } } : undefined}
+        aria-label={compact ? `${remaining}/${limit} ${labelPlural}. Tap for details.` : undefined}
       >
         <Icon className={`w-4 h-4 ${currentStyle.icon}`} />
 
         <div className="flex-1 min-w-0">
-          <p className={`text-xs ${(state === 'last' || state === 'empty') ? 'font-medium' : ''} ${currentStyle.text}`}>
-            {state === 'plenty' && <>{remaining} free {labelPlural} today{isFirstDay && <span className="ml-1 text-[#F4A261]">(Day 1 bonus!)</span>}</>}
-            {state === 'low' && <>{remaining} {labelPlural} left today</>}
-            {state === 'last' && <>Last free {label} for today!</>}
-            {state === 'empty' && <>No {labelPlural} remaining</>}
-          </p>
+          <AnimatePresence mode="wait" initial={false}>
+            {showCompact ? (
+              <motion.p
+                key="compact"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className={`text-xs font-medium ${currentStyle.text} whitespace-nowrap`}
+              >
+                {remaining}/{limit}
+              </motion.p>
+            ) : (
+              <motion.p
+                key="full"
+                initial={compact ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className={`text-xs ${(state === 'last' || state === 'empty') ? 'font-medium' : ''} ${currentStyle.text}`}
+              >
+                {state === 'plenty' && <>{remaining} free {labelPlural} today{isFirstDay && <span className="ml-1 text-[#F4A261]">(Day 1 bonus!)</span>}</>}
+                {state === 'low' && <>{remaining} {labelPlural} left today</>}
+                {state === 'last' && <>Last free {label} for today!</>}
+                {state === 'empty' && <>No {labelPlural} remaining</>}
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
 
         {showUpgrade && (state === 'low' || state === 'last') && (
           <button
-            onClick={onUpgrade}
+            onClick={(e) => { e.stopPropagation(); onUpgrade() }}
             className="flex items-center gap-1 text-xs font-medium text-[#F4A261] hover:text-[#E8924F] transition-colors"
           >
             <PremiumIcon size={12} />

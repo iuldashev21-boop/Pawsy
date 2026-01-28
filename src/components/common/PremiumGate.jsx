@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Lock } from 'lucide-react'
 import { usePremium } from '../../hooks/usePremium'
 import PremiumIcon, { PremiumBadge } from './PremiumIcon'
-import { useToast } from '../../context/ToastContext'
+import { premiumCTAClasses, premiumLabel } from '../../constants/premiumStyles'
 
 /**
  * PremiumGate - Reusable "Visible but Locked" gate component
@@ -27,19 +27,17 @@ function PremiumGate({
   variant = 'overlay',
   title,
   description,
-  ctaText = 'Unlock with Premium',
+  ctaText = premiumLabel,
   onUpgrade,
   icon: IconComponent,
   className = '',
 }) {
   const { isPremium } = usePremium()
   const prefersReducedMotion = useReducedMotion()
-  const { showToast } = useToast()
-
   const handleUpgrade = () => {
     onUpgrade
       ? onUpgrade()
-      : showToast('Premium upgrade coming soon! For now, enjoy free features.', 'premium')
+      : window.dispatchEvent(new CustomEvent('pawsy:openUpgrade'))
   }
 
   // Premium users see content normally
@@ -68,7 +66,8 @@ function PremiumGate({
         {/* CTA overlay */}
         <motion.div
           {...fadeIn}
-          className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm rounded-2xl"
+          className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm rounded-2xl"
+          style={{ background: 'linear-gradient(135deg, rgba(255,252,247,0.7) 0%, rgba(255,248,240,0.6) 100%)' }}
         >
           <div className="text-center px-4 py-5 max-w-[260px]">
             <PremiumBadge size={44} className="mx-auto mb-3" />
@@ -87,7 +86,7 @@ function PremiumGate({
             )}
             <button
               onClick={handleUpgrade}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#F4A261] to-[#E8924F] text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-shadow focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg shadow-md transition-shadow ${premiumCTAClasses}`}
             >
               <PremiumIcon size={14} gradient={false} />
               {ctaText}

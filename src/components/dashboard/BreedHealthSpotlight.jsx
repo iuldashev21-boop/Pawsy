@@ -54,8 +54,11 @@ function BreedHealthSpotlight() {
   return (
     <motion.div
       {...animationProps}
-      className="hidden md:block rounded-xl p-3.5 border border-[#E8DDD0]/50 bg-white shadow-sm"
-      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)' }}
+      className="hidden md:block rounded-2xl p-3.5 border border-[#E8DDD0]/50 shadow-sm"
+      style={{
+        background: 'linear-gradient(135deg, rgba(255,252,247,0.95) 0%, rgba(255,248,240,0.9) 100%)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02)',
+      }}
     >
       <div className="flex items-start gap-3">
         <div

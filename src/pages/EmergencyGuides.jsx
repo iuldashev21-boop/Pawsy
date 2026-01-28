@@ -17,7 +17,6 @@ import {
   MapPin,
   ArrowLeft
 } from 'lucide-react'
-import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 
 // Emergency first aid guides
@@ -297,7 +296,7 @@ const VET_URGENCY_STYLES = {
 
 function GuideListView({ onSelectGuide }) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
+    <div className="bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED]">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
@@ -384,7 +383,6 @@ function GuideListView({ onSelectGuide }) {
         </p>
       </main>
 
-      <BottomNav />
     </div>
   )
 }
@@ -394,7 +392,7 @@ function GuideDetailView({ guide, onBack }) {
   const urgency = VET_URGENCY_STYLES[guide.vetUrgency]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
+    <div className="bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED]">
       {/* Header */}
       <header className={`sticky top-0 z-40 bg-gradient-to-br ${guide.color}`}>
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
@@ -515,7 +513,6 @@ function GuideDetailView({ guide, onBack }) {
         </p>
       </main>
 
-      <BottomNav />
     </div>
   )
 }

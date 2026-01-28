@@ -15,7 +15,6 @@ import {
   Copy,
   Check
 } from 'lucide-react'
-import BottomNav from '../components/layout/BottomNav'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 
 const VET_CLINICS = [
@@ -119,7 +118,7 @@ function EmergencyVet() {
   const closedVets = filteredVets.filter(v => !v.isOpen)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
+    <div className="bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED]">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-gradient-to-r from-[#EF5350] to-[#E53935]">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
@@ -248,7 +247,6 @@ function EmergencyVet() {
         </p>
       </main>
 
-      <BottomNav />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react'
 import { generateUUID } from '../utils/uuid'
+import { migrateAllProfiles } from '../services/storage/migration'
 
 const DogContext = createContext(null)
 
@@ -83,8 +84,16 @@ export function DogProvider({ children }) {
       return
     }
 
-    const dogs = safeParse(getStorageKey(userId, STORAGE_KEY_DOGS))
+    const rawDogs = safeParse(getStorageKey(userId, STORAGE_KEY_DOGS))
     const storedActiveDog = localStorage.getItem(getStorageKey(userId, STORAGE_KEY_ACTIVE_DOG))
+
+    // Run schema migrations on loaded profiles
+    const dogs = migrateAllProfiles(rawDogs)
+
+    // Persist migrated profiles back if any changed
+    if (rawDogs.length > 0 && JSON.stringify(rawDogs) !== JSON.stringify(dogs)) {
+      localStorage.setItem(getStorageKey(userId, STORAGE_KEY_DOGS), JSON.stringify(dogs))
+    }
 
     dispatch({
       type: 'SET_DOGS',
@@ -123,6 +132,8 @@ export function DogProvider({ children }) {
   }, [loadDogsForUser, state.dogs.length])
 
   useEffect(() => {
+    if (state.loading) return
+
     const userId = getCurrentUserId()
     if (!userId) return
 
@@ -135,7 +146,7 @@ export function DogProvider({ children }) {
     } else {
       localStorage.removeItem(activeDogKey)
     }
-  }, [state.dogs, state.activeDogId])
+  }, [state.dogs, state.activeDogId, state.loading])
 
   const addDog = (dogData) => {
     const userId = getCurrentUserId()

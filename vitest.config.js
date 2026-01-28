@@ -7,7 +7,7 @@ export default mergeConfig(viteConfig, defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.js'],
     css: false,
-    include: ['src/**/*.{test,spec}.{js,jsx}'],
+    include: ['src/**/*.{test,spec}.{js,jsx}', 'tests/**/*.{test,spec}.{js,jsx}'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],

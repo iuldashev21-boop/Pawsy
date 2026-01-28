@@ -1,6 +1,30 @@
-import { ClipboardList, FileText, Pill, Activity, Dna } from 'lucide-react'
+import { ClipboardList, FileText, Pill, Activity, Dna, MessageCircle, Camera, FileSearch } from 'lucide-react'
 
 const premiumFeatures = [
+  {
+    id: 'unlimitedChat',
+    label: 'Unlimited Chat',
+    description: 'Personalized AI health conversations',
+    icon: MessageCircle,
+    color: '#7EC8C8',
+    bgGradient: 'linear-gradient(135deg, #EFF9FA 0%, #E2F4F5 100%)',
+    iconBg: 'linear-gradient(135deg, rgba(126,200,200,0.2) 0%, rgba(95,179,179,0.15) 100%)',
+    personalizedText: (dogName) =>
+      `Chat with Pawsy about ${dogName || 'your dog'}'s health as much as you need — no daily limits. Every conversation is saved so you can revisit past advice, and Pawsy automatically tracks symptoms and updates ${dogName || 'your dog'}'s health profile for a truly personalized experience.`,
+    placement: 'sidebar',
+  },
+  {
+    id: 'unlimitedPhoto',
+    label: 'Unlimited Photos',
+    description: 'AI-powered visual health screening',
+    icon: Camera,
+    color: '#E8924F',
+    bgGradient: 'linear-gradient(135deg, #FFF5ED 0%, #FFE8D6 100%)',
+    iconBg: 'linear-gradient(135deg, rgba(232,146,79,0.2) 0%, rgba(212,133,74,0.15) 100%)',
+    personalizedText: (dogName) =>
+      `Scan ${dogName || 'your dog'}'s skin, eyes, teeth, and more — no daily limits. Every analysis is saved to ${dogName || 'your dog'}'s health profile, so Pawsy can track changes over time and give smarter, more personalized recommendations.`,
+    placement: 'sidebar',
+  },
   {
     id: 'clinicalProfile',
     label: 'Clinical Profile',
@@ -59,6 +83,18 @@ const premiumFeatures = [
     iconBg: 'linear-gradient(135deg, rgba(102,187,106,0.2) 0%, rgba(76,175,80,0.15) 100%)',
     personalizedText: (dogName, breed) =>
       `Discover health risks specific to ${breed || 'your breed'} and get proactive care tips for ${dogName || 'your dog'}`,
+    placement: 'grid',
+  },
+  {
+    id: 'labAnalysis',
+    label: 'Lab Analysis',
+    description: 'AI-powered lab interpretation',
+    icon: FileSearch,
+    color: '#5FB3B3',
+    bgGradient: 'linear-gradient(135deg, #EFF9FA 0%, #E2F4F5 100%)',
+    iconBg: 'linear-gradient(135deg, rgba(95,179,179,0.2) 0%, rgba(126,200,200,0.15) 100%)',
+    personalizedText: (dogName) =>
+      `Upload ${dogName || 'your dog'}'s X-rays, blood work, and lab reports for AI-powered interpretation and actionable insights`,
     placement: 'grid',
   },
 ]

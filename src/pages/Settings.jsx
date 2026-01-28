@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, Link } from 'react-router-dom'
 import {
-  ChevronLeft, User, Dog, Plus, Trash2,
+  ChevronLeft, User, Dog, Plus, Trash2, Camera,
   MessageCircle, LogOut, Shield, HelpCircle, Check,
-  PawPrint, Lock, Heart, Clock, Bell
+  PawPrint, Lock, Heart, Clock, Bell, Pill, Syringe, Activity
 } from 'lucide-react'
 import PremiumIcon from '../components/common/PremiumIcon'
 import PawsyIcon from '../components/common/PawsyIcon'
@@ -12,8 +12,13 @@ import { useAuth } from '../context/AuthContext'
 import { usePremium } from '../hooks/usePremium'
 import { useDog } from '../context/DogContext'
 import { useChat } from '../context/ChatContext'
-import BottomNav from '../components/layout/BottomNav'
 import { useToast } from '../context/ToastContext'
+import MedicationManager from '../components/premium/MedicationManager'
+import VaccinationTracker from '../components/premium/VaccinationTracker'
+import LifestyleSettings from '../components/premium/LifestyleSettings'
+import ProfileCompletion from '../components/premium/ProfileCompletion'
+import PremiumGate from '../components/premium/PremiumGate'
+import PremiumOnboarding from '../components/premium/PremiumOnboarding'
 
 const staggerContainer = {
   initial: {},
@@ -166,10 +171,11 @@ function ConfirmModal({ isOpen, onClose, icon, title, description, cancelLabel =
 }
 
 function Settings() {
-  const { user, logout } = useAuth()
-  const { dogs, activeDog, setActiveDog, deleteDog, reloadForCurrentUser: reloadDogs } = useDog()
+  const { user, logout, updateProfile } = useAuth()
+  const photoInputRef = useRef(null)
+  const { dogs, activeDog, setActiveDog, deleteDog, updateDog, reloadForCurrentUser: reloadDogs } = useDog()
   const { sessions, clearAllSessions, reloadForCurrentUser: reloadChats } = useChat()
-  const { isPremium } = usePremium()
+  const { isPremium, completePremiumOnboarding } = usePremium()
   const navigate = useNavigate()
 
   const { showToast } = useToast()
@@ -177,6 +183,66 @@ function Settings() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  const handleAddMedication = useCallback((med) => {
+    if (!activeDog) return
+    const meds = [...(activeDog.medications || []), med]
+    updateDog(activeDog.id, { medications: meds })
+  }, [activeDog, updateDog])
+
+  const handleRemoveMedication = useCallback((medId) => {
+    if (!activeDog) return
+    const meds = (activeDog.medications || []).filter(m => m.id !== medId)
+    updateDog(activeDog.id, { medications: meds })
+  }, [activeDog, updateDog])
+
+  const handleAddVaccination = useCallback((vax) => {
+    if (!activeDog) return
+    const vaxes = [...(activeDog.vaccinations || []), vax]
+    updateDog(activeDog.id, { vaccinations: vaxes })
+  }, [activeDog, updateDog])
+
+  const handleRemoveVaccination = useCallback((vaxId) => {
+    if (!activeDog) return
+    const vaxes = (activeDog.vaccinations || []).filter(v => v.id !== vaxId)
+    updateDog(activeDog.id, { vaccinations: vaxes })
+  }, [activeDog, updateDog])
+
+  const handleLifestyleChange = useCallback(({ activityLevel, livingEnvironment, socialExposure }) => {
+    if (!activeDog) return
+    updateDog(activeDog.id, { activityLevel, livingEnvironment, socialExposure })
+  }, [activeDog, updateDog])
+
+  const handleOnboardingComplete = useCallback((data) => {
+    if (!activeDog) return
+    updateDog(activeDog.id, {
+      isSpayedNeutered: data.isSpayedNeutered,
+      chronicConditions: data.chronicConditions || [],
+      surgeryHistory: data.surgeryHistory || [],
+      medications: data.medications || [],
+      activityLevel: data.activityLevel,
+      livingEnvironment: data.livingEnvironment,
+      socialExposure: data.socialExposure || [],
+      dietType: data.dietType,
+      foodBrand: data.foodBrand,
+      feedingSchedule: data.feedingSchedule,
+      vaccinations: data.vaccinations || [],
+    })
+    setShowOnboarding(false)
+    completePremiumOnboarding()
+    showToast('Health profile updated!')
+  }, [activeDog, updateDog, showToast])
+
+  const handlePhotoChange = useCallback((e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      updateProfile({ photoUrl: ev.target.result })
+    }
+    reader.readAsDataURL(file)
+  }, [updateProfile])
 
   // Premium users can add unlimited dogs, free users limited to 1
   const canAddDog = isPremium || dogs.length === 0
@@ -216,9 +282,9 @@ function Settings() {
   const deleteDogName = dogs.find(d => d.id === showDeleteConfirm)?.name
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF8F3] to-[#FFF5ED] pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
+    <div className="relative min-h-full">
+      {/* Header — mobile only (desktop uses AppShell header + sidebar) */}
+      <header className="md:hidden sticky top-0 z-40 bg-[#FDF8F3]/80 backdrop-blur-md border-b border-[#E8E8E8]/30">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           <Link to="/dashboard">
             <motion.button
@@ -239,21 +305,45 @@ function Settings() {
       </header>
 
       <motion.main
-        className="max-w-lg mx-auto px-4 py-6 space-y-6"
+        className="max-w-lg md:max-w-3xl mx-auto px-4 md:px-8 py-3 md:py-8 space-y-6"
         variants={staggerContainer}
         initial="initial"
         animate="animate"
       >
         {/* User Profile Section */}
         <motion.section variants={staggerItem}>
-          <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide mb-3 px-1">
-            Account
-          </h2>
+          <div className="flex items-center gap-3 mb-3 px-0.5">
+            <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              Account
+            </h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
+          </div>
           <div className="bg-white rounded-2xl shadow-sm border border-[#F4A261]/10 overflow-hidden">
             <div className="p-4 flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center shadow-md">
-                <User className="w-7 h-7 text-white" />
-              </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => photoInputRef.current?.click()}
+                aria-label="Change profile photo"
+                className="relative w-14 h-14 rounded-full flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+              >
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center shadow-md overflow-hidden">
+                  {user?.photoUrl ? (
+                    <img src={user.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-7 h-7 text-white" />
+                  )}
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#F4A261] border-2 border-white flex items-center justify-center">
+                  <Camera className="w-2.5 h-2.5 text-white" />
+                </div>
+              </motion.button>
               <div className="flex-1">
                 <p className="font-semibold text-[#3D3D3D]">{user?.name || 'Pet Parent'}</p>
                 <p className="text-sm text-[#6B6B6B]">{user?.email || 'No email'}</p>
@@ -264,14 +354,15 @@ function Settings() {
 
         {/* Dog Profiles Section */}
         <motion.section variants={staggerItem}>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide">
+          <div className="flex items-center gap-3 mb-3 px-0.5">
+            <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0" style={{ fontFamily: 'Nunito, sans-serif' }}>
               Dog Profiles
             </h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleAddDogClick}
-              className="flex items-center gap-1 text-sm text-[#F4A261] font-medium"
+              className="flex items-center gap-1 text-sm text-[#F4A261] font-medium flex-shrink-0"
             >
               {canAddDog ? <Plus className="w-4 h-4" /> : <PremiumIcon size={14} />}
               Add Dog
@@ -344,16 +435,17 @@ function Settings() {
 
         {/* Premium Features Section */}
         <motion.section variants={staggerItem}>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide flex items-center gap-1.5">
+          <div className="flex items-center gap-3 mb-3 px-0.5">
+            <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0 flex items-center gap-1.5" style={{ fontFamily: 'Nunito, sans-serif' }}>
               <PremiumIcon size={14} />
-              Personalized Health Intelligence
+              Health Intelligence
             </h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
             {!isPremium && (
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => showToast('Premium upgrade coming soon! For now, enjoy free features.', 'premium')}
-                className="text-sm text-[#F4A261] font-medium"
+                className="text-sm text-[#F4A261] font-medium flex-shrink-0"
               >
                 Unlock all →
               </motion.button>
@@ -393,11 +485,87 @@ function Settings() {
           </div>
         </motion.section>
 
+        {/* Premium Health Profile Sections — visible for premium users */}
+        {isPremium && activeDog && (
+          <>
+            {/* Profile Completion */}
+            <motion.section variants={staggerItem}>
+              <ProfileCompletion dog={activeDog} />
+            </motion.section>
+
+            {/* Quick Setup */}
+            {!activeDog.medications?.length && !activeDog.vaccinations?.length && (
+              <motion.section variants={staggerItem}>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowOnboarding(true)}
+                  className="w-full bg-gradient-to-r from-[#7EC8C8] to-[#5FB3B3] text-white rounded-2xl p-4 shadow-sm flex items-center gap-3"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                      Complete {activeDog.name}'s Health Profile
+                    </p>
+                    <p className="text-sm text-white/80">Guided setup for medications, vaccinations & more</p>
+                  </div>
+                </motion.button>
+              </motion.section>
+            )}
+
+            {/* Medications */}
+            <motion.section variants={staggerItem}>
+              <div className="flex items-center gap-3 mb-3 px-0.5">
+                <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0 flex items-center gap-1.5" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                  <Pill className="w-4 h-4 text-[#F4A261]" />
+                  Medications
+                </h2>
+                <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
+              </div>
+              <MedicationManager
+                medications={activeDog.medications || []}
+                onAdd={handleAddMedication}
+                onRemove={handleRemoveMedication}
+              />
+            </motion.section>
+
+            {/* Vaccinations */}
+            <motion.section variants={staggerItem}>
+              <div className="flex items-center gap-3 mb-3 px-0.5">
+                <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0 flex items-center gap-1.5" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                  <Syringe className="w-4 h-4 text-[#7EC8C8]" />
+                  Vaccinations
+                </h2>
+                <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
+              </div>
+              <VaccinationTracker
+                vaccinations={activeDog.vaccinations || []}
+                onAdd={handleAddVaccination}
+                onRemove={handleRemoveVaccination}
+              />
+            </motion.section>
+
+            {/* Lifestyle */}
+            <motion.section variants={staggerItem}>
+              <LifestyleSettings
+                activityLevel={activeDog.activityLevel || 'moderate'}
+                livingEnvironment={activeDog.livingEnvironment || 'indoor'}
+                socialExposure={activeDog.socialExposure || []}
+                onChange={handleLifestyleChange}
+              />
+            </motion.section>
+          </>
+        )}
+
         {/* Data & Storage Section */}
         <motion.section variants={staggerItem}>
-          <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide mb-3 px-1">
-            Data & Storage
-          </h2>
+          <div className="flex items-center gap-3 mb-3 px-0.5">
+            <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              Data & Storage
+            </h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
+          </div>
           <div className="bg-white rounded-2xl shadow-sm border border-[#F4A261]/10 overflow-hidden divide-y divide-[#F4A261]/10">
             {/* Chat history info */}
             <div className="p-4 flex items-center gap-3">
@@ -436,9 +604,12 @@ function Settings() {
 
         {/* About Section */}
         <motion.section variants={staggerItem}>
-          <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-wide mb-3 px-1">
-            About
-          </h2>
+          <div className="flex items-center gap-3 mb-3 px-0.5">
+            <h2 className="font-extrabold text-[15px] text-[#2D2A26] flex-shrink-0" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              About
+            </h2>
+            <div className="flex-1 h-px" style={{ background: 'rgba(232,221,208,0.4)' }} />
+          </div>
           <div className="bg-white rounded-2xl shadow-sm border border-[#F4A261]/10 overflow-hidden divide-y divide-[#F4A261]/10">
             <div className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F4A261] to-[#E8924F] flex items-center justify-center">
@@ -560,7 +731,30 @@ function Settings() {
         </div>
       </ConfirmModal>
 
-      <BottomNav />
+      {/* Premium Onboarding Modal */}
+      <AnimatePresence>
+        {showOnboarding && activeDog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            >
+              <PremiumOnboarding
+                dog={activeDog}
+                onComplete={handleOnboardingComplete}
+                onClose={() => setShowOnboarding(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

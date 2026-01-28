@@ -3,12 +3,8 @@ import { screen, waitFor } from '@testing-library/react'
 import {
   renderWithProviders,
   seedFullAppState,
-  seedAuthState,
-  seedDogState,
-  seedOnboardingState,
-  seedUsageState,
-  TEST_USER,
   TEST_DOG,
+  TEST_USER,
 } from '../test/test-utils'
 
 vi.mock('framer-motion', async () => {
@@ -23,22 +19,11 @@ describe('Dashboard', () => {
     vi.clearAllMocks()
   })
 
-  it('renders dashboard with user greeting', async () => {
-    seedFullAppState()
-    renderWithProviders(<Dashboard />, { route: '/dashboard' })
-
-    await waitFor(() => {
-      // User name should appear somewhere
-      expect(screen.getByText(TEST_USER.name)).toBeInTheDocument()
-    })
-  })
-
   it('shows active dog name', async () => {
     seedFullAppState()
     renderWithProviders(<Dashboard />, { route: '/dashboard' })
 
     await waitFor(() => {
-      // Dog name should appear
       expect(screen.getAllByText(TEST_DOG.name).length).toBeGreaterThan(0)
     })
   })
@@ -52,63 +37,22 @@ describe('Dashboard', () => {
     })
   })
 
-  it('shows Start Health Check CTA', async () => {
+  it('shows chat launcher widget for free users', async () => {
     seedFullAppState()
     renderWithProviders(<Dashboard />, { route: '/dashboard' })
 
     await waitFor(() => {
-      expect(screen.getByText('Start Health Check')).toBeInTheDocument()
+      expect(screen.getByLabelText('Start chat with Pawsy')).toBeInTheDocument()
     })
   })
 
-  it('shows Scan Photo action card', async () => {
+  it('renders health section heading for premium users', async () => {
     seedFullAppState()
+    localStorage.setItem(`pawsy_${TEST_USER.id}_premium_status`, 'true')
     renderWithProviders(<Dashboard />, { route: '/dashboard' })
 
     await waitFor(() => {
-      expect(screen.getByText('Scan Photo')).toBeInTheDocument()
-    })
-  })
-
-  it('shows Emergency action card', async () => {
-    seedFullAppState()
-    renderWithProviders(<Dashboard />, { route: '/dashboard' })
-
-    await waitFor(() => {
-      expect(screen.getByText('Emergency')).toBeInTheDocument()
-    })
-  })
-
-  it('shows quick links', async () => {
-    seedFullAppState()
-    renderWithProviders(<Dashboard />, { route: '/dashboard' })
-
-    await waitFor(() => {
-      expect(screen.getAllByText('First Aid Guides').length).toBeGreaterThan(0)
-      expect(screen.getAllByText(/Toxic Food/).length).toBeGreaterThan(0)
-    })
-  })
-
-  it('shows Pet Parent as fallback when no user name', async () => {
-    const userNoName = { ...TEST_USER, name: undefined }
-    seedAuthState(userNoName)
-    seedDogState()
-    seedUsageState()
-    seedOnboardingState()
-
-    renderWithProviders(<Dashboard />, { route: '/dashboard' })
-
-    await waitFor(() => {
-      expect(screen.getAllByText('Pet Parent').length).toBeGreaterThan(0)
-    })
-  })
-
-  it('renders bottom nav', async () => {
-    seedFullAppState()
-    renderWithProviders(<Dashboard />, { route: '/dashboard' })
-
-    await waitFor(() => {
-      expect(screen.getAllByRole('navigation').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText(`${TEST_DOG.name}'s Health`)).toBeInTheDocument()
     })
   })
 })

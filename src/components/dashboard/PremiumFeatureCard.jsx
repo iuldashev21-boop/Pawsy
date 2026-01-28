@@ -4,7 +4,7 @@ import PremiumIcon from '../common/PremiumIcon'
 import { getFeatureById } from '../../constants/premiumFeatures'
 import { useToast } from '../../context/ToastContext'
 
-function PremiumFeatureCard({ featureId, isPremium, onFeatureClick, onUpgrade }) {
+function PremiumFeatureCard({ featureId, isPremium, onFeatureClick, onUpgrade, compact = false }) {
   const prefersReducedMotion = useReducedMotion()
   const { showToast } = useToast()
   const feature = getFeatureById(featureId)
@@ -21,6 +21,43 @@ function PremiumFeatureCard({ featureId, isPremium, onFeatureClick, onUpgrade })
     } else {
       onUpgrade?.()
     }
+  }
+
+  if (compact) {
+    return (
+      <button
+        onClick={handleClick}
+        className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F4A261]/[0.03] active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-inset"
+        aria-label={`${feature.label}${!isPremium ? ' — Premium feature' : ''}`}
+      >
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: feature.iconBg }}
+          >
+            <FeatureIcon className="w-4 h-4" style={{ color: feature.color }} aria-hidden="true" />
+          </div>
+          {!isPremium && (
+            <div
+              className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #FFF8E7 0%, #FFE4B5 100%)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              }}
+            >
+              <PremiumIcon size={8} />
+            </div>
+          )}
+        </div>
+        <span
+          className="flex-1 font-bold text-[13px] text-[#2D2A26] leading-tight"
+          style={{ fontFamily: 'Nunito, sans-serif' }}
+        >
+          {feature.label}
+        </span>
+        <ChevronRight className="w-4 h-4 text-[#C5B8A8] flex-shrink-0" aria-hidden="true" />
+      </button>
+    )
   }
 
   return (

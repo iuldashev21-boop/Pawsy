@@ -65,7 +65,7 @@ function countByUrgency(events) {
   )
 }
 
-export default function HealthTimeline({ events = [], dogName = 'your dog', onViewAll }) {
+export default function HealthTimeline({ events = [], dogName = 'your dog', onViewAll, onEventSelect }) {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const selectedColors = selectedEvent
     ? URGENCY_COLORS[selectedEvent.urgency] || URGENCY_COLORS.low
@@ -193,6 +193,18 @@ export default function HealthTimeline({ events = [], dogName = 'your dog', onVi
                           </span>
                         ))}
                       </div>
+                    )}
+                    {onEventSelect && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEventSelect(selectedEvent.id)
+                        }}
+                        className="mt-2 flex items-center gap-1 text-xs font-medium text-[#F4A261] hover:text-[#E8924F] transition-colors focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2 rounded"
+                      >
+                        View details
+                        <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                      </button>
                     )}
                   </div>
                   <button

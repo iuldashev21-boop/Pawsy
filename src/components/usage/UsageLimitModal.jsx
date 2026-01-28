@@ -4,6 +4,7 @@ import { X, AlertTriangle, MapPin, MessageCircle, Camera } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PremiumIcon from '../common/PremiumIcon'
 import { USAGE_LIMITS } from '../../constants/usage'
+import { premiumCTAClasses } from '../../constants/premiumStyles'
 
 /**
  * UsageLimitModal - Shown when user reaches their daily limit
@@ -24,6 +25,12 @@ function UsageLimitModal({
   onUpgrade,
   emergencyRemaining = 0,
 }) {
+  const handleUpgrade = () => {
+    onUpgrade
+      ? onUpgrade()
+      : window.dispatchEvent(new CustomEvent('pawsy:openUpgrade'))
+  }
+
   const isChat = type === 'chat'
   const limit = isChat ? USAGE_LIMITS.dailyChats : USAGE_LIMITS.dailyPhotos
   const labelPlural = isChat ? 'chats' : 'photo scans'
@@ -124,8 +131,8 @@ function UsageLimitModal({
           <div className="px-6 py-5 space-y-4">
             {/* Upgrade CTA */}
             <button
-              onClick={onUpgrade}
-              className="w-full bg-gradient-to-r from-[#FFD54F] via-[#F4A261] to-[#E8924F] text-white rounded-xl py-3 px-4 font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-shadow"
+              onClick={handleUpgrade}
+              className={`w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 shadow-md transition-shadow ${premiumCTAClasses}`}
             >
               <PremiumIcon size={20} gradient={false} />
               Get Personalized Care

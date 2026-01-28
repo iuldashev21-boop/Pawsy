@@ -61,7 +61,7 @@ function ProfileCompletionCard() {
     return (
       <motion.div
         {...animationProps}
-        className="rounded-xl p-3 border border-[#7EC8C8]/20 bg-gradient-to-br from-[#EFF9FA] to-[#E2F4F5]"
+        className="rounded-2xl p-3 border border-[#7EC8C8]/20 bg-gradient-to-br from-[#EFF9FA] to-[#E2F4F5]"
       >
         <div className="flex items-center gap-2.5">
           <CheckCircle className="w-5 h-5 text-[#4A9E9E] flex-shrink-0" aria-hidden="true" />
@@ -79,8 +79,11 @@ function ProfileCompletionCard() {
   return (
     <motion.div
       {...animationProps}
-      className="rounded-xl p-3.5 border border-[#E8DDD0]/50 bg-white shadow-sm"
-      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02)' }}
+      className="rounded-2xl p-3.5 border border-[#E8DDD0]/50 shadow-sm"
+      style={{
+        background: 'linear-gradient(135deg, rgba(255,252,247,0.95) 0%, rgba(255,248,240,0.9) 100%)',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02)',
+      }}
     >
       <div className="flex items-center gap-3">
         {/* Progress Ring */}
