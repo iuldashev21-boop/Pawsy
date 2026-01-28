@@ -183,8 +183,8 @@ describe('AlertDetailModal', () => {
         { route: '/alerts' }
       )
 
-      // Should show the firstSeen and lastSeen dates
-      expect(screen.getByText(/jan/i)).toBeInTheDocument()
+      // Should show the firstSeen and lastSeen dates (both are in January)
+      expect(screen.getAllByText(/jan/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
