@@ -269,20 +269,21 @@ function Dashboard() {
                 <div className="grid grid-cols-2 gap-3">
                   <Link
                     to="/health-hub"
-                    className="flex items-center gap-2.5 rounded-2xl p-3 transition-all hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+                    className="flex items-center gap-2.5 p-3 transition-all hover:shadow-lg active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
                     style={{
-                      background: 'linear-gradient(135deg, rgba(255,252,247,0.95) 0%, rgba(255,248,240,0.9) 100%)',
-                      border: '1px solid rgba(232,221,208,0.5)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02)',
+                      background: 'linear-gradient(135deg, #FFE8D6 0%, #FFD6B0 100%)',
+                      border: '1px solid rgba(244,162,97,0.3)',
+                      boxShadow: '0 2px 8px rgba(244,162,97,0.2)',
                     }}
                   >
                     <div
                       className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: 'linear-gradient(135deg, #FFE8D6 0%, #FFD6B0 100%)',
+                        background: 'linear-gradient(135deg, #F4A261 0%, #E8924F 100%)',
+                        boxShadow: '0 2px 6px rgba(232,146,79,0.3)',
                       }}
                     >
-                      <Heart className="w-4.5 h-4.5 text-[#E8924F]" aria-hidden="true" />
+                      <Heart className="w-4.5 h-4.5 text-white" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                       <p
@@ -302,20 +303,21 @@ function Dashboard() {
 
                   <Link
                     to="/emergency-vet"
-                    className="flex items-center gap-2.5 rounded-2xl p-3 transition-all hover:shadow-md active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
+                    className="flex items-center gap-2.5 p-3 transition-all hover:shadow-lg active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#EF5350] focus-visible:ring-offset-2"
                     style={{
-                      background: 'linear-gradient(135deg, rgba(255,252,247,0.95) 0%, rgba(255,248,240,0.9) 100%)',
-                      border: '1px solid rgba(232,221,208,0.5)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.02)',
+                      background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)',
+                      border: '1px solid rgba(239,83,80,0.25)',
+                      boxShadow: '0 2px 8px rgba(239,83,80,0.15)',
                     }}
                   >
                     <div
                       className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: 'linear-gradient(135deg, #FECACA 0%, #FCA5A5 100%)',
+                        background: 'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
+                        boxShadow: '0 2px 6px rgba(239,83,80,0.35)',
                       }}
                     >
-                      <MapPin className="w-4.5 h-4.5 text-[#DC2626]" aria-hidden="true" />
+                      <MapPin className="w-4.5 h-4.5 text-white" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                       <p
