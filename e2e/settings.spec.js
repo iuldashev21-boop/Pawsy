@@ -4,7 +4,6 @@ import { seedFullState } from './helpers.js'
 
 test.describe('Settings', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
     await seedFullState(page)
   })
 
@@ -23,9 +22,11 @@ test.describe('Settings', () => {
 
   test('delete dog with confirmation', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.getByRole('heading', { name: 'Dog Profiles' })).toBeVisible({ timeout: 10000 })
 
-    // Find and click delete button (trash icon has no accessible name)
+    // Wait for the dog profile card with the trash icon to be visible
+    await expect(page.locator('.lucide-trash-2').first()).toBeVisible({ timeout: 15000 })
+
+    // Click the delete button
     await page.locator('.lucide-trash-2').first().click()
 
     // Should show confirmation dialog

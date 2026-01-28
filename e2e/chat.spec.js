@@ -4,8 +4,7 @@ import { seedFullState } from './helpers.js'
 
 test.describe('Chat Flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to a page first so localStorage is available
-    await page.goto('/')
+    // addInitScript seeds localStorage before any page JS runs
     await seedFullState(page)
   })
 

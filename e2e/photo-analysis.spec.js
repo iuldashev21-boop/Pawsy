@@ -5,16 +5,17 @@ import path from 'path'
 
 test.describe('Photo Analysis Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
     await seedFullState(page)
   })
 
   test('navigate to photo → upload image → select body area → see results', async ({ page }) => {
     await page.goto('/photo')
-    await page.waitForLoadState('networkidle')
 
-    // Should see upload interface (wait for DogContext to finish loading)
-    await expect(page.getByRole('heading', { name: /upload a photo/i })).toBeVisible({ timeout: 15000 })
+    // Wait for DogContext to finish loading (dismiss loading spinner)
+    await expect(page.getByText('Loading...')).toBeHidden({ timeout: 15000 })
+
+    // Should see upload interface
+    await expect(page.getByRole('heading', { name: /upload a photo/i })).toBeVisible({ timeout: 10000 })
 
     // Upload a test image
     const fileInput = page.locator('input[type="file"]')
