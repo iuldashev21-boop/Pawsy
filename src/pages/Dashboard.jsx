@@ -269,31 +269,26 @@ function Dashboard() {
                 <div className="grid grid-cols-2 gap-3">
                   <Link
                     to="/health-hub"
-                    className="flex items-center gap-2.5 p-3 transition-all hover:shadow-lg active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
-                    style={{
-                      background: 'linear-gradient(135deg, #FFE8D6 0%, #FFD6B0 100%)',
-                      border: '1px solid rgba(244,162,97,0.3)',
-                      boxShadow: '0 2px 8px rgba(244,162,97,0.2)',
-                    }}
+                    className="flex items-center gap-3.5 p-4 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-[#F4A261] focus-visible:ring-offset-2"
                   >
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{
                         background: 'linear-gradient(135deg, #F4A261 0%, #E8924F 100%)',
-                        boxShadow: '0 2px 6px rgba(232,146,79,0.3)',
+                        boxShadow: '0 2px 8px rgba(244,162,97,0.25)',
                       }}
                     >
-                      <Heart className="w-4.5 h-4.5 text-white" aria-hidden="true" />
+                      <Heart className="w-5 h-5 text-white" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                       <p
-                        className="text-[13px] font-bold text-[#2D2A26] leading-tight"
+                        className="text-[14px] font-bold text-[#2D2A26] leading-tight"
                         style={{ fontFamily: 'Nunito, sans-serif' }}
                       >
                         Health Hub
                       </p>
                       <p
-                        className="text-[11px] text-[#8C7B6B] leading-tight mt-0.5"
+                        className="text-[12px] text-[#6B6B6B] leading-tight mt-0.5"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
                       >
                         All health tools
@@ -303,31 +298,26 @@ function Dashboard() {
 
                   <Link
                     to="/emergency-vet"
-                    className="flex items-center gap-2.5 p-3 transition-all hover:shadow-lg active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#EF5350] focus-visible:ring-offset-2"
-                    style={{
-                      background: 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)',
-                      border: '1px solid rgba(239,83,80,0.25)',
-                      boxShadow: '0 2px 8px rgba(239,83,80,0.15)',
-                    }}
+                    className="flex items-center gap-3.5 p-4 active:scale-[0.97] transition-all focus-visible:ring-2 focus-visible:ring-[#EF5350] focus-visible:ring-offset-2"
                   >
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{
                         background: 'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
-                        boxShadow: '0 2px 6px rgba(239,83,80,0.35)',
+                        boxShadow: '0 2px 8px rgba(239,83,80,0.25)',
                       }}
                     >
-                      <MapPin className="w-4.5 h-4.5 text-white" aria-hidden="true" />
+                      <MapPin className="w-5 h-5 text-white" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
                       <p
-                        className="text-[13px] font-bold text-[#2D2A26] leading-tight"
+                        className="text-[14px] font-bold text-[#2D2A26] leading-tight"
                         style={{ fontFamily: 'Nunito, sans-serif' }}
                       >
                         Emergency
                       </p>
                       <p
-                        className="text-[11px] text-[#8C7B6B] leading-tight mt-0.5"
+                        className="text-[12px] text-[#6B6B6B] leading-tight mt-0.5"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
                       >
                         Find nearby vet
