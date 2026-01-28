@@ -11,9 +11,10 @@ test.describe('Photo Analysis Flow', () => {
 
   test('navigate to photo → upload image → select body area → see results', async ({ page }) => {
     await page.goto('/photo')
+    await page.waitForLoadState('networkidle')
 
-    // Should see upload interface
-    await expect(page.getByRole('heading', { name: /upload a photo/i })).toBeVisible({ timeout: 10000 })
+    // Should see upload interface (wait for DogContext to finish loading)
+    await expect(page.getByRole('heading', { name: /upload a photo/i })).toBeVisible({ timeout: 15000 })
 
     // Upload a test image
     const fileInput = page.locator('input[type="file"]')

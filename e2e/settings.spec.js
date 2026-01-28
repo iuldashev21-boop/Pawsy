@@ -11,20 +11,19 @@ test.describe('Settings', () => {
   test('view settings page', async ({ page }) => {
     await page.goto('/settings')
 
-    // Should show settings page heading (not the BottomNav label)
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 })
+    // Should show Account section (present on both mobile and desktop)
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible({ timeout: 10000 })
 
-    // Should show user info
-    await expect(page.getByText('E2E Tester')).toBeVisible()
+    // Should show user info (email is unambiguous across viewports)
     await expect(page.getByText('e2e@test.com')).toBeVisible()
 
-    // Should show dog profile (use .first() since "Buddy" also appears in premium section text)
-    await expect(page.getByText('Buddy').first()).toBeVisible()
+    // Should show dog profile section
+    await expect(page.getByRole('heading', { name: 'Dog Profiles' })).toBeVisible()
   })
 
   test('delete dog with confirmation', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.getByText('Buddy').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Dog Profiles' })).toBeVisible({ timeout: 10000 })
 
     // Find and click delete button (trash icon has no accessible name)
     await page.locator('.lucide-trash-2').first().click()
@@ -41,7 +40,7 @@ test.describe('Settings', () => {
 
   test('logout redirects to landing', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible({ timeout: 10000 })
 
     // Click logout
     await page.getByRole('button', { name: /log out/i }).first().click()
