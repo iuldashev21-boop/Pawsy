@@ -8,6 +8,7 @@
  */
 
 import { getBreedRisks } from '../../constants/breedHealthRisks.js'
+import LocalStorageService from '../storage/LocalStorageService.js'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -265,6 +266,247 @@ function generateWeightTrendAlerts(dog, petFacts, existingAlerts) {
 }
 
 // ---------------------------------------------------------------------------
+// Rule: Lab Value Trend (same marker abnormal across multiple analyses)
+// ---------------------------------------------------------------------------
+
+function generateLabTrendAlerts(dog, existingAlerts) {
+  const alerts = []
+  if (!dog?.id) return alerts
+
+  const bloodWork = LocalStorageService.getBloodWorkAnalyses(dog.id) || []
+  if (bloodWork.length < 2) return alerts
+
+  // Track abnormal values across all analyses
+  const markerHistory = {}
+
+  for (const panel of bloodWork) {
+    const values = panel.values || []
+    for (const val of values) {
+      if (val.status === 'normal' || !val.name) continue
+
+      const markerName = val.name.toLowerCase()
+      if (!markerHistory[markerName]) {
+        markerHistory[markerName] = []
+      }
+      markerHistory[markerName].push({
+        value: val.value,
+        unit: val.unit,
+        status: val.status,
+        date: panel.createdAt,
+      })
+    }
+  }
+
+  // Generate alert if same marker is abnormal in 2+ analyses
+  for (const [marker, occurrences] of Object.entries(markerHistory)) {
+    if (occurrences.length < 2) continue
+
+    const metadataKey = `lab_trend:${marker}`
+    if (isDuplicate(existingAlerts, 'lab_trend', metadataKey)) continue
+
+    const latestStatus = occurrences[occurrences.length - 1].status
+    const priority = latestStatus === 'critical' ? 'high' : 'medium'
+
+    alerts.push({
+      id: makeId(),
+      dogId: dog.id,
+      type: 'lab_trend',
+      title: `Recurring Abnormal: ${marker.toUpperCase()}`,
+      message: `${marker.toUpperCase()} has been abnormal in ${occurrences.length} blood work analyses. Consider discussing with your veterinarian.`,
+      priority,
+      status: 'active',
+      metadata: {
+        key: metadataKey,
+        marker,
+        occurrences: occurrences.length,
+        history: occurrences.slice(-3), // Keep last 3 for reference
+      },
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  return alerts
+}
+
+// ---------------------------------------------------------------------------
+// Rule: Imaging Follow-up Reminder
+// ---------------------------------------------------------------------------
+
+function generateImagingFollowupAlerts(dog, existingAlerts) {
+  const alerts = []
+  if (!dog?.id) return alerts
+
+  const xrays = LocalStorageService.getXrayAnalyses(dog.id) || []
+  if (xrays.length === 0) return alerts
+
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  for (const xray of xrays) {
+    // Check if X-ray has recommended follow-up views
+    const followUp = xray.additional_views_recommended || []
+    if (followUp.length === 0) continue
+
+    // Only alert for X-rays from the last 30 days
+    const xrayDate = new Date(xray.createdAt)
+    if (xrayDate < thirtyDaysAgo) continue
+
+    // Check if abnormal findings warrant follow-up
+    const hasAbnormalFindings = (xray.findings || []).some(
+      (f) => f.significance === 'abnormal' || f.significance === 'critical'
+    )
+    if (!hasAbnormalFindings && xray.overall_impression === 'normal') continue
+
+    const metadataKey = `imaging_followup:${xray.id}`
+    if (isDuplicate(existingAlerts, 'imaging_followup', metadataKey)) continue
+
+    const region = xray.body_region || 'unknown area'
+    const daysSinceXray = Math.floor((now - xrayDate) / (24 * 60 * 60 * 1000))
+
+    alerts.push({
+      id: makeId(),
+      dogId: dog.id,
+      type: 'imaging_followup',
+      title: `X-Ray Follow-up: ${region}`,
+      message: `Your ${region} X-ray from ${daysSinceXray} day(s) ago recommended additional views: ${followUp.join(', ')}. Discuss with your veterinarian.`,
+      priority: xray.overall_impression === 'critical' ? 'high' : 'medium',
+      status: 'active',
+      metadata: {
+        key: metadataKey,
+        xrayId: xray.id,
+        bodyRegion: region,
+        recommendedViews: followUp,
+        impression: xray.overall_impression,
+        xrayDate: xray.createdAt,
+      },
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  return alerts
+}
+
+// ---------------------------------------------------------------------------
+// Rule: Abnormal Lab Result Notification
+// ---------------------------------------------------------------------------
+
+function generateAbnormalLabAlerts(dog, existingAlerts) {
+  const alerts = []
+  if (!dog?.id) return alerts
+
+  // Check blood work for recent critical/concerning results
+  const bloodWork = LocalStorageService.getBloodWorkAnalyses(dog.id) || []
+  const labs = LocalStorageService.getLabAnalyses(dog.id) || []
+
+  const now = new Date()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  // Process recent blood work
+  for (const panel of bloodWork) {
+    const panelDate = new Date(panel.createdAt)
+    if (panelDate < sevenDaysAgo) continue
+
+    // Alert for concerning or critical overall assessment
+    if (panel.overall_assessment === 'concerning' || panel.overall_assessment === 'critical') {
+      const metadataKey = `abnormal_lab:bloodwork:${panel.id}`
+      if (isDuplicate(existingAlerts, 'abnormal_lab', metadataKey)) continue
+
+      const criticalValues = (panel.values || [])
+        .filter((v) => v.status === 'critical')
+        .map((v) => v.name)
+
+      alerts.push({
+        id: makeId(),
+        dogId: dog.id,
+        type: 'abnormal_lab',
+        title: 'Critical Blood Work Results',
+        message: criticalValues.length > 0
+          ? `Recent blood work shows critical values for: ${criticalValues.join(', ')}. Contact your veterinarian promptly.`
+          : `Recent blood work results are concerning. Review with your veterinarian.`,
+        priority: 'high',
+        status: 'active',
+        metadata: {
+          key: metadataKey,
+          labId: panel.id,
+          labType: 'blood_work',
+          assessment: panel.overall_assessment,
+          criticalValues,
+          abnormalCount: panel.abnormal_count || 0,
+          labDate: panel.createdAt,
+        },
+        createdAt: new Date().toISOString(),
+      })
+    }
+  }
+
+  // Process recent generic lab results
+  for (const lab of labs) {
+    const labDate = new Date(lab.createdAt)
+    if (labDate < sevenDaysAgo) continue
+
+    if (lab.overall_assessment === 'abnormal_urgent' || lab.overall_assessment === 'critical') {
+      const metadataKey = `abnormal_lab:${lab.lab_type}:${lab.id}`
+      if (isDuplicate(existingAlerts, 'abnormal_lab', metadataKey)) continue
+
+      const labType = lab.lab_type || 'lab test'
+
+      alerts.push({
+        id: makeId(),
+        dogId: dog.id,
+        type: 'abnormal_lab',
+        title: `Urgent ${labType} Results`,
+        message: `Recent ${labType} results require attention. Contact your veterinarian.`,
+        priority: 'high',
+        status: 'active',
+        metadata: {
+          key: metadataKey,
+          labId: lab.id,
+          labType: lab.lab_type,
+          assessment: lab.overall_assessment,
+          labDate: lab.createdAt,
+        },
+        createdAt: new Date().toISOString(),
+      })
+    }
+  }
+
+  // Check X-rays for critical findings
+  const xrays = LocalStorageService.getXrayAnalyses(dog.id) || []
+  for (const xray of xrays) {
+    const xrayDate = new Date(xray.createdAt)
+    if (xrayDate < sevenDaysAgo) continue
+
+    if (xray.overall_impression === 'critical') {
+      const metadataKey = `abnormal_lab:xray:${xray.id}`
+      if (isDuplicate(existingAlerts, 'abnormal_lab', metadataKey)) continue
+
+      const region = xray.body_region || 'X-ray'
+
+      alerts.push({
+        id: makeId(),
+        dogId: dog.id,
+        type: 'abnormal_lab',
+        title: `Critical ${region} X-Ray Findings`,
+        message: `Recent ${region} X-ray shows critical findings. Contact your veterinarian immediately.`,
+        priority: 'high',
+        status: 'active',
+        metadata: {
+          key: metadataKey,
+          labId: xray.id,
+          labType: 'xray',
+          bodyRegion: xray.body_region,
+          assessment: xray.overall_impression,
+          labDate: xray.createdAt,
+        },
+        createdAt: new Date().toISOString(),
+      })
+    }
+  }
+
+  return alerts
+}
+
+// ---------------------------------------------------------------------------
 // Main exports
 // ---------------------------------------------------------------------------
 
@@ -302,6 +544,21 @@ function generateAlerts({ dog, petFacts = [], patterns = [], existingAlerts = []
   // Weight trend alerts
   const weightAlerts = generateWeightTrendAlerts(dog, petFacts, allExisting)
   newAlerts.push(...weightAlerts)
+  allExisting.push(...weightAlerts)
+
+  // Lab trend alerts (recurring abnormal markers)
+  const labTrendAlerts = generateLabTrendAlerts(dog, allExisting)
+  newAlerts.push(...labTrendAlerts)
+  allExisting.push(...labTrendAlerts)
+
+  // Imaging follow-up alerts
+  const imagingAlerts = generateImagingFollowupAlerts(dog, allExisting)
+  newAlerts.push(...imagingAlerts)
+  allExisting.push(...imagingAlerts)
+
+  // Abnormal lab result alerts
+  const abnormalLabAlerts = generateAbnormalLabAlerts(dog, allExisting)
+  newAlerts.push(...abnormalLabAlerts)
 
   // Sort by priority (highest first)
   newAlerts.sort((a, b) => priorityRank(b.priority) - priorityRank(a.priority))

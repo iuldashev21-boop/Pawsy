@@ -89,7 +89,7 @@ function PostPaymentOnboarding({ dog, onComplete, onDismiss }) {
           className="text-xl font-bold text-[#2D2A26] mb-2"
           style={{ fontFamily: 'Nunito, sans-serif' }}
         >
-          Let&apos;s personalize {dog?.name || 'your dog'}&apos;s experience
+          Before we begin, let&apos;s complete {dog?.name || 'your dog'}&apos;s profile
         </h2>
         <p className="text-sm text-[#6B6B6B] mb-6" style={{ fontFamily: 'DM Sans, sans-serif' }}>
           A quick questionnaire to unlock the full power of Pawsy&apos;s health intelligence.

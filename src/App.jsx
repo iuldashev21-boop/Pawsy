@@ -27,7 +27,12 @@ const EmergencyVet = lazy(() => import('./pages/EmergencyVet'))
 const HealthTimeline = lazy(() => import('./pages/HealthTimeline'))
 const AlertsPage = lazy(() => import('./pages/AlertsPage'))
 const LabAnalysis = lazy(() => import('./pages/LabAnalysis'))
+const XrayAnalysis = lazy(() => import('./pages/XrayAnalysis'))
+const BloodWork = lazy(() => import('./pages/BloodWork'))
+const ClinicalProfile = lazy(() => import('./pages/ClinicalProfile'))
+const VetReports = lazy(() => import('./pages/VetReports'))
 const HealthHub = lazy(() => import('./pages/HealthHub'))
+const Medications = lazy(() => import('./pages/Medications'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
@@ -75,7 +80,12 @@ function App() {
                             <Route path="/health-timeline" element={<HealthTimeline />} />
                             <Route path="/alerts" element={<AlertsPage />} />
                             <Route path="/lab-analysis" element={<LabAnalysis />} />
+                            <Route path="/xray-analysis" element={<XrayAnalysis />} />
+                            <Route path="/blood-work" element={<BloodWork />} />
+                            <Route path="/clinical-profile" element={<ClinicalProfile />} />
+                            <Route path="/vet-reports" element={<VetReports />} />
                             <Route path="/health-hub" element={<HealthHub />} />
+                            <Route path="/medications" element={<Medications />} />
                           </Route>
 
                           <Route path="*" element={<NotFound />} />

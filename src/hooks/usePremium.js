@@ -46,6 +46,42 @@ function usePremium() {
     }
   }, [])
 
+  // Sync state when localStorage changes (from other hook instances or tabs)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      const premiumKey = getStorageKey()
+      const onboardingKey = getOnboardingKey()
+
+      if (e.key === premiumKey) {
+        setIsPremiumState(e.newValue === 'true')
+      }
+      if (e.key === onboardingKey) {
+        setOnboardingStatusState(e.newValue)
+      }
+    }
+
+    // Listen for custom event (same-tab sync) and storage event (cross-tab sync)
+    const handleCustomSync = (e) => {
+      const premiumKey = getStorageKey()
+      const onboardingKey = getOnboardingKey()
+
+      if (e.detail?.key === premiumKey) {
+        setIsPremiumState(e.detail.value === 'true')
+      }
+      if (e.detail?.key === onboardingKey) {
+        setOnboardingStatusState(e.detail.value)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('pawsy:premiumSync', handleCustomSync)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('pawsy:premiumSync', handleCustomSync)
+    }
+  }, [getStorageKey, getOnboardingKey])
+
   const setPremiumOnboardingPending = useCallback(() => {
     const key = getOnboardingKey()
     if (!key) return
@@ -54,6 +90,8 @@ function usePremium() {
     if (current === 'complete') return
     localStorage.setItem(key, 'pending')
     setOnboardingStatusState('pending')
+    // Dispatch sync event for same-tab hook instances
+    window.dispatchEvent(new CustomEvent('pawsy:premiumSync', { detail: { key, value: 'pending' } }))
   }, [getOnboardingKey])
 
   const completePremiumOnboarding = useCallback(() => {
@@ -61,6 +99,7 @@ function usePremium() {
     if (!key) return
     localStorage.setItem(key, 'complete')
     setOnboardingStatusState('complete')
+    window.dispatchEvent(new CustomEvent('pawsy:premiumSync', { detail: { key, value: 'complete' } }))
   }, [getOnboardingKey])
 
   const dismissPremiumOnboarding = useCallback(() => {
@@ -68,6 +107,7 @@ function usePremium() {
     if (!key) return
     localStorage.setItem(key, 'dismissed')
     setOnboardingStatusState('dismissed')
+    window.dispatchEvent(new CustomEvent('pawsy:premiumSync', { detail: { key, value: 'dismissed' } }))
   }, [getOnboardingKey])
 
   const setPremium = useCallback((value) => {
@@ -75,6 +115,8 @@ function usePremium() {
     if (!key) return
     localStorage.setItem(key, value ? 'true' : 'false')
     setIsPremiumState(value)
+    // Dispatch sync event for same-tab hook instances
+    window.dispatchEvent(new CustomEvent('pawsy:premiumSync', { detail: { key, value: value ? 'true' : 'false' } }))
 
     // Track "just upgraded" for transition animation
     if (value) {

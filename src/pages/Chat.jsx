@@ -9,9 +9,8 @@ import { useDog } from '../context/DogContext'
 import { useChat as useChatContext } from '../context/ChatContext'
 import { useUsage } from '../context/UsageContext'
 import { useOnboarding } from '../context/OnboardingContext'
-import { extractFactsFromMetadata } from '../services/ai/factExtractor'
-import { storageService } from '../services/storage'
 import { geminiService } from '../services/api/gemini'
+import { runChatAnalysis } from '../services/orchestrator/analysisOrchestrator'
 import { useChatSession } from '../hooks/useChatSession'
 import ChatBubble from '../components/chat/ChatBubble'
 import ChatInput from '../components/chat/ChatInput'
@@ -285,7 +284,7 @@ function Chat() {
     try {
       const history = messages.slice(-10)
       const healthEvents = activeDog ? getHealthEventsForDog(activeDog.id) : []
-      const response = await geminiService.chat(dogContext, content, history, photoContext, healthEvents, isPremium)
+      const response = await runChatAnalysis(dogContext, content, history, photoContext, healthEvents, isPremium)
 
       if (response.error) {
         const errorMsg = response.message || 'Something went wrong. Please try again.'
@@ -315,20 +314,7 @@ function Chat() {
         setEmergencySteps(response.emergency_steps)
       }
 
-      // Extract PetFacts from AI response metadata (Agent C)
-      if (activeDog?.id) {
-        const metadata = {
-          symptoms_mentioned: response.symptoms_mentioned || [],
-          possible_conditions: response.possible_conditions || [],
-          urgency_level: response.urgency_level || 'low',
-          recommended_actions: response.recommended_actions || [],
-          should_see_vet: response.should_see_vet || false,
-        }
-        const facts = extractFactsFromMetadata(metadata, activeDog.id, 'chat', userMessage.id)
-        for (const fact of facts) {
-          storageService.savePetFact(activeDog.id, fact)
-        }
-      }
+      // Fact extraction + alert checks handled by orchestrator
 
     } catch (err) {
       if (import.meta.env.DEV) console.error('Chat error:', err)
@@ -405,20 +391,8 @@ function Chat() {
         setSuggestedAction('see_vet')
       }
 
-      // Extract PetFacts from photo analysis (Agent C)
-      if (activeDog?.id) {
-        const photoMetadata = {
-          symptoms_mentioned: response.visible_symptoms || [],
-          possible_conditions: response.possible_conditions || [],
-          urgency_level: response.urgency_level || 'low',
-          recommended_actions: response.recommended_actions || [],
-          should_see_vet: response.should_see_vet || false,
-        }
-        const facts = extractFactsFromMetadata(photoMetadata, activeDog.id, 'photo', generateUUID())
-        for (const fact of facts) {
-          storageService.savePetFact(activeDog.id, fact)
-        }
-      }
+      // Fact extraction handled by orchestrator in dedicated photo analysis page
+      // In-chat photo analysis uses geminiService directly (no orchestrator pipeline)
 
     } catch (err) {
       if (import.meta.env.DEV) console.error('Photo analysis error:', err)

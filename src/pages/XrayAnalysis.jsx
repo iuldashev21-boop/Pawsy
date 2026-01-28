@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Dog, PawPrint, Lock } from 'lucide-react'
+import { ChevronLeft, Dog, PawPrint, Lock, Eye } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
 import { usePremium } from '../hooks/usePremium'
@@ -9,76 +9,72 @@ import { geminiService } from '../services/api/gemini'
 import LocalStorageService from '../services/storage/LocalStorageService'
 import { runLabAnalysis as orchestrateLab } from '../services/orchestrator/analysisOrchestrator'
 import LabUploader from '../components/lab/LabUploader'
-import LabResult from '../components/lab/LabResult'
-import LabGallery from '../components/lab/LabGallery'
+import XrayResult from '../components/xray/XrayResult'
+import XrayGallery from '../components/xray/XrayGallery'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import ErrorMessage from '../components/common/ErrorMessage'
 
-const LAB_TYPES = [
-  { id: 'blood_work', label: 'Blood Work (CBC / Chemistry)' },
-  { id: 'xray', label: 'X-Ray / Radiograph' },
-  { id: 'urinalysis', label: 'Urinalysis' },
-  { id: 'other', label: 'Other Lab Report' },
+const BODY_REGIONS = [
+  { id: 'thorax', label: 'Chest / Thorax' },
+  { id: 'abdomen', label: 'Abdomen' },
+  { id: 'limb', label: 'Limb / Extremity' },
+  { id: 'spine', label: 'Spine' },
+  { id: 'pelvis', label: 'Pelvis / Hip' },
+  { id: 'skull', label: 'Skull / Head' },
+  { id: 'whole_body', label: 'Whole Body' },
 ]
 
-function buildDemoResult(activeDog, labTypeLabel) {
+function buildDemoResult(activeDog, bodyRegion) {
   return {
-    is_lab_report: true,
-    detected_type: 'blood_work',
-    readability: 'clear',
-    readability_note: null,
-    values: [
-      { name: 'WBC', value: '12.5', unit: 'x10³/µL', reference_range: '5.5-16.9', status: 'normal', interpretation: 'White blood cell count within normal range.' },
-      { name: 'RBC', value: '7.2', unit: 'x10⁶/µL', reference_range: '5.5-8.5', status: 'normal', interpretation: 'Red blood cell count normal.' },
-      { name: 'ALT', value: '85', unit: 'U/L', reference_range: '10-125', status: 'normal', interpretation: 'Liver enzyme within normal limits.' },
-      { name: 'BUN', value: '32', unit: 'mg/dL', reference_range: '7-27', status: 'high', interpretation: 'Blood urea nitrogen slightly elevated. May indicate dehydration or early kidney concern.' },
+    is_xray: true,
+    detected_species: 'dog',
+    image_quality: 'good',
+    view_type: 'lateral',
+    body_region: bodyRegion || 'thorax',
+    overall_impression: 'normal',
+    findings: [
+      { structure: 'Heart', observation: 'Normal cardiac silhouette size and shape', significance: 'normal', location: 'midline' },
+      { structure: 'Lungs', observation: 'Clear lung fields, no infiltrates or masses', significance: 'normal', location: 'bilateral' },
+      { structure: 'Ribs', observation: 'All ribs intact, normal density', significance: 'normal', location: 'bilateral' },
     ],
-    overall_assessment: 'needs_attention',
-    summary: `${activeDog?.name || 'Your dog'}'s ${labTypeLabel || 'lab'} results show mostly normal values with one slightly elevated marker (BUN). This may warrant monitoring.`,
-    key_findings: [
-      'Most values within normal canine reference ranges',
-      'BUN slightly elevated at 32 mg/dL (normal: 7-27)',
-      'Liver and kidney enzymes otherwise normal',
-    ],
-    abnormal_count: 1,
-    possible_conditions: ['Mild dehydration', 'Early kidney changes'],
-    recommended_actions: [
-      'Ensure adequate water intake',
-      'Recheck BUN in 2-4 weeks',
-      'Discuss with veterinarian at next visit',
-    ],
-    additional_tests_suggested: ['SDMA (kidney marker)', 'Urinalysis for kidney function'],
-    should_see_vet: true,
-    vet_urgency: 'routine_checkup',
-    confidence: 'medium',
+    bone_assessment: 'All visible bones appear normal with appropriate density and alignment.',
+    soft_tissue_assessment: 'Soft tissue structures appear within normal limits.',
+    joint_assessment: 'Visible joint spaces appear normal.',
+    foreign_body_detected: false,
+    foreign_body_description: null,
+    differential_diagnoses: [],
+    additional_views_suggested: [],
+    recommended_actions: ['No immediate concerns identified', 'Continue routine health monitoring'],
+    summary: `${activeDog?.name || 'Your dog'}'s radiograph appears normal. Heart size, lung fields, and bony structures all look healthy.`,
+    confidence: 'high',
   }
 }
 
-function LabAnalysis() {
+function XrayAnalysis() {
   const { activeDog, dogs, loading: dogsLoading } = useDog()
   const { canPhoto, usePhoto: consumePhoto } = useUsage()
   const { isPremium } = usePremium()
   const navigate = useNavigate()
 
   const [file, setFile] = useState(null)
-  const [labType, setLabType] = useState(null)
+  const [bodyRegion, setBodyRegion] = useState(null)
   const [notes, setNotes] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState(null)
   const [pastAnalyses, setPastAnalyses] = useState(() =>
-    activeDog ? LocalStorageService.getLabAnalyses(activeDog.id) : []
+    activeDog ? LocalStorageService.getXrayAnalyses(activeDog.id) : []
   )
   const [selectedGalleryAnalysis, setSelectedGalleryAnalysis] = useState(null)
 
   const refreshPastAnalyses = useCallback(() => {
     if (activeDog) {
-      setPastAnalyses(LocalStorageService.getLabAnalyses(activeDog.id))
+      setPastAnalyses(LocalStorageService.getXrayAnalyses(activeDog.id))
     }
   }, [activeDog])
 
-  const selectedLabTypeLabel = LAB_TYPES.find(t => t.id === labType)?.label || labType
+  const selectedRegionLabel = BODY_REGIONS.find(r => r.id === bodyRegion)?.label || bodyRegion
 
   // Gate: Premium only
   if (!isPremium) {
@@ -92,7 +88,7 @@ function LabAnalysis() {
             Premium Feature
           </h2>
           <p className="text-sm text-[#6B6B6B] mb-4">
-            Lab Analysis is available to Premium subscribers. Upgrade to unlock AI-powered interpretation of X-rays, blood work, and lab reports.
+            X-Ray Analysis is available to Premium subscribers. Upgrade to unlock AI-powered radiograph interpretation.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('pawsy:openUpgrade'))}
@@ -122,7 +118,7 @@ function LabAnalysis() {
   }
 
   const handleAnalyze = async () => {
-    if (!file || !labType) return
+    if (!file || !bodyRegion) return
 
     if (!canPhoto) {
       setError('Daily analysis limit reached. Try again tomorrow.')
@@ -138,34 +134,42 @@ function LabAnalysis() {
 
       if (!geminiService.isConfigured()) {
         await new Promise(resolve => setTimeout(resolve, 3000))
-        result = buildDemoResult(activeDog, selectedLabTypeLabel)
+        result = buildDemoResult(activeDog, bodyRegion)
         // Demo mode: save locally without orchestrator
-        LocalStorageService.saveLabAnalysis(activeDog.id, {
+        LocalStorageService.saveXrayAnalysis(activeDog.id, {
           ...result,
-          labType: selectedLabTypeLabel,
+          bodyRegion: selectedRegionLabel,
           notes,
         })
       } else {
         // Orchestrator handles: AI call → save → fact extraction → alerts
+        // Pass 'X-Ray / Radiograph' as labType to route to specialized agent
         result = await orchestrateLab(
           activeDog,
           file.base64Data,
           file.mimeType,
-          selectedLabTypeLabel,
+          'X-Ray / Radiograph',
           notes
         )
 
         if (result.error) {
-          setError(result.message || 'Failed to analyze lab report. Please try again.')
+          setError(result.message || 'Failed to analyze X-ray. Please try again.')
           return
         }
+
+        // Save to X-ray specific storage
+        LocalStorageService.saveXrayAnalysis(activeDog.id, {
+          ...result,
+          bodyRegion: selectedRegionLabel,
+          notes,
+        })
       }
 
       setAnalysis(result)
       refreshPastAnalyses()
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Lab analysis error:', err)
-      setError('Failed to analyze lab report. Please try again.')
+      if (import.meta.env.DEV) console.error('X-ray analysis error:', err)
+      setError('Failed to analyze X-ray. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
@@ -173,7 +177,7 @@ function LabAnalysis() {
 
   const handleReset = () => {
     setFile(null)
-    setLabType(null)
+    setBodyRegion(null)
     setNotes('')
     setAnalysis(null)
     setError(null)
@@ -204,7 +208,7 @@ function LabAnalysis() {
               <PawsyMascot
                 mood={
                   isAnalyzing ? 'thinking' :
-                  analysis?.overall_assessment === 'concerning' ? 'concerned' :
+                  analysis?.overall_impression === 'critical' || analysis?.overall_impression === 'abnormal_urgent' ? 'concerned' :
                   analysis ? 'celebrating' :
                   file ? 'listening' :
                   'happy'
@@ -216,9 +220,9 @@ function LabAnalysis() {
                   className="text-lg font-bold text-[#3D3D3D]"
                   style={{ fontFamily: 'Nunito, sans-serif' }}
                 >
-                  Lab Analysis
+                  X-Ray Analysis
                 </h1>
-                <p className="text-xs text-[#6B6B6B]">AI-powered lab interpretation</p>
+                <p className="text-xs text-[#6B6B6B]">AI radiograph interpretation</p>
               </div>
             </div>
           </div>
@@ -251,7 +255,7 @@ function LabAnalysis() {
         {/* Show gallery-selected analysis */}
         {selectedGalleryAnalysis && !analysis && (
           <div className="space-y-4 mb-6">
-            <LabResult analysis={selectedGalleryAnalysis} onReset={() => setSelectedGalleryAnalysis(null)} />
+            <XrayResult analysis={selectedGalleryAnalysis} onReset={() => setSelectedGalleryAnalysis(null)} />
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -266,14 +270,14 @@ function LabAnalysis() {
         {/* Show analysis result */}
         {analysis ? (
           <div className="space-y-4">
-            <LabResult analysis={analysis} onReset={handleReset} />
+            <XrayResult analysis={analysis} onReset={handleReset} />
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleReset}
               className="w-full py-3 text-[#5FB3B3] font-semibold rounded-xl border-2 border-[#7EC8C8]/30 hover:bg-[#7EC8C8]/5 transition-colors"
             >
-              Analyze Another Report
+              Analyze Another X-Ray
             </motion.button>
           </div>
         ) : isAnalyzing ? (
@@ -281,14 +285,31 @@ function LabAnalysis() {
         ) : (
           /* Upload flow */
           <div className="space-y-6">
-            {/* Lab uploader */}
+            {/* Info card */}
+            <div className="bg-gradient-to-br from-[#E0F2F2] to-[#C8E8E8] rounded-2xl p-4 border border-[#7EC8C8]/20">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/50 flex items-center justify-center flex-shrink-0">
+                  <Eye className="w-5 h-5 text-[#5FB3B3]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2D2A26] mb-1" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                    X-Ray Analysis
+                  </h3>
+                  <p className="text-xs text-[#3D3D3D] leading-relaxed">
+                    Upload your dog's X-ray or radiograph for AI-powered interpretation. Our analysis covers bone structure, soft tissue, and potential abnormalities.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* X-ray uploader */}
             <LabUploader
               onFileSelect={setFile}
               selectedFile={file}
               onClear={() => setFile(null)}
             />
 
-            {/* Lab type selection */}
+            {/* Body region selection */}
             {file && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -299,21 +320,21 @@ function LabAnalysis() {
                   className="text-sm font-bold text-[#3D3D3D] mb-3"
                   style={{ fontFamily: 'Nunito, sans-serif' }}
                 >
-                  What type of report is this?
+                  What body region is shown?
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {LAB_TYPES.map((type) => (
+                  {BODY_REGIONS.map((region) => (
                     <motion.button
-                      key={type.id}
+                      key={region.id}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => setLabType(type.id)}
+                      onClick={() => setBodyRegion(region.id)}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        labType === type.id
+                        bodyRegion === region.id
                           ? 'bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white shadow-md'
                           : 'bg-[#FDF8F3] text-[#6B6B6B] border border-[#E8E8E8] hover:border-[#7EC8C8]/30'
                       }`}
                     >
-                      {type.label}
+                      {region.label}
                     </motion.button>
                   ))}
                 </div>
@@ -321,7 +342,7 @@ function LabAnalysis() {
             )}
 
             {/* Notes */}
-            {file && labType && (
+            {file && bodyRegion && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -331,12 +352,12 @@ function LabAnalysis() {
                   className="text-sm font-bold text-[#3D3D3D] mb-3"
                   style={{ fontFamily: 'Nunito, sans-serif' }}
                 >
-                  Additional context (optional)
+                  Clinical context (optional)
                 </h3>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="E.g., pre-surgery blood panel, routine checkup, investigating lethargy..."
+                  placeholder="E.g., post-injury evaluation, checking for hip dysplasia, pre-surgery assessment..."
                   rows={3}
                   className="w-full px-4 py-3 bg-[#FDF8F3] border-2 border-[#E8E8E8] rounded-xl text-[#3D3D3D] placeholder:text-[#9E9E9E] focus:border-[#7EC8C8]/40 focus:outline-none transition-colors resize-none text-sm"
                 />
@@ -344,7 +365,7 @@ function LabAnalysis() {
             )}
 
             {/* Analyze button */}
-            {file && labType && (
+            {file && bodyRegion && (
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -354,7 +375,7 @@ function LabAnalysis() {
                 className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-shadow"
               >
                 <PawPrint className="w-5 h-5" />
-                Analyze Report
+                Analyze X-Ray
               </motion.button>
             )}
 
@@ -373,7 +394,7 @@ function LabAnalysis() {
         {/* Past Analyses Gallery */}
         {!selectedGalleryAnalysis && (
           <div className="mt-8">
-            <LabGallery
+            <XrayGallery
               analyses={pastAnalyses}
               onSelect={handleGallerySelect}
             />
@@ -384,4 +405,4 @@ function LabAnalysis() {
   )
 }
 
-export default LabAnalysis
+export default XrayAnalysis

@@ -5,10 +5,29 @@ import {
   getMockDelay,
   getMockChatResponse,
   getMockPhotoResponse,
-  getMockErrorResponse
+  getMockErrorResponse,
+  getMockLabResponse
 } from '../dev/mockResponses'
 import { buildAIContext } from '../ai/contextBuilder'
 import LocalStorageService from '../storage/LocalStorageService'
+import {
+  buildXrayAnalysisSystemPrompt,
+  buildBloodWorkAnalysisSystemPrompt,
+  buildUrinalysisAnalysisSystemPrompt,
+} from '../prompts/labPrompts'
+import {
+  xrayAnalysisSchema,
+  bloodWorkAnalysisSchema,
+  urinalysisAnalysisSchema,
+} from '../prompts/labSchemas'
+import {
+  buildClinicalProfileSystemPrompt,
+  clinicalProfileSchema,
+} from '../prompts/clinicalProfilePrompts'
+import {
+  buildVetReportSystemPrompt,
+  vetReportSchema,
+} from '../prompts/vetReportPrompts'
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY
 
@@ -620,6 +639,358 @@ function parseLabAnalysisResponse(text, fallbackSummary = '') {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Specialized Lab Response Parsers (Phase 3)
+// ---------------------------------------------------------------------------
+
+function parseXrayAnalysisResponse(text) {
+  const defaults = {
+    error: false,
+    is_xray: true,
+    detected_species: 'dog',
+    image_quality: 'acceptable',
+    view_type: 'unknown',
+    body_region: 'unknown',
+    overall_impression: 'normal',
+    findings: [],
+    bone_assessment: null,
+    soft_tissue_assessment: null,
+    joint_assessment: null,
+    foreign_body_detected: false,
+    foreign_body_description: null,
+    differential_diagnoses: [],
+    additional_views_suggested: [],
+    recommended_actions: ['Discuss these findings with your veterinarian'],
+    summary: 'X-ray analysis complete.',
+    confidence: 'medium',
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      is_xray: ensureBool(parsed.is_xray, true),
+      detected_species: ensureString(parsed.detected_species, 'dog'),
+      image_quality: ensureString(parsed.image_quality, 'acceptable'),
+      view_type: ensureString(parsed.view_type, 'unknown'),
+      body_region: ensureString(parsed.body_region, 'unknown'),
+      overall_impression: ensureString(parsed.overall_impression, 'normal'),
+      findings: ensureArray(parsed.findings),
+      bone_assessment: ensureStringOrNull(parsed.bone_assessment),
+      soft_tissue_assessment: ensureStringOrNull(parsed.soft_tissue_assessment),
+      joint_assessment: ensureStringOrNull(parsed.joint_assessment),
+      foreign_body_detected: ensureBool(parsed.foreign_body_detected, false),
+      foreign_body_description: ensureStringOrNull(parsed.foreign_body_description),
+      differential_diagnoses: ensureArray(parsed.differential_diagnoses),
+      additional_views_suggested: ensureArray(parsed.additional_views_suggested),
+      recommended_actions: ensureArray(parsed.recommended_actions).length > 0 ? parsed.recommended_actions : defaults.recommended_actions,
+      summary: ensureString(parsed.summary, defaults.summary),
+      confidence: ensureString(parsed.confidence, 'medium'),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function parseBloodWorkAnalysisResponse(text) {
+  const defaults = {
+    error: false,
+    is_blood_work: true,
+    detected_panel_type: 'other',
+    readability: 'partial',
+    values: [],
+    organ_system_summary: [],
+    medication_interactions: [],
+    abnormal_count: 0,
+    overall_assessment: 'needs_attention',
+    key_findings: [],
+    possible_conditions: [],
+    recommended_actions: ['Discuss these results with your veterinarian'],
+    summary: 'Blood work analysis complete.',
+    confidence: 'medium',
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      is_blood_work: ensureBool(parsed.is_blood_work, true),
+      detected_panel_type: ensureString(parsed.detected_panel_type, 'other'),
+      readability: ensureString(parsed.readability, 'partial'),
+      values: ensureArray(parsed.values),
+      organ_system_summary: ensureArray(parsed.organ_system_summary),
+      medication_interactions: ensureArray(parsed.medication_interactions),
+      abnormal_count: typeof parsed.abnormal_count === 'number' ? parsed.abnormal_count : 0,
+      overall_assessment: ensureString(parsed.overall_assessment, 'needs_attention'),
+      key_findings: ensureArray(parsed.key_findings),
+      possible_conditions: ensureArray(parsed.possible_conditions),
+      recommended_actions: ensureArray(parsed.recommended_actions).length > 0 ? parsed.recommended_actions : defaults.recommended_actions,
+      summary: ensureString(parsed.summary, defaults.summary),
+      confidence: ensureString(parsed.confidence, 'medium'),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function parseUrinalysisAnalysisResponse(text) {
+  const defaults = {
+    error: false,
+    is_urinalysis: true,
+    readability: 'partial',
+    physical_properties: null,
+    chemical_analysis: [],
+    sediment_findings: [],
+    hydration_assessment: null,
+    infection_indicators: false,
+    overall_assessment: 'needs_attention',
+    key_findings: [],
+    possible_conditions: [],
+    recommended_actions: ['Discuss these results with your veterinarian'],
+    summary: 'Urinalysis complete.',
+    confidence: 'medium',
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      is_urinalysis: ensureBool(parsed.is_urinalysis, true),
+      readability: ensureString(parsed.readability, 'partial'),
+      physical_properties: parsed.physical_properties || null,
+      chemical_analysis: ensureArray(parsed.chemical_analysis),
+      sediment_findings: ensureArray(parsed.sediment_findings),
+      hydration_assessment: ensureStringOrNull(parsed.hydration_assessment),
+      infection_indicators: ensureBool(parsed.infection_indicators, false),
+      overall_assessment: ensureString(parsed.overall_assessment, 'needs_attention'),
+      key_findings: ensureArray(parsed.key_findings),
+      possible_conditions: ensureArray(parsed.possible_conditions),
+      recommended_actions: ensureArray(parsed.recommended_actions).length > 0 ? parsed.recommended_actions : defaults.recommended_actions,
+      summary: ensureString(parsed.summary, defaults.summary),
+      confidence: ensureString(parsed.confidence, 'medium'),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function parseClinicalProfileResponse(text, dog) {
+  const defaults = {
+    error: false,
+    overview: `${dog?.name || 'Your dog'}'s clinical profile is being generated.`,
+    health_score: 'good',
+    active_concerns: [],
+    recent_diagnostics_summary: 'No recent diagnostic data available.',
+    chronic_management: 'No ongoing conditions tracked.',
+    breed_considerations: '',
+    positive_indicators: [],
+    recommendations: ['Continue regular veterinary checkups'],
+    upcoming_care: [],
+    confidence: 'low',
+    data_quality_notes: 'Limited data available for comprehensive assessment.',
+    generated_at: new Date().toISOString(),
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      overview: ensureString(parsed.overview, defaults.overview),
+      health_score: ensureString(parsed.health_score, 'good'),
+      active_concerns: ensureArray(parsed.active_concerns),
+      recent_diagnostics_summary: ensureString(parsed.recent_diagnostics_summary, defaults.recent_diagnostics_summary),
+      chronic_management: ensureString(parsed.chronic_management, defaults.chronic_management),
+      breed_considerations: ensureString(parsed.breed_considerations, ''),
+      positive_indicators: ensureArray(parsed.positive_indicators),
+      recommendations: ensureArray(parsed.recommendations).length > 0 ? parsed.recommendations : defaults.recommendations,
+      upcoming_care: ensureArray(parsed.upcoming_care),
+      confidence: ensureString(parsed.confidence, 'medium'),
+      data_quality_notes: ensureString(parsed.data_quality_notes, ''),
+      generated_at: new Date().toISOString(),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function getMockClinicalProfile(dog) {
+  const dogName = dog?.name || 'Your dog'
+  return {
+    error: false,
+    overview: `${dogName} is a generally healthy ${dog?.breed || 'dog'} with good vitals and activity levels. Recent health monitoring shows consistent patterns with no major concerns detected.`,
+    health_score: 'good',
+    active_concerns: [
+      {
+        concern: 'Seasonal allergies',
+        severity: 'low',
+        details: 'Mild seasonal itching noted, common for the breed during spring months.',
+        recommendation: 'Monitor for worsening symptoms; antihistamines may help if needed.'
+      }
+    ],
+    recent_diagnostics_summary: 'Most recent blood work (demo) showed all values within normal ranges. No imaging studies on file.',
+    chronic_management: dog?.medications?.length > 0
+      ? `Currently managing with: ${dog.medications.join(', ')}`
+      : 'No ongoing medications or chronic conditions tracked.',
+    breed_considerations: dog?.breed
+      ? `As a ${dog.breed}, monitor for breed-typical health concerns. Regular checkups recommended.`
+      : 'Breed-specific considerations not available without breed information.',
+    positive_indicators: [
+      'Good appetite reported in recent observations',
+      'Consistent activity levels',
+      'No concerning symptoms in recent health history'
+    ],
+    recommendations: [
+      'Continue regular veterinary checkups',
+      'Maintain current diet and exercise routine',
+      'Update vaccinations at next annual visit',
+      'Monitor seasonal allergy symptoms',
+      'Consider dental cleaning if not done recently'
+    ],
+    upcoming_care: [
+      { item: 'Annual wellness exam', timeframe: 'Within 6 months', priority: 'routine' },
+      { item: 'Heartworm prevention renewal', timeframe: 'Check current supply', priority: 'routine' }
+    ],
+    confidence: 'medium',
+    data_quality_notes: 'This is a demo profile. Connect to real health data for accurate assessment.',
+    generated_at: new Date().toISOString(),
+  }
+}
+
+function parseVetReportResponse(text, dog, dateRange) {
+  const defaults = {
+    error: false,
+    patient_header: {
+      name: dog?.name || 'Patient',
+      species: 'Canine',
+      breed: dog?.breed || 'Unknown',
+      age: 'Unknown',
+      weight: dog?.weight ? `${dog.weight} ${dog.weightUnit || 'lbs'}` : 'Not recorded',
+      sex: dog?.sex || dog?.gender || 'Unknown',
+    },
+    report_date: new Date().toISOString(),
+    report_period: dateRange ? `${dateRange.start} to ${dateRange.end}` : 'All available data',
+    subjective: {
+      chief_concerns: [],
+      history: 'No history available.',
+      behavioral_notes: '',
+    },
+    objective: {
+      current_medications: [],
+      laboratory_findings: [],
+      imaging_findings: [],
+      allergies: dog?.allergies || [],
+    },
+    assessment: {
+      problem_list: [],
+      clinical_impression: 'Insufficient data for clinical assessment.',
+      differentials: [],
+    },
+    plan: {
+      follow_up: ['Schedule wellness examination'],
+      monitoring: [],
+      owner_instructions: [],
+    },
+    data_sources: ['AI-generated summary from available health records'],
+    ai_disclosure: 'This report was generated by AI and is intended for informational purposes only. It is not a substitute for professional veterinary examination and diagnosis.',
+    generated_at: new Date().toISOString(),
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJsonText(text))
+    return {
+      error: false,
+      patient_header: parsed.patient_header || defaults.patient_header,
+      report_date: ensureString(parsed.report_date, defaults.report_date),
+      report_period: ensureString(parsed.report_period, defaults.report_period),
+      subjective: parsed.subjective || defaults.subjective,
+      objective: parsed.objective || defaults.objective,
+      assessment: parsed.assessment || defaults.assessment,
+      plan: parsed.plan || defaults.plan,
+      data_sources: ensureArray(parsed.data_sources).length > 0 ? parsed.data_sources : defaults.data_sources,
+      ai_disclosure: ensureString(parsed.ai_disclosure, defaults.ai_disclosure),
+      generated_at: new Date().toISOString(),
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function getMockVetReport(dog, dateRange) {
+  const dogName = dog?.name || 'Patient'
+  const today = new Date().toLocaleDateString()
+
+  return {
+    error: false,
+    patient_header: {
+      name: dogName,
+      species: 'Canine',
+      breed: dog?.breed || 'Mixed Breed',
+      age: '4 years',
+      weight: dog?.weight ? `${dog.weight} ${dog.weightUnit || 'lbs'}` : '55 lbs',
+      sex: dog?.sex || dog?.gender || 'Male, Neutered',
+    },
+    report_date: new Date().toISOString(),
+    report_period: dateRange ? `${dateRange.start} to ${dateRange.end}` : 'Last 90 days',
+    subjective: {
+      chief_concerns: ['Routine wellness monitoring', 'Seasonal allergy management'],
+      history: `${dogName} is a well-cared-for ${dog?.breed || 'canine'} with a history of mild seasonal allergies. Owner reports good appetite, normal activity levels, and regular exercise. No recent trauma or illness reported.`,
+      behavioral_notes: 'Alert and active per owner report. Normal temperament observed.',
+    },
+    objective: {
+      current_medications: dog?.medications?.length > 0
+        ? dog.medications.map(m => ({
+            medication: typeof m === 'string' ? m : m.name,
+            dosage: typeof m === 'string' ? 'As prescribed' : (m.dosage || 'As prescribed'),
+            indication: 'Per veterinary prescription',
+          }))
+        : [],
+      laboratory_findings: [
+        {
+          test_date: today,
+          test_type: 'CBC + Chemistry (Demo)',
+          summary: 'All values within normal reference ranges',
+          abnormal_values: [],
+        },
+      ],
+      imaging_findings: [],
+      allergies: dog?.allergies || ['NKDA'],
+    },
+    assessment: {
+      problem_list: [
+        {
+          problem: 'Seasonal environmental allergies',
+          status: 'stable',
+          onset: 'Chronic, managed',
+        },
+      ],
+      clinical_impression: `${dogName} appears to be in good overall health based on available data. Seasonal allergies are well-managed. No acute concerns identified at this time.`,
+      differentials: [],
+    },
+    plan: {
+      follow_up: [
+        'Annual wellness examination due within 6 months',
+        'Dental evaluation recommended at next visit',
+      ],
+      monitoring: [
+        'Continue monitoring for seasonal allergy symptoms',
+        'Weight management - maintain current healthy weight',
+      ],
+      owner_instructions: [
+        'Continue current diet and exercise regimen',
+        'Administer preventatives as prescribed',
+        'Contact clinic if any new symptoms develop',
+      ],
+    },
+    data_sources: [
+      'Owner-reported history (via Pawsy app)',
+      'AI analysis of uploaded lab results (demo mode)',
+      'Health observations recorded in app',
+    ],
+    ai_disclosure: 'This report was generated by Pawsy AI and is intended for informational purposes only. It should not replace professional veterinary examination, diagnosis, or treatment. All clinical decisions should be made by a licensed veterinarian based on physical examination and diagnostic testing.',
+    generated_at: new Date().toISOString(),
+  }
+}
+
 function buildChatHistory(history) {
   const validHistory = history.filter(msg => msg.role === 'user' || msg.role === 'assistant')
   const firstUserIndex = validHistory.findIndex(msg => msg.role === 'user')
@@ -764,14 +1135,130 @@ export const geminiService = {
   },
 
   async analyzeLab(imageBase64, mimeType, dog, labType = '', notes = '') {
-    if (isMockModeEnabled()) return handleMockMode(getMockPhotoResponse)
+    if (isMockModeEnabled()) return handleMockMode((scenario) => getMockLabResponse(scenario, labType))
 
     const ai = getGenAI()
     if (!ai) {
       throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
     }
 
+    // Route to specialized agent based on lab type
+    const labTypeLower = labType.toLowerCase()
+    if (labTypeLower.includes('x-ray') || labTypeLower.includes('xray') || labTypeLower.includes('radiograph')) {
+      return this._executeXrayAnalysis(ai, PRIMARY_MODEL, imageBase64, mimeType, dog, notes)
+    }
+    if (labTypeLower.includes('blood') || labTypeLower.includes('cbc') || labTypeLower.includes('chemistry')) {
+      return this._executeBloodWorkAnalysis(ai, PRIMARY_MODEL, imageBase64, mimeType, dog, notes)
+    }
+    if (labTypeLower.includes('urin')) {
+      return this._executeUrinalysisAnalysis(ai, PRIMARY_MODEL, imageBase64, mimeType, dog, notes)
+    }
+
+    // Fallback to generic lab analysis
     return this._executeLabAnalysis(ai, PRIMARY_MODEL, imageBase64, mimeType, dog, labType, notes)
+  },
+
+  // ---------------------------------------------------------------------------
+  // Specialized Lab Analysis Methods (Phase 3)
+  // ---------------------------------------------------------------------------
+
+  async _executeXrayAnalysis(ai, modelName, imageBase64, mimeType, dog, notes) {
+    try {
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: xrayAnalysisSchema,
+        },
+        systemInstruction: buildXrayAnalysisSystemPrompt(dog, notes),
+      })
+
+      const result = await withRetry(() => withTimeout(model.generateContent([
+        { inlineData: { mimeType, data: imageBase64 } },
+        { text: 'Analyze this radiograph/X-ray. Follow the instructions in the system prompt.' }
+      ])))
+
+      const response = result.response
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
+      }
+
+      const text = response.text()
+      return parseXrayAnalysisResponse(text)
+    } catch (error) {
+      if (import.meta.env.DEV) console.error(`Gemini X-ray Analysis Error (${modelName}):`, error)
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeXrayAnalysis(ai, FALLBACK_MODEL, imageBase64, mimeType, dog, notes)
+      }
+      return handleGeminiError(error, null)
+    }
+  },
+
+  async _executeBloodWorkAnalysis(ai, modelName, imageBase64, mimeType, dog, notes) {
+    try {
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: bloodWorkAnalysisSchema,
+        },
+        systemInstruction: buildBloodWorkAnalysisSystemPrompt(dog, notes),
+      })
+
+      const result = await withRetry(() => withTimeout(model.generateContent([
+        { inlineData: { mimeType, data: imageBase64 } },
+        { text: 'Analyze this blood work panel. Follow the instructions in the system prompt.' }
+      ])))
+
+      const response = result.response
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
+      }
+
+      const text = response.text()
+      return parseBloodWorkAnalysisResponse(text)
+    } catch (error) {
+      if (import.meta.env.DEV) console.error(`Gemini Blood Work Analysis Error (${modelName}):`, error)
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeBloodWorkAnalysis(ai, FALLBACK_MODEL, imageBase64, mimeType, dog, notes)
+      }
+      return handleGeminiError(error, null)
+    }
+  },
+
+  async _executeUrinalysisAnalysis(ai, modelName, imageBase64, mimeType, dog, notes) {
+    try {
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          ...generationConfig,
+          responseMimeType: "application/json",
+          responseSchema: urinalysisAnalysisSchema,
+        },
+        systemInstruction: buildUrinalysisAnalysisSystemPrompt(dog, notes),
+      })
+
+      const result = await withRetry(() => withTimeout(model.generateContent([
+        { inlineData: { mimeType, data: imageBase64 } },
+        { text: 'Analyze this urinalysis report. Follow the instructions in the system prompt.' }
+      ])))
+
+      const response = result.response
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
+      }
+
+      const text = response.text()
+      return parseUrinalysisAnalysisResponse(text)
+    } catch (error) {
+      if (import.meta.env.DEV) console.error(`Gemini Urinalysis Analysis Error (${modelName}):`, error)
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeUrinalysisAnalysis(ai, FALLBACK_MODEL, imageBase64, mimeType, dog, notes)
+      }
+      return handleGeminiError(error, null)
+    }
   },
 
   async _executeLabAnalysis(ai, modelName, imageBase64, mimeType, dog, labType, notes) {
@@ -846,6 +1333,114 @@ export const geminiService = {
       }
     } catch (error) {
       if (import.meta.env.DEV) console.error('Gemini Stream Error:', error)
+      return handleGeminiError(error, null)
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Clinical Profile Generation (Phase 7)
+  // ---------------------------------------------------------------------------
+
+  async generateClinicalProfile(dog, healthData) {
+    if (isMockModeEnabled()) {
+      await new Promise(resolve => setTimeout(resolve, getMockDelay()))
+      return getMockClinicalProfile(dog)
+    }
+
+    const ai = getGenAI()
+    if (!ai) {
+      throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
+    }
+
+    return this._executeClinicalProfile(ai, PRIMARY_MODEL, dog, healthData)
+  },
+
+  async _executeClinicalProfile(ai, modelName, dog, healthData) {
+    try {
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          ...generationConfig,
+          maxOutputTokens: 4096, // Larger output for comprehensive profile
+          responseMimeType: "application/json",
+          responseSchema: clinicalProfileSchema,
+        },
+        systemInstruction: buildClinicalProfileSystemPrompt(dog, healthData),
+      })
+
+      const result = await withRetry(() => withTimeout(
+        model.generateContent('Generate a comprehensive clinical profile for this dog based on all available health data.'),
+        60000 // 60 second timeout for larger response
+      ))
+
+      const response = result.response
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
+      }
+
+      const text = response.text()
+      return parseClinicalProfileResponse(text, dog)
+    } catch (error) {
+      if (import.meta.env.DEV) console.error(`Gemini Clinical Profile Error (${modelName}):`, error)
+
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeClinicalProfile(ai, FALLBACK_MODEL, dog, healthData)
+      }
+
+      return handleGeminiError(error, null)
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Vet Report Generation (Phase 8)
+  // ---------------------------------------------------------------------------
+
+  async generateVetReport(dog, healthData, dateRange = null) {
+    if (isMockModeEnabled()) {
+      await new Promise(resolve => setTimeout(resolve, getMockDelay()))
+      return getMockVetReport(dog, dateRange)
+    }
+
+    const ai = getGenAI()
+    if (!ai) {
+      throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file.')
+    }
+
+    return this._executeVetReport(ai, PRIMARY_MODEL, dog, healthData, dateRange)
+  },
+
+  async _executeVetReport(ai, modelName, dog, healthData, dateRange) {
+    try {
+      const model = ai.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          ...generationConfig,
+          maxOutputTokens: 4096, // Larger output for comprehensive report
+          responseMimeType: "application/json",
+          responseSchema: vetReportSchema,
+        },
+        systemInstruction: buildVetReportSystemPrompt(dog, healthData, dateRange),
+      })
+
+      const result = await withRetry(() => withTimeout(
+        model.generateContent('Generate a professional veterinary report based on all available health data.'),
+        60000 // 60 second timeout for larger response
+      ))
+
+      const response = result.response
+      if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        return handleGeminiError(null, response)
+      }
+
+      const text = response.text()
+      return parseVetReportResponse(text, dog, dateRange)
+    } catch (error) {
+      if (import.meta.env.DEV) console.error(`Gemini Vet Report Error (${modelName}):`, error)
+
+      if (modelName === PRIMARY_MODEL && (error.message?.includes('not found') || error.message?.includes('404'))) {
+        return this._executeVetReport(ai, FALLBACK_MODEL, dog, healthData, dateRange)
+      }
+
       return handleGeminiError(error, null)
     }
   }

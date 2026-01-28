@@ -11,7 +11,14 @@ function UpgradeFlowProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false)
   const [showPostPaymentOnboarding, setShowPostPaymentOnboarding] = useState(false)
   const { activeDog, updateDog } = useDog()
-  const { onboardingPending, completePremiumOnboarding, dismissPremiumOnboarding } = usePremium()
+  const { onboardingPending, completePremiumOnboarding, dismissPremiumOnboarding, setPremium } = usePremium()
+
+  // Handle purchase - called from PremiumUpgradeFlow when user completes purchase
+  // This ensures we use the SAME usePremium hook instance for setting premium
+  // and checking onboardingPending (fixes stale closure issue)
+  const handlePurchase = useCallback(() => {
+    setPremium(true)
+  }, [setPremium])
 
   const openUpgradeFlow = useCallback(() => setIsOpen(true), [])
 
@@ -79,6 +86,7 @@ function UpgradeFlowProvider({ children }) {
       <PremiumUpgradeFlow
         isOpen={isOpen}
         onClose={closeUpgradeFlow}
+        onPurchase={handlePurchase}
         dogName={activeDog?.name || ''}
       />
 

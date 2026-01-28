@@ -7,6 +7,7 @@ import { useUsage } from '../context/UsageContext'
 import { useOnboarding } from '../context/OnboardingContext'
 import { geminiService } from '../services/api/gemini'
 import LocalStorageService from '../services/storage/LocalStorageService'
+import { runPhotoAnalysis as orchestratePhoto } from '../services/orchestrator/analysisOrchestrator'
 import PhotoUploader from '../components/photo/PhotoUploader'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import AnalysisResult from '../components/photo/AnalysisResult'
@@ -139,32 +140,30 @@ function PhotoAnalysis() {
       if (!geminiService.isConfigured()) {
         await new Promise(resolve => setTimeout(resolve, 3000))
         result = buildDemoResult(activeDog, selectedAreaLabel)
+        // Demo mode: save locally without orchestrator
+        LocalStorageService.savePhotoAnalysis(activeDog.id, {
+          ...result,
+          bodyArea: selectedAreaLabel,
+          body_area: selectedAreaLabel,
+          description,
+        })
       } else {
-        const response = await geminiService.analyzePhoto(
+        // Orchestrator handles: AI call → save → fact extraction → alerts
+        result = await orchestratePhoto(
+          activeDog,
           photo.base64Data,
           photo.mimeType,
-          activeDog,
           selectedAreaLabel,
           description
         )
 
-        if (response.error) {
-          setError(response.message || 'Failed to analyze photo. Please try again.')
+        if (result.error) {
+          setError(result.message || 'Failed to analyze photo. Please try again.')
           return
         }
-
-        result = response
       }
 
       setAnalysis(result)
-
-      // Persist to localStorage (strips base64 fields automatically)
-      LocalStorageService.savePhotoAnalysis(activeDog.id, {
-        ...result,
-        bodyArea: selectedAreaLabel,
-        body_area: selectedAreaLabel,
-        description,
-      })
       refreshPastAnalyses()
 
       if (!progress.firstPhoto) {

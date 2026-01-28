@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Dog, PawPrint, Lock } from 'lucide-react'
+import { ChevronLeft, Dog, PawPrint, Lock, TestTube2 } from 'lucide-react'
 import { useDog } from '../context/DogContext'
 import { useUsage } from '../context/UsageContext'
 import { usePremium } from '../hooks/usePremium'
@@ -9,76 +9,71 @@ import { geminiService } from '../services/api/gemini'
 import LocalStorageService from '../services/storage/LocalStorageService'
 import { runLabAnalysis as orchestrateLab } from '../services/orchestrator/analysisOrchestrator'
 import LabUploader from '../components/lab/LabUploader'
-import LabResult from '../components/lab/LabResult'
-import LabGallery from '../components/lab/LabGallery'
+import BloodWorkResult from '../components/blood/BloodWorkResult'
+import BloodWorkGallery from '../components/blood/BloodWorkGallery'
 import ScanAnimation from '../components/photo/ScanAnimation'
 import PawsyMascot from '../components/mascot/PawsyMascot'
 import ErrorMessage from '../components/common/ErrorMessage'
 
-const LAB_TYPES = [
-  { id: 'blood_work', label: 'Blood Work (CBC / Chemistry)' },
-  { id: 'xray', label: 'X-Ray / Radiograph' },
-  { id: 'urinalysis', label: 'Urinalysis' },
-  { id: 'other', label: 'Other Lab Report' },
-]
-
-function buildDemoResult(activeDog, labTypeLabel) {
+function buildDemoResult(activeDog) {
   return {
-    is_lab_report: true,
-    detected_type: 'blood_work',
+    is_blood_work: true,
+    detected_panel_type: 'CBC_and_chemistry',
     readability: 'clear',
-    readability_note: null,
     values: [
-      { name: 'WBC', value: '12.5', unit: 'x10³/µL', reference_range: '5.5-16.9', status: 'normal', interpretation: 'White blood cell count within normal range.' },
-      { name: 'RBC', value: '7.2', unit: 'x10⁶/µL', reference_range: '5.5-8.5', status: 'normal', interpretation: 'Red blood cell count normal.' },
-      { name: 'ALT', value: '85', unit: 'U/L', reference_range: '10-125', status: 'normal', interpretation: 'Liver enzyme within normal limits.' },
-      { name: 'BUN', value: '32', unit: 'mg/dL', reference_range: '7-27', status: 'high', interpretation: 'Blood urea nitrogen slightly elevated. May indicate dehydration or early kidney concern.' },
+      { name: 'RBC', value: '6.8', unit: 'M/uL', reference_range: '5.5-8.5', status: 'normal', category: 'RBC', interpretation: 'Normal red blood cell count' },
+      { name: 'WBC', value: '11.2', unit: 'K/uL', reference_range: '5.5-16.9', status: 'normal', category: 'WBC', interpretation: 'Normal white blood cell count' },
+      { name: 'HCT', value: '45', unit: '%', reference_range: '37-55', status: 'normal', category: 'RBC', interpretation: 'Normal packed cell volume' },
+      { name: 'ALT', value: '42', unit: 'U/L', reference_range: '10-125', status: 'normal', category: 'liver', interpretation: 'Liver enzyme within normal range' },
+      { name: 'BUN', value: '32', unit: 'mg/dL', reference_range: '7-27', status: 'high', category: 'kidney', interpretation: 'Elevated BUN may indicate dehydration or kidney function changes' },
+      { name: 'Creatinine', value: '1.1', unit: 'mg/dL', reference_range: '0.5-1.8', status: 'normal', category: 'kidney', interpretation: 'Normal kidney function' },
     ],
+    organ_system_summary: [
+      { system: 'Red Blood Cells', status: 'normal', notes: 'All RBC parameters within normal limits' },
+      { system: 'White Blood Cells', status: 'normal', notes: 'WBC count normal' },
+      { system: 'Liver', status: 'normal', notes: 'Liver enzymes normal' },
+      { system: 'Kidney', status: 'needs_attention', notes: 'BUN slightly elevated, creatinine normal' },
+    ],
+    medication_interactions: [],
+    abnormal_count: 1,
     overall_assessment: 'needs_attention',
-    summary: `${activeDog?.name || 'Your dog'}'s ${labTypeLabel || 'lab'} results show mostly normal values with one slightly elevated marker (BUN). This may warrant monitoring.`,
     key_findings: [
       'Most values within normal canine reference ranges',
       'BUN slightly elevated at 32 mg/dL (normal: 7-27)',
       'Liver and kidney enzymes otherwise normal',
     ],
-    abnormal_count: 1,
     possible_conditions: ['Mild dehydration', 'Early kidney changes'],
     recommended_actions: [
       'Ensure adequate water intake',
       'Recheck BUN in 2-4 weeks',
       'Discuss with veterinarian at next visit',
     ],
-    additional_tests_suggested: ['SDMA (kidney marker)', 'Urinalysis for kidney function'],
-    should_see_vet: true,
-    vet_urgency: 'routine_checkup',
-    confidence: 'medium',
+    summary: `${activeDog?.name || 'Your dog'}'s blood work shows mostly normal values with one slightly elevated marker (BUN). This may warrant monitoring and ensuring good hydration.`,
+    confidence: 'high',
   }
 }
 
-function LabAnalysis() {
+function BloodWork() {
   const { activeDog, dogs, loading: dogsLoading } = useDog()
   const { canPhoto, usePhoto: consumePhoto } = useUsage()
   const { isPremium } = usePremium()
   const navigate = useNavigate()
 
   const [file, setFile] = useState(null)
-  const [labType, setLabType] = useState(null)
   const [notes, setNotes] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState(null)
   const [pastAnalyses, setPastAnalyses] = useState(() =>
-    activeDog ? LocalStorageService.getLabAnalyses(activeDog.id) : []
+    activeDog ? LocalStorageService.getBloodWorkAnalyses(activeDog.id) : []
   )
   const [selectedGalleryAnalysis, setSelectedGalleryAnalysis] = useState(null)
 
   const refreshPastAnalyses = useCallback(() => {
     if (activeDog) {
-      setPastAnalyses(LocalStorageService.getLabAnalyses(activeDog.id))
+      setPastAnalyses(LocalStorageService.getBloodWorkAnalyses(activeDog.id))
     }
   }, [activeDog])
-
-  const selectedLabTypeLabel = LAB_TYPES.find(t => t.id === labType)?.label || labType
 
   // Gate: Premium only
   if (!isPremium) {
@@ -92,7 +87,7 @@ function LabAnalysis() {
             Premium Feature
           </h2>
           <p className="text-sm text-[#6B6B6B] mb-4">
-            Lab Analysis is available to Premium subscribers. Upgrade to unlock AI-powered interpretation of X-rays, blood work, and lab reports.
+            Blood Work Analysis is available to Premium subscribers. Upgrade to unlock AI-powered interpretation of CBC and chemistry panels.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('pawsy:openUpgrade'))}
@@ -122,7 +117,7 @@ function LabAnalysis() {
   }
 
   const handleAnalyze = async () => {
-    if (!file || !labType) return
+    if (!file) return
 
     if (!canPhoto) {
       setError('Daily analysis limit reached. Try again tomorrow.')
@@ -138,34 +133,40 @@ function LabAnalysis() {
 
       if (!geminiService.isConfigured()) {
         await new Promise(resolve => setTimeout(resolve, 3000))
-        result = buildDemoResult(activeDog, selectedLabTypeLabel)
+        result = buildDemoResult(activeDog)
         // Demo mode: save locally without orchestrator
-        LocalStorageService.saveLabAnalysis(activeDog.id, {
+        LocalStorageService.saveBloodWorkAnalysis(activeDog.id, {
           ...result,
-          labType: selectedLabTypeLabel,
           notes,
         })
       } else {
         // Orchestrator handles: AI call → save → fact extraction → alerts
+        // Pass 'Blood Work (CBC / Chemistry)' as labType to route to specialized agent
         result = await orchestrateLab(
           activeDog,
           file.base64Data,
           file.mimeType,
-          selectedLabTypeLabel,
+          'Blood Work (CBC / Chemistry)',
           notes
         )
 
         if (result.error) {
-          setError(result.message || 'Failed to analyze lab report. Please try again.')
+          setError(result.message || 'Failed to analyze blood work. Please try again.')
           return
         }
+
+        // Save to blood work specific storage
+        LocalStorageService.saveBloodWorkAnalysis(activeDog.id, {
+          ...result,
+          notes,
+        })
       }
 
       setAnalysis(result)
       refreshPastAnalyses()
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Lab analysis error:', err)
-      setError('Failed to analyze lab report. Please try again.')
+      if (import.meta.env.DEV) console.error('Blood work analysis error:', err)
+      setError('Failed to analyze blood work. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
@@ -173,7 +174,6 @@ function LabAnalysis() {
 
   const handleReset = () => {
     setFile(null)
-    setLabType(null)
     setNotes('')
     setAnalysis(null)
     setError(null)
@@ -216,9 +216,9 @@ function LabAnalysis() {
                   className="text-lg font-bold text-[#3D3D3D]"
                   style={{ fontFamily: 'Nunito, sans-serif' }}
                 >
-                  Lab Analysis
+                  Blood Work Analysis
                 </h1>
-                <p className="text-xs text-[#6B6B6B]">AI-powered lab interpretation</p>
+                <p className="text-xs text-[#6B6B6B]">AI-powered CBC & chemistry interpretation</p>
               </div>
             </div>
           </div>
@@ -251,7 +251,7 @@ function LabAnalysis() {
         {/* Show gallery-selected analysis */}
         {selectedGalleryAnalysis && !analysis && (
           <div className="space-y-4 mb-6">
-            <LabResult analysis={selectedGalleryAnalysis} onReset={() => setSelectedGalleryAnalysis(null)} />
+            <BloodWorkResult analysis={selectedGalleryAnalysis} onReset={() => setSelectedGalleryAnalysis(null)} />
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -266,14 +266,14 @@ function LabAnalysis() {
         {/* Show analysis result */}
         {analysis ? (
           <div className="space-y-4">
-            <LabResult analysis={analysis} onReset={handleReset} />
+            <BloodWorkResult analysis={analysis} onReset={handleReset} />
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleReset}
               className="w-full py-3 text-[#5FB3B3] font-semibold rounded-xl border-2 border-[#7EC8C8]/30 hover:bg-[#7EC8C8]/5 transition-colors"
             >
-              Analyze Another Report
+              Analyze Another Panel
             </motion.button>
           </div>
         ) : isAnalyzing ? (
@@ -281,14 +281,31 @@ function LabAnalysis() {
         ) : (
           /* Upload flow */
           <div className="space-y-6">
-            {/* Lab uploader */}
+            {/* Info card */}
+            <div className="bg-gradient-to-br from-[#FFEAEA] to-[#FFD5D5] rounded-2xl p-4 border border-[#EF5350]/20">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/50 flex items-center justify-center flex-shrink-0">
+                  <TestTube2 className="w-5 h-5 text-[#EF5350]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#2D2A26] mb-1" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                    Blood Work Analysis
+                  </h3>
+                  <p className="text-xs text-[#3D3D3D] leading-relaxed">
+                    Upload your dog's blood work results for AI-powered interpretation. Our analysis covers CBC values, chemistry panels, and organ function markers.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Blood work uploader */}
             <LabUploader
               onFileSelect={setFile}
               selectedFile={file}
               onClear={() => setFile(null)}
             />
 
-            {/* Lab type selection */}
+            {/* Notes */}
             {file && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -299,44 +316,12 @@ function LabAnalysis() {
                   className="text-sm font-bold text-[#3D3D3D] mb-3"
                   style={{ fontFamily: 'Nunito, sans-serif' }}
                 >
-                  What type of report is this?
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {LAB_TYPES.map((type) => (
-                    <motion.button
-                      key={type.id}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setLabType(type.id)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        labType === type.id
-                          ? 'bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white shadow-md'
-                          : 'bg-[#FDF8F3] text-[#6B6B6B] border border-[#E8E8E8] hover:border-[#7EC8C8]/30'
-                      }`}
-                    >
-                      {type.label}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Notes */}
-            {file && labType && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-5 shadow-md border border-[#7EC8C8]/10"
-              >
-                <h3
-                  className="text-sm font-bold text-[#3D3D3D] mb-3"
-                  style={{ fontFamily: 'Nunito, sans-serif' }}
-                >
-                  Additional context (optional)
+                  Clinical context (optional)
                 </h3>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="E.g., pre-surgery blood panel, routine checkup, investigating lethargy..."
+                  placeholder="E.g., annual checkup, pre-anesthesia panel, investigating lethargy, monitoring kidney disease..."
                   rows={3}
                   className="w-full px-4 py-3 bg-[#FDF8F3] border-2 border-[#E8E8E8] rounded-xl text-[#3D3D3D] placeholder:text-[#9E9E9E] focus:border-[#7EC8C8]/40 focus:outline-none transition-colors resize-none text-sm"
                 />
@@ -344,17 +329,17 @@ function LabAnalysis() {
             )}
 
             {/* Analyze button */}
-            {file && labType && (
+            {file && (
               <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAnalyze}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-br from-[#7EC8C8] to-[#5FB3B3] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-shadow"
+                className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-br from-[#EF5350] to-[#D32F2F] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-shadow"
               >
                 <PawPrint className="w-5 h-5" />
-                Analyze Report
+                Analyze Blood Work
               </motion.button>
             )}
 
@@ -373,7 +358,7 @@ function LabAnalysis() {
         {/* Past Analyses Gallery */}
         {!selectedGalleryAnalysis && (
           <div className="mt-8">
-            <LabGallery
+            <BloodWorkGallery
               analyses={pastAnalyses}
               onSelect={handleGallerySelect}
             />
@@ -384,4 +369,4 @@ function LabAnalysis() {
   )
 }
 
-export default LabAnalysis
+export default BloodWork

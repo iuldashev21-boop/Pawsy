@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, ArrowLeft, Check, Sparkles } from 'lucide-react'
-import { usePremium } from '../../hooks/usePremium'
 import { useDog } from '../../context/DogContext'
 import PremiumIcon from '../common/PremiumIcon'
 import PremiumValuePreview from './PremiumValuePreview'
@@ -36,21 +35,20 @@ const CONFETTI_COLORS = ['#F4A261', '#7EC8C8', '#FFD54F', '#81C784', '#FFB380', 
  * - onClose: () => void
  * - dogName: string
  */
-function PremiumUpgradeFlow({ isOpen, onClose, dogName = '' }) {
+function PremiumUpgradeFlow({ isOpen, onClose, onPurchase, dogName = '' }) {
   if (!isOpen) return null
 
   // Render the inner modal content. Because this mounts/unmounts with isOpen,
   // state (step, selectedPlan) is naturally reset each time the modal opens.
-  return <UpgradeFlowModal onClose={onClose} dogName={dogName} />
+  return <UpgradeFlowModal onClose={onClose} onPurchase={onPurchase} dogName={dogName} />
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Inner modal component (owns step state, unmounts when modal closes)        */
 /* -------------------------------------------------------------------------- */
 
-function UpgradeFlowModal({ onClose, dogName }) {
+function UpgradeFlowModal({ onClose, onPurchase, dogName }) {
   const prefersReducedMotion = useReducedMotion()
-  const { setPremium } = usePremium()
   const { activeDog } = useDog()
   const [step, setStep] = useState(1)
   const [selectedPlan, setSelectedPlan] = useState('annual')
@@ -98,7 +96,7 @@ function UpgradeFlowModal({ onClose, dogName }) {
   }
 
   const handlePurchase = () => {
-    setPremium(true)
+    onPurchase() // Call context's setPremium to fix stale closure issue
     setStep(5)
   }
 

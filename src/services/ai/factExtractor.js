@@ -164,6 +164,150 @@ const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000 // 24 hours
  * @param {Array} existingFacts - facts already stored
  * @returns {Array} merged fact list (existing updated + truly new facts)
  */
+// ---------------------------------------------------------------------------
+// Photo extraction (NEW — Phase 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract PetFacts from photo analysis result.
+ *
+ * @param {object} photoResult - parsed photo analysis response
+ * @param {string} dogId
+ * @returns {Array} array of PetFact objects
+ */
+export function extractFactsFromPhoto(photoResult, dogId) {
+  if (!photoResult) return []
+
+  const facts = []
+  const severity = mapSeverity(photoResult.urgency_level)
+  const now = nowISO()
+
+  const symptoms = photoResult.visible_symptoms
+  const conditions = photoResult.possible_conditions
+  const actions = photoResult.recommended_actions
+  const bodyArea = photoResult.body_area
+
+  // Build base tags (include body area if present)
+  const baseTags = bodyArea ? [bodyArea.toLowerCase()] : []
+
+  // Extract symptom facts
+  if (Array.isArray(symptoms) && symptoms.length > 0) {
+    for (const symptom of symptoms) {
+      facts.push({
+        id: generateId(),
+        dogId,
+        fact: symptom,
+        category: 'symptom',
+        tags: [symptom.toLowerCase(), ...baseTags],
+        severity,
+        status: 'active',
+        occurredAt: now,
+        source: { type: 'photo' },
+        possibleConditions: Array.isArray(conditions) ? [...conditions] : [],
+        recommendedActions: Array.isArray(actions) ? [...actions] : [],
+        resolvedAt: null,
+        createdAt: now,
+      })
+    }
+  }
+
+  // Extract condition facts if no symptoms
+  if (facts.length === 0 && Array.isArray(conditions) && conditions.length > 0) {
+    for (const condition of conditions) {
+      facts.push({
+        id: generateId(),
+        dogId,
+        fact: condition,
+        category: 'condition',
+        tags: [condition.toLowerCase(), ...baseTags],
+        severity,
+        status: 'active',
+        occurredAt: now,
+        source: { type: 'photo' },
+        possibleConditions: [condition],
+        recommendedActions: Array.isArray(actions) ? [...actions] : [],
+        resolvedAt: null,
+        createdAt: now,
+      })
+    }
+  }
+
+  return facts
+}
+
+// ---------------------------------------------------------------------------
+// Lab extraction (NEW — Phase 2)
+// ---------------------------------------------------------------------------
+
+const LAB_ASSESSMENT_SEVERITY_MAP = {
+  concerning: 'severe',
+  needs_attention: 'moderate',
+  normal: 'mild',
+}
+
+function mapLabSeverity(assessment) {
+  if (!assessment) return 'moderate'
+  return LAB_ASSESSMENT_SEVERITY_MAP[assessment.toLowerCase()] || 'moderate'
+}
+
+/**
+ * Extract PetFacts from lab analysis result.
+ *
+ * @param {object} labResult - parsed lab analysis response
+ * @param {string} dogId
+ * @returns {Array} array of PetFact objects
+ */
+export function extractFactsFromLab(labResult, dogId) {
+  if (!labResult) return []
+
+  const facts = []
+  const severity = mapLabSeverity(labResult.overall_assessment)
+  const now = nowISO()
+
+  const values = labResult.values
+  const conditions = labResult.possible_conditions
+  const actions = labResult.recommended_actions
+
+  // Extract facts from abnormal lab values
+  if (Array.isArray(values)) {
+    for (const value of values) {
+      if (value.status === 'normal') continue
+
+      const markerName = value.name || 'Unknown marker'
+      const interpretation = value.interpretation || `${markerName} is ${value.status}`
+
+      facts.push({
+        id: generateId(),
+        dogId,
+        fact: `${markerName}: ${value.value} (${value.status}) - ${interpretation}`,
+        category: 'lab_result',
+        tags: [markerName.toLowerCase(), value.status],
+        severity,
+        status: 'active',
+        occurredAt: now,
+        source: { type: 'lab' },
+        possibleConditions: Array.isArray(conditions) ? [...conditions] : [],
+        recommendedActions: Array.isArray(actions) ? [...actions] : [],
+        resolvedAt: null,
+        createdAt: now,
+        labValue: {
+          name: markerName,
+          value: value.value,
+          unit: value.unit,
+          referenceRange: value.reference_range,
+          status: value.status,
+        },
+      })
+    }
+  }
+
+  return facts
+}
+
+// ---------------------------------------------------------------------------
+// Deduplication
+// ---------------------------------------------------------------------------
+
 export function deduplicateFacts(newFacts, existingFacts) {
   if (!Array.isArray(newFacts) || newFacts.length === 0) {
     return Array.isArray(existingFacts) ? [...existingFacts] : []

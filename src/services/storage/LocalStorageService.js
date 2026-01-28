@@ -74,6 +74,22 @@ function labsKey(dogId) {
   return `pawsy_labs_${dogId}`
 }
 
+function xraysKey(dogId) {
+  return `pawsy_xrays_${dogId}`
+}
+
+function bloodWorkKey(dogId) {
+  return `pawsy_bloodwork_${dogId}`
+}
+
+function clinicalProfileKey(dogId) {
+  return `pawsy_clinical_profile_${dogId}`
+}
+
+function vetReportKey(dogId) {
+  return `pawsy_vet_report_${dogId}`
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -211,6 +227,96 @@ class LocalStorageService {
     const { base64Data: _b64, imageBase64: _img64, ...rest } = analysis
     analyses.push(stamp(rest))
     writeArray(key, analyses)
+  }
+
+  // ---- X-Ray Analyses -----------------------------------------------------
+
+  static getXrayAnalyses(dogId) {
+    return sortByDescending(readArray(xraysKey(dogId)), 'createdAt')
+  }
+
+  static saveXrayAnalysis(dogId, analysis) {
+    const key = xraysKey(dogId)
+    const analyses = readArray(key)
+
+    // Strip large base64 fields to conserve storage space
+    const { base64Data: _b64, imageBase64: _img64, ...rest } = analysis
+    analyses.push(stamp(rest))
+    writeArray(key, analyses)
+  }
+
+  static deleteXrayAnalysis(dogId, analysisId) {
+    const key = xraysKey(dogId)
+    const analyses = readArray(key)
+    writeArray(key, analyses.filter(a => a.id !== analysisId))
+  }
+
+  // ---- Blood Work Analyses ------------------------------------------------
+
+  static getBloodWorkAnalyses(dogId) {
+    return sortByDescending(readArray(bloodWorkKey(dogId)), 'createdAt')
+  }
+
+  static saveBloodWorkAnalysis(dogId, analysis) {
+    const key = bloodWorkKey(dogId)
+    const analyses = readArray(key)
+
+    // Strip large base64 fields to conserve storage space
+    const { base64Data: _b64, imageBase64: _img64, ...rest } = analysis
+    analyses.push(stamp(rest))
+    writeArray(key, analyses)
+  }
+
+  static deleteBloodWorkAnalysis(dogId, analysisId) {
+    const key = bloodWorkKey(dogId)
+    const analyses = readArray(key)
+    writeArray(key, analyses.filter(a => a.id !== analysisId))
+  }
+
+  // ---- Clinical Profile -----------------------------------------------------
+
+  static getClinicalProfile(dogId) {
+    try {
+      const raw = localStorage.getItem(clinicalProfileKey(dogId))
+      if (!raw) return null
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  static saveClinicalProfile(dogId, profile) {
+    localStorage.setItem(clinicalProfileKey(dogId), JSON.stringify({
+      ...profile,
+      savedAt: new Date().toISOString(),
+    }))
+  }
+
+  static deleteClinicalProfile(dogId) {
+    localStorage.removeItem(clinicalProfileKey(dogId))
+  }
+
+  // ---- Vet Reports ----------------------------------------------------------
+
+  static getVetReport(dogId) {
+    try {
+      const raw = localStorage.getItem(vetReportKey(dogId))
+      if (!raw) return null
+      return JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  static saveVetReport(dogId, report) {
+    localStorage.setItem(vetReportKey(dogId), JSON.stringify({
+      ...report,
+      savedAt: new Date().toISOString(),
+    }))
+  }
+
+  static deleteVetReport(dogId) {
+    localStorage.removeItem(vetReportKey(dogId))
   }
 }
 

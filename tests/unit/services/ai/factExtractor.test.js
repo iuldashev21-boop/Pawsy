@@ -3,6 +3,8 @@ import {
   extractFactsFromMetadata,
   extractFactsDeep,
   deduplicateFacts,
+  extractFactsFromPhoto,
+  extractFactsFromLab,
 } from '../../../../src/services/ai/factExtractor'
 
 describe('factExtractor', () => {
@@ -323,6 +325,183 @@ describe('factExtractor', () => {
     it('handles null inputs gracefully', () => {
       expect(deduplicateFacts(null, null)).toEqual([])
       expect(deduplicateFacts(null, [makeTestFact()])).toEqual([makeTestFact()])
+    })
+  })
+
+  // =========================================================================
+  // extractFactsFromPhoto (NEW — Phase 2)
+  // =========================================================================
+
+  describe('extractFactsFromPhoto', () => {
+    it('extracts symptom facts from visible_symptoms', () => {
+      const photoResult = {
+        visible_symptoms: ['redness', 'swelling'],
+        possible_conditions: ['hot spot', 'dermatitis'],
+        urgency_level: 'moderate',
+        recommended_actions: ['keep clean'],
+        body_area: 'Skin/Coat',
+      }
+
+      const facts = extractFactsFromPhoto(photoResult, DOG_ID)
+
+      expect(facts).toHaveLength(2)
+      expect(facts[0].fact).toBe('redness')
+      expect(facts[0].category).toBe('symptom')
+      expect(facts[0].source.type).toBe('photo')
+      expect(facts[0].dogId).toBe(DOG_ID)
+      expect(facts[0].severity).toBe('moderate')
+      expect(facts[0].possibleConditions).toEqual(['hot spot', 'dermatitis'])
+      expect(facts[1].fact).toBe('swelling')
+    })
+
+    it('extracts condition facts when no visible symptoms', () => {
+      const photoResult = {
+        visible_symptoms: [],
+        possible_conditions: ['allergic reaction'],
+        urgency_level: 'low',
+        recommended_actions: [],
+      }
+
+      const facts = extractFactsFromPhoto(photoResult, DOG_ID)
+
+      expect(facts).toHaveLength(1)
+      expect(facts[0].fact).toBe('allergic reaction')
+      expect(facts[0].category).toBe('condition')
+    })
+
+    it('includes body_area in tags when present', () => {
+      const photoResult = {
+        visible_symptoms: ['discharge'],
+        possible_conditions: [],
+        urgency_level: 'moderate',
+        body_area: 'Ear',
+      }
+
+      const facts = extractFactsFromPhoto(photoResult, DOG_ID)
+
+      expect(facts[0].tags).toContain('discharge')
+      expect(facts[0].tags).toContain('ear')
+    })
+
+    it('returns empty array for null input', () => {
+      expect(extractFactsFromPhoto(null, DOG_ID)).toEqual([])
+    })
+
+    it('returns empty array when no symptoms or conditions', () => {
+      const photoResult = {
+        visible_symptoms: [],
+        possible_conditions: [],
+        urgency_level: 'low',
+      }
+      expect(extractFactsFromPhoto(photoResult, DOG_ID)).toEqual([])
+    })
+  })
+
+  // =========================================================================
+  // extractFactsFromLab (NEW — Phase 2)
+  // =========================================================================
+
+  describe('extractFactsFromLab', () => {
+    it('extracts facts from abnormal lab values', () => {
+      const labResult = {
+        values: [
+          { name: 'WBC', value: '12.5', status: 'normal', interpretation: 'Normal' },
+          { name: 'BUN', value: '32', status: 'high', interpretation: 'Elevated BUN' },
+          { name: 'ALT', value: '250', status: 'critical', interpretation: 'Severely elevated' },
+        ],
+        key_findings: ['BUN elevated', 'ALT critically high'],
+        overall_assessment: 'concerning',
+        possible_conditions: ['kidney disease', 'liver issue'],
+        recommended_actions: ['recheck in 2 weeks'],
+      }
+
+      const facts = extractFactsFromLab(labResult, DOG_ID)
+
+      // Should extract abnormal values (BUN + ALT)
+      const abnormalFacts = facts.filter(f => f.category === 'lab_result')
+      expect(abnormalFacts.length).toBeGreaterThanOrEqual(2)
+
+      const bunFact = abnormalFacts.find(f => f.tags.includes('bun'))
+      expect(bunFact).toBeDefined()
+      expect(bunFact.fact).toContain('BUN')
+      expect(bunFact.source.type).toBe('lab')
+      expect(bunFact.dogId).toBe(DOG_ID)
+    })
+
+    it('maps overall_assessment to severity', () => {
+      const labResult = {
+        values: [
+          { name: 'BUN', value: '32', status: 'high', interpretation: 'Elevated' },
+        ],
+        overall_assessment: 'concerning',
+        key_findings: [],
+        possible_conditions: [],
+        recommended_actions: [],
+      }
+
+      const facts = extractFactsFromLab(labResult, DOG_ID)
+      expect(facts[0].severity).toBe('severe')
+    })
+
+    it('normal assessment maps to mild severity', () => {
+      const labResult = {
+        values: [
+          { name: 'BUN', value: '15', status: 'high', interpretation: 'Slightly high' },
+        ],
+        overall_assessment: 'normal',
+        key_findings: [],
+        possible_conditions: [],
+        recommended_actions: [],
+      }
+
+      const facts = extractFactsFromLab(labResult, DOG_ID)
+      expect(facts[0].severity).toBe('mild')
+    })
+
+    it('skips normal values', () => {
+      const labResult = {
+        values: [
+          { name: 'WBC', value: '12.5', status: 'normal', interpretation: 'Normal' },
+          { name: 'RBC', value: '7.0', status: 'normal', interpretation: 'Normal' },
+        ],
+        key_findings: [],
+        overall_assessment: 'normal',
+        possible_conditions: [],
+        recommended_actions: [],
+      }
+
+      const facts = extractFactsFromLab(labResult, DOG_ID)
+      expect(facts).toEqual([])
+    })
+
+    it('returns empty array for null input', () => {
+      expect(extractFactsFromLab(null, DOG_ID)).toEqual([])
+    })
+
+    it('returns empty array when no values present', () => {
+      const labResult = {
+        values: [],
+        key_findings: [],
+        overall_assessment: 'normal',
+        possible_conditions: [],
+        recommended_actions: [],
+      }
+      expect(extractFactsFromLab(labResult, DOG_ID)).toEqual([])
+    })
+
+    it('includes lab marker name in tags', () => {
+      const labResult = {
+        values: [
+          { name: 'Creatinine', value: '2.5', status: 'high', interpretation: 'Elevated' },
+        ],
+        overall_assessment: 'needs_attention',
+        key_findings: [],
+        possible_conditions: [],
+        recommended_actions: [],
+      }
+
+      const facts = extractFactsFromLab(labResult, DOG_ID)
+      expect(facts[0].tags).toContain('creatinine')
     })
   })
 })

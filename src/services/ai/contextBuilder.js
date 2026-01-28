@@ -12,6 +12,7 @@
 
 import { buildSystemPrompt } from '../prompts/chatPrompts.js'
 import { getTopFacts } from './healthEventScoring.js'
+import LocalStorageService from '../storage/LocalStorageService.js'
 
 // Rough token budget in words
 const TOKEN_BUDGET_WORDS = 2000
@@ -103,6 +104,119 @@ function buildSymptomPatternsSection(petFacts) {
   return `Recurring symptom patterns: ${recurring.join(', ')}`
 }
 
+function buildDiagnosticSummarySection(dogId, isPremium) {
+  if (!dogId || !isPremium) return ''
+
+  const lines = []
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  // Get recent X-ray analyses
+  const xrays = LocalStorageService.getXrayAnalyses(dogId) || []
+  const recentXrays = xrays
+    .filter((x) => x.createdAt && new Date(x.createdAt) >= thirtyDaysAgo)
+    .slice(0, 3)
+
+  if (recentXrays.length > 0) {
+    lines.push('Recent X-ray Findings:')
+    for (const xray of recentXrays) {
+      const date = new Date(xray.createdAt).toLocaleDateString()
+      const region = xray.body_region || 'unknown region'
+      const impression = xray.overall_impression || 'unspecified'
+
+      // Include key findings if abnormal
+      if (impression !== 'normal' && xray.findings?.length > 0) {
+        const abnormalFindings = xray.findings
+          .filter((f) => f.significance !== 'normal')
+          .slice(0, 2)
+          .map((f) => `${f.structure}: ${f.observation}`)
+        if (abnormalFindings.length > 0) {
+          lines.push(`- ${region} X-ray (${date}): ${impression} - ${abnormalFindings.join('; ')}`)
+        } else {
+          lines.push(`- ${region} X-ray (${date}): ${impression}`)
+        }
+      } else {
+        lines.push(`- ${region} X-ray (${date}): ${impression}`)
+      }
+
+      // Note follow-up recommendations
+      if (xray.additional_views_recommended?.length > 0) {
+        lines.push(`  Follow-up recommended: ${xray.additional_views_recommended.join(', ')}`)
+      }
+    }
+  }
+
+  // Get recent blood work analyses
+  const bloodWork = LocalStorageService.getBloodWorkAnalyses(dogId) || []
+  const recentBloodWork = bloodWork
+    .filter((b) => b.createdAt && new Date(b.createdAt) >= thirtyDaysAgo)
+    .slice(0, 3)
+
+  if (recentBloodWork.length > 0) {
+    lines.push(lines.length > 0 ? '' : '')
+    lines.push('Recent Blood Work:')
+    for (const panel of recentBloodWork) {
+      const date = new Date(panel.createdAt).toLocaleDateString()
+      const panelType = panel.detected_panel_type || 'blood work'
+      const assessment = panel.overall_assessment || 'unspecified'
+
+      // Include abnormal values
+      const abnormalValues = (panel.values || [])
+        .filter((v) => v.status !== 'normal')
+        .slice(0, 3)
+
+      if (abnormalValues.length > 0) {
+        const abnormalSummary = abnormalValues
+          .map((v) => `${v.name}: ${v.value}${v.unit ? ' ' + v.unit : ''} (${v.status})`)
+          .join(', ')
+        lines.push(`- ${panelType} (${date}): ${assessment} - ${abnormalSummary}`)
+      } else {
+        lines.push(`- ${panelType} (${date}): ${assessment}`)
+      }
+
+      // Note organ system concerns
+      const concerningSystems = (panel.organ_system_summary || [])
+        .filter((s) => s.status !== 'normal')
+        .map((s) => s.system)
+      if (concerningSystems.length > 0) {
+        lines.push(`  Systems of concern: ${concerningSystems.join(', ')}`)
+      }
+    }
+  }
+
+  // Get recent lab analyses (generic)
+  const labs = LocalStorageService.getLabAnalyses(dogId) || []
+  const recentLabs = labs
+    .filter((l) => l.createdAt && new Date(l.createdAt) >= thirtyDaysAgo)
+    .filter((l) => l.lab_type !== 'xray' && l.lab_type !== 'blood_work') // Exclude already shown
+    .slice(0, 2)
+
+  if (recentLabs.length > 0) {
+    lines.push(lines.length > 0 ? '' : '')
+    lines.push('Other Recent Lab Results:')
+    for (const lab of recentLabs) {
+      const date = new Date(lab.createdAt).toLocaleDateString()
+      const labType = lab.lab_type || 'lab test'
+      const assessment = lab.overall_assessment || 'unspecified'
+
+      const abnormalValues = (lab.values || [])
+        .filter((v) => v.status !== 'normal')
+        .slice(0, 2)
+
+      if (abnormalValues.length > 0) {
+        const summary = abnormalValues.map((v) => `${v.name}: ${v.status}`).join(', ')
+        lines.push(`- ${labType} (${date}): ${assessment} - ${summary}`)
+      } else {
+        lines.push(`- ${labType} (${date}): ${assessment}`)
+      }
+    }
+  }
+
+  if (lines.length === 0) return ''
+
+  return lines.filter(Boolean).join('\n')
+}
+
 function buildHouseholdSection() {
   // Placeholder for future household context (multi-pet, environment, etc.)
   return ''
@@ -143,8 +257,9 @@ export function buildAIContext({
   // -- P1 ------------------------------------------------------------------
   const petFactsSection = buildPetFactsSection(petFacts, conversationTags, isPremium)
   const photoSection = buildPhotoContextSection(photoContext)
+  const diagnosticSection = buildDiagnosticSummarySection(dog?.id, isPremium)
 
-  const p1Sections = [petFactsSection, photoSection].filter(Boolean)
+  const p1Sections = [petFactsSection, photoSection, diagnosticSection].filter(Boolean)
 
   // -- P2 (premium only) ---------------------------------------------------
   const breedRisk = isPremium ? buildBreedRiskSection(dog) : ''
